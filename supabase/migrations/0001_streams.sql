@@ -46,4 +46,4 @@ insert into stream_members (stream_id, user_id, role)
 select streams.id, auth.users.id, 'admin'
 from streams, auth.users
 where streams.slug = 'camp-clai'
-  and auth.users.email = 'aaniederkorn@gmail.com';
+  and auth.users.email = 'ali@cultivatingleadership.com';
