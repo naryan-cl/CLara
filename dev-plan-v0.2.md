@@ -66,7 +66,7 @@ When `streams.isolation_enabled = true`, Row Level Security and query helpers mu
 *   **Ask CLara** similarity search filters by `stream_id` (and never crosses into isolated streams).
 *   Cross-stream behavior when isolation is off can be refined later; V1 must correctly **enforce isolation when on**.
 
-Seed V1 with at least one stream row: **Camp CLAI** (`slug: camp-clai`), isolation policy set intentionally (likely on for client-like streams; Camp CLAI default TBD by product owner).
+Seed V1 with at least one stream row: **Camp CLAI** (`slug: camp-clai`), `isolation_enabled = true` (decided — see Progress & Decisions).
 
 ---
 
@@ -113,7 +113,46 @@ Seed V1 with at least one stream row: **Camp CLAI** (`slug: camp-clai`), isolati
 
 ## 3. Cursor Implementation Guidelines
 *   **Component Structure:** Server components by default. `"use client"` only for interactive pieces (Chatbot, Ask CLara, Map, CLara Listens recorder).
-*   **Styling:** Calm, spacious design reflecting CL's brand (see `DESIGN_GUIDE.md` — update naming to CLara when that guide is revised).
+*   **Styling:** Calm, spacious design reflecting CL's brand (see `DESIGN_GUIDE.md` v0.2 — CLara naming).
 *   **Resilience:** All AI calls (transcription, summarization, extraction) use try/catch and fail gracefully without crashing the UI.
 *   **Stream context:** Never write Commons data without an explicit `stream_id`. Prefer a single active-stream context provider in the authenticated shell.
 *   **No contamination:** Do not reuse the same RAG pipeline prompt/UI state between Chatbot (input) and Ask CLara (output).
+
+---
+
+## 4. Progress & Decisions (living log)
+
+Update this section at the end of meaningful work sessions so the next session (human or AI) does not depend on chat memory.
+
+### Current phase
+*   **Phase 1 — in progress:** Next.js app + Supabase auth shell exist; authenticated app routes scaffolded (`/dashboard`, `/sessions`, `/map`, `/chat`, `/ask`, `/admin`). Chat and Ask are separate routes.
+
+### Shipped
+*   Streams schema migration: `supabase/migrations/0001_streams.sql` (`streams`, `stream_members`, RLS for membership read).
+*   Seed stream: Camp CLAI (`slug: camp-clai`).
+
+### Decisions to remember
+*   Product name: **CLara**; first stream: **Camp CLAI**.
+*   Camp CLAI **`isolation_enabled = true`** by default.
+*   Chatbot (input) and Ask CLara (output) remain separate surfaces/pipelines.
+*   Auth is platform-level (CLara), not Camp-CLAI-only.
+*   OKF = Open Knowledge Format (same header fields + stream scoping).
+
+### Reference projects (do not copy wholesale)
+*   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival`  
+    Port patterns for: Inngest (`lib/inngest/*`, `/api/inngest`), Ask/RAG (`lib/harvest/ask.ts`), knowledge graph pipeline (`lib/ai/pipeline.ts`, harvest graph), embeddings (`lib/ai/embeddings.ts`), env example + enqueue-with-direct-fallback.  
+    Skip: Stripe, Resend CRM, Fireflies-as-only-STT, festival-wide unscoped Ask, social network graph.
+*   **Old Clara** — `C:\Users\narya\OneDrive\Documents\GitHub\Old Clara`  
+    Port patterns for: CLara Listens — `audio-recorder.tsx` (mic + optional `getDisplayMedia` mix), chunked MediaRecorder, `lib/transcription/whisper.ts`, privacy (`save_audio` gate).  
+    Redesign toward stream-scoped Commons + OKF docs (not live workshop synthesis / join-code participants).
+
+### Shipped (infra)
+*   `.env.example` — Festival-shaped template (Supabase, OpenAI, Inngest, app URL). `.gitignore` allows committing the example only.
+
+### Next up
+*   Fill `.env.local` from the example; create Inngest + OpenAI keys; connect repo to Vercel and paste the same env vars.
+*   Continue Phase 1: active-stream context + membership wiring end-to-end.
+*   Then scaffold Inngest route/client (Festival pattern) when the other developer is ready for jobs.
+
+### Blocked / open
+*   _(none logged yet)_
