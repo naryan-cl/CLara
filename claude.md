@@ -1,5 +1,5 @@
 # Project Context
-- See `prd-v0.3.md` for product specifications and `dev-plan-v0.1.md` for implementation details.
+- See `prd-v0.4.md` for product specifications and `dev-plan-v0.2.md` for implementation details.
 
 # Communication & Teaching Persona
 - DEVELOPER LEVEL: Beginner developers.

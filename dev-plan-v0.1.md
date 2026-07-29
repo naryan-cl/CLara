@@ -1,6 +1,9 @@
 # Camp CL/AI — Development & Implementation Plan
 
-**Version:** 0.1
+> **Superseded by [`dev-plan-v0.2.md`](./dev-plan-v0.2.md).**  
+> Aligns with **CLara** platform + multi-stream plumbing in `prd-v0.4.md`.
+
+**Version:** 0.1 — **superseded**
 **Target Tool:** Cursor (AI Coding Assistant)
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind CSS.
 

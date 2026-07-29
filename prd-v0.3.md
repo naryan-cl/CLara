@@ -1,8 +1,11 @@
 # Camp CL/AI Platform — Product Requirements Document (PRD)
 
-**Version:** 0.3 (Ready for Build)
+> **Superseded by [`prd-v0.4.md`](./prd-v0.4.md).**  
+> Product is now **CLara**; **Camp CLAI** is a stream. Keep this file only for historical reference.
+
+**Version:** 0.3 (Ready for Build) — **superseded**
 **Owner:** Ali 
-**Status:** Approved for implementation
+**Status:** Superseded by v0.4
 **Target Audience for Document:** AI Coding Assistants (Cursor) and Engineering Team
 
 ---
