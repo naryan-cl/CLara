@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "clara-dev",
+      "runtimeExecutable": "/Users/alisonniederkorn/Documents/GitHub/Camp-CLAI/.claude/dev-server.sh",
+      "runtimeArgs": [],
+      "port": 3000
+    }
+  ]
+}

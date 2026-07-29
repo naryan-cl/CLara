@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  /* CLara design tokens — see DESIGN_GUIDE.md §9 (source of truth) */
+  --ink: #1c2a2e;
+  --forest: #2e4b45;
+  --forest-deep: #1a2e2a;
+  --sage: #7fa093;
+  --horizon: #3e6e8e;
+  --glow: #8fd6c4;
+  --ember: #c97b4a;
+  --sand: #f3eee6;
+  --paper: #fbf9f5;
+  --cloud: #e7e1d6;
+  --success: #4e7c67;
+  --warning: #c7902f;
+  --danger: #b04a3c;
+
+  --background: var(--sand);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-sage: var(--sage);
+  --color-horizon: var(--horizon);
+  --color-glow: var(--glow);
+  --color-ember: var(--ember);
+  --color-sand: var(--sand);
+  --color-paper: var(--paper);
+  --color-cloud: var(--cloud);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-plex-mono);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 4px 24px rgba(28, 42, 46, 0.08);
+  --shadow-glow: 0 0 24px rgba(143, 214, 196, 0.45);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
