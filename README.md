@@ -24,8 +24,8 @@ This repository is **public during early build** so Vercel Hobby can deploy comm
 If a secret is ever committed: rotate it immediately (OpenAI / Inngest / Supabase / etc.) and remove it from git history if needed.
 
 ## Docs
-- Product: `prd-v0.4.md`
-- Build plan: `dev-plan-v0.2.md`
+- Product: `prd-v0.5.md`
+- Build plan / handoff: `dev-plan-v0.3.md`
 - UI: `DESIGN_GUIDE.md`
 
 ## Local setup

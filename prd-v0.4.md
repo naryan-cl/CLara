@@ -1,10 +1,9 @@
 # CLara Platform — Product Requirements Document (PRD)
 
-**Version:** 0.4  
-**Owner:** Ali  
-**Status:** Approved for implementation  
-**Target Audience for Document:** AI Coding Assistants (Cursor) and Engineering Team  
-**Supersedes:** `prd-v0.3.md`
+> **Superseded by [`prd-v0.5.md`](./prd-v0.5.md).**  
+> Use v0.5 for Receives UX, Markdown content model, and handoff status.
+
+**Version:** 0.4 — **superseded**
 
 ---
 
