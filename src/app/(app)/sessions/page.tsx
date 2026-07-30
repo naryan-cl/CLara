@@ -1,4 +1,5 @@
 import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
+import { DocumentList } from "@/components/DocumentList";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listRecentDocuments } from "@/lib/documents/list-recent";
 
@@ -31,27 +32,9 @@ export default async function SessionsPage() {
             or <span className="font-mono">.txt</span> above to test Receives.
           </p>
         ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {documents.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
-              >
-                <div>
-                  <p className="font-medium text-ink">
-                    {doc.title?.trim() || "Untitled"}
-                  </p>
-                  <p className="font-mono text-[11px] text-ink/40">
-                    {doc.type ?? "untyped"}
-                    {doc.needs_review ? " · needs review" : ""}
-                  </p>
-                </div>
-                <time className="shrink-0 font-mono text-[11px] text-ink/40">
-                  {new Date(doc.created_at).toLocaleString()}
-                </time>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4">
+            <DocumentList documents={documents} />
+          </div>
         )}
       </section>
     </div>

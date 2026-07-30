@@ -134,6 +134,7 @@ Update this section at the end of meaningful work sessions so the next session (
 *   Migration `0002_naryan_camp_clai_admin.sql` — adds `naryan@cultivatingleadership.com` as Camp CLAI admin (must be applied in Supabase SQL editor / migration runner).
 *   Migration `0003_documents.sql` — Commons `documents` table + RLS; dashboard lists recent docs via `listRecentDocuments`.
 *   CLara Receives (text): `ReceiveUploadForm` + `receiveTextFile` server action → `createDocument` with active `stream_id`.
+*   Document view/edit: `/sessions/documents/[id]` with `DocumentEditor` (title, type, privacy, session, content).
 
 ### Decisions to remember
 *   Product name: **CLara**; first stream: **Camp CLAI**.
