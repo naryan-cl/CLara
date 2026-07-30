@@ -137,6 +137,7 @@ Update this section at the end of meaningful work sessions so the next session (
 *   Chatbot (input) and Ask CLara (output) remain separate surfaces/pipelines.
 *   Auth is platform-level (CLara), not Camp-CLAI-only.
 *   OKF = Open Knowledge Format (same header fields + stream scoping).
+*   GitHub repo is **public while building** (Vercel Hobby multi-author deploys). Secrets stay in Vercel / `.env.local` only — never in git. Revisit visibility before client/production content hardens.
 
 ### Reference projects (do not copy wholesale)
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival`  

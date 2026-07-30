@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CLara
 
-## Getting Started
+Public-while-building Next.js app for the **CLara** platform (first stream: **Camp CLAI**).
 
-First, run the development server:
+Live: [https://clara-cl.vercel.app/](https://clara-cl.vercel.app/)
+
+## Secrets policy (public repo)
+
+This repository is **public during early build** so Vercel Hobby can deploy commits from multiple GitHub users. Treat every push as world-readable.
+
+**Never commit:**
+- `.env.local`, `.env`, or any filled env file (only `.env.example` with placeholders)
+- API keys, signing keys, service-role keys, database passwords, tokens
+- Real participant transcripts, audio, or Commons content
+- Client stream data or private CL notes that aren't meant for public product docs
+
+**OK to commit:** `.env.example` (placeholder names only), PRD/Dev Plan, app code, migrations **without** live credentials.
+
+If a secret is ever committed: rotate it immediately (OpenAI / Inngest / Supabase / etc.) and remove it from git history if needed.
+
+## Docs
+- Product: `prd-v0.4.md`
+- Build plan: `dev-plan-v0.2.md`
+- UI: `DESIGN_GUIDE.md`
+
+## Local setup
 
 ```bash
+npm install
+copy .env.example .env.local
+# fill .env.local with your own keys — never commit it
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Optional Inngest local UI (second terminal):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run inngest:dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Stack
+Next.js (App Router) · Supabase · Vercel · OpenAI · Inngest

@@ -30,9 +30,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — keep secrets out of git; allow the shared template
-.env*
+# env files — keep secrets out of git; allow the shared template only
+.env
+.env.*
 !.env.example
+
+# common secret / credential dumps
+*.pem
+*.p12
+*.key
+credentials.json
+service-account*.json
+**/secrets/**
 
 # vercel
 .vercel
@@ -43,3 +52,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local audio / participant dumps (never commit Commons content)
+**/tmp-audio/**
+**/uploads/**
+*.webm
+*.wav
+*.mp3
+!**/fixtures/README.md

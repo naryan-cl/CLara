@@ -25,3 +25,11 @@
 - Keep UI thin; put stream scoping, OKF parsing, RAG retrieval, and isolation checks in reusable functions.
 - Every new module should include a clear manual test checklist (and automated tests when a test runner exists). Fail AI/pipeline work gracefully (try/catch, no UI crash).
 - Do not mix CLara Chatbot and Ask CLara pipelines, prompts, or shared mutable UI state.
+
+# Secrets & Public Repo
+- The GitHub repo is **public while we build** (Vercel Hobby multi-author deploys). Assume every commit is world-readable.
+- **Never commit secrets:** `.env.local`, API keys, signing keys, service-role keys, DB passwords, tokens, real Commons/participant content.
+- Only commit `.env.example` with empty/placeholder values. Real values live in Vercel / local `.env.local` only.
+- Before staging files, scan for `sk-`, `signkey-`, `service_role`, connection strings with passwords, and pasted `.env` contents.
+- **Flag risky territory** to the user before proceeding: real session transcripts, client-stream data, PII, audio dumps, or credentials in sample fixtures.
+- If a secret may have been committed: stop, tell the user, and advise rotating the key immediately.
