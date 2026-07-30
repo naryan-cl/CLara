@@ -3,11 +3,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
-import { inngest, CLARA_DOCUMENT_CREATED } from "@/lib/inngest/client";
+import {
+  inngest,
+  CLARA_DOCUMENT_CREATED,
+  CLARA_UPLOAD_RECEIVED,
+} from "@/lib/inngest/client";
+import type { StreamSummary } from "@/lib/streams/types";
 
-const ALLOWED_EXTENSIONS = new Set([".md", ".txt"]);
+const TEXT_EXTENSIONS = new Set([".md", ".txt"]);
+const CONVERTIBLE_EXTENSIONS = new Set([".pdf", ".docx"]);
 const MAX_BYTES = 512 * 1024; // 512 KB — keep first Receives slice simple
+const MAX_CONVERTIBLE_BYTES = 4.5 * 1024 * 1024; // stay under the 5mb server action body limit
 const MAX_PASTE_CHARS = 100_000;
+const ALLOWED_EXTENSIONS = new Set([
+  ...TEXT_EXTENSIONS,
+  ...CONVERTIBLE_EXTENSIONS,
+]);
 
 export type ReceiveResult =
   | { ok: true; documentId: string; needsReview: boolean }
@@ -60,7 +71,7 @@ export async function receiveTextContent(
     }
 
     if (source === "file" && !hasFile) {
-      return { ok: false, error: "Choose a .md or .txt file to upload." };
+      return { ok: false, error: "Choose a file to upload." };
     }
 
     if (source === "paste" && !hasPaste) {
@@ -71,19 +82,30 @@ export async function receiveTextContent(
     let defaultTitle = "Untitled note";
 
     if (hasFile && file instanceof File) {
+      const name = file.name.toLowerCase();
+      const extension = name.slice(name.lastIndexOf("."));
+
+      if (!ALLOWED_EXTENSIONS.has(extension)) {
+        return {
+          ok: false,
+          error: "Only .md, .txt, .pdf, and .docx uploads are supported.",
+        };
+      }
+
+      if (CONVERTIBLE_EXTENSIONS.has(extension)) {
+        return receiveConvertibleUpload({
+          file,
+          extension: extension as ".pdf" | ".docx",
+          formData,
+          user,
+          stream,
+        });
+      }
+
       if (file.size > MAX_BYTES) {
         return {
           ok: false,
           error: "File is too large for this first upload path (max 512 KB).",
-        };
-      }
-
-      const name = file.name.toLowerCase();
-      const extension = name.slice(name.lastIndexOf("."));
-      if (!ALLOWED_EXTENSIONS.has(extension)) {
-        return {
-          ok: false,
-          error: "Only .md and .txt uploads are supported so far.",
         };
       }
 
@@ -145,6 +167,89 @@ export async function receiveTextContent(
       error: "Something went wrong while receiving. Try again.",
     };
   }
+}
+
+/**
+ * CLara Receives (PDF/DOCX path): stage the raw file in Storage, create a
+ * placeholder document, and hand off Markdown extraction to Inngest — heavy
+ * conversion work shouldn't block the request. Rolls back on enqueue failure
+ * since, unlike OKF enrichment, extracted content IS the point of this path.
+ */
+async function receiveConvertibleUpload({
+  file,
+  extension,
+  formData,
+  user,
+  stream,
+}: {
+  file: File;
+  extension: ".pdf" | ".docx";
+  formData: FormData;
+  user: { id: string };
+  stream: StreamSummary;
+}): Promise<ReceiveResult> {
+  if (file.size > MAX_CONVERTIBLE_BYTES) {
+    return {
+      ok: false,
+      error: "File is too large for this upload path (max ~4.5 MB).",
+    };
+  }
+
+  const supabase = await createClient();
+  const storagePath = `${stream.id}/${crypto.randomUUID()}${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("receives-staging")
+    .upload(storagePath, file, {
+      contentType: file.type || undefined,
+    });
+
+  if (uploadError) {
+    return { ok: false, error: `Upload failed: ${uploadError.message}` };
+  }
+
+  const titleFromForm = String(formData.get("title") ?? "").trim();
+  const typeFromForm = String(formData.get("type") ?? "").trim() || "Note";
+  const defaultTitle =
+    file.name.replace(/\.(pdf|docx)$/i, "").replace(/[-_]+/g, " ").trim() ||
+    "Untitled upload";
+
+  const { document, error } = await createDocument({
+    streamId: stream.id,
+    createdBy: user.id,
+    content: "",
+    title: titleFromForm || defaultTitle,
+    type: typeFromForm,
+    privacyStatus: "public",
+    needsReview: true, // pending conversion
+  });
+
+  if (error || !document) {
+    await supabase.storage.from("receives-staging").remove([storagePath]);
+    return { ok: false, error: error ?? "Receive failed." };
+  }
+
+  try {
+    await inngest.send({
+      name: CLARA_UPLOAD_RECEIVED,
+      data: {
+        documentId: document.id,
+        streamId: stream.id,
+        storagePath,
+        fileType: extension === ".pdf" ? "pdf" : "docx",
+      },
+    });
+  } catch (err) {
+    console.error("Failed to enqueue upload conversion:", err);
+    await supabase.storage.from("receives-staging").remove([storagePath]);
+    await supabase.from("documents").delete().eq("id", document.id);
+    return {
+      ok: false,
+      error: "Couldn't start processing this file. Try again.",
+    };
+  }
+
+  return { ok: true, documentId: document.id, needsReview: true };
 }
 
 /** @deprecated Use receiveTextContent — kept so old imports don't break mid-deploy. */

@@ -16,3 +16,16 @@ export type ClaraDocumentCreatedEvent = {
     streamId: string;
   };
 };
+
+/** Sent after a PDF/DOCX lands in Storage, to trigger async Markdown conversion. */
+export const CLARA_UPLOAD_RECEIVED = "clara/upload.received";
+
+export type ClaraUploadReceivedEvent = {
+  name: typeof CLARA_UPLOAD_RECEIVED;
+  data: {
+    documentId: string;
+    streamId: string;
+    storagePath: string;
+    fileType: "pdf" | "docx";
+  };
+};
