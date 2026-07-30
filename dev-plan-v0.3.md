@@ -100,6 +100,13 @@
 *   Receives Upload / Add text; TipTap toolbar; Markdown storage; view/edit.
 *   Public repo secrets policy (`.cursorrules` / `claude.md` / README / `.gitignore`).
 
+### Security incident — resolved (2026-07-29)
+*   Real Supabase `anon` and `service_role` **JWT** keys were committed to `.env.example` (commit `8b472fb`) and pushed to this public repo for ~25 min before being caught.
+*   **Fix:** legacy JWT-based Supabase API keys were **disabled entirely** in the dashboard (Project Settings → API Keys → Legacy API Keys → "Disable JWT-based API keys"). This project now runs on the newer Publishable/Secret key system only — no JWT secret rotation was available/needed once disabled.
+*   Vercel's `NEXT_PUBLIC_SUPABASE_ANON_KEY` was updated to the publishable key (`sb_publishable_...`) and redeployed *before* disabling the legacy keys, so production had zero downtime.
+*   `.env.example` restored to placeholders only; added an explicit incident note there so this isn't repeated.
+*   **Takeaway:** never paste real values into `.env.example` — only into `.env.local` (gitignored) or Vercel's env var UI.
+
 ### Decisions (must remember)
 *   CLara platform; Camp CLAI first stream; isolation **true**.
 *   Chatbot ≠ Ask (no shared RAG/prompt state).
