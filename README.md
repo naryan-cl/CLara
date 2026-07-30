@@ -2,6 +2,11 @@
 
 Public-while-building Next.js app for the **CLara** platform (first stream: **Camp CLAI**).
 
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+ 
+## Getting Started
+
+
 Live: [https://clara-cl.vercel.app/](https://clara-cl.vercel.app/)
 
 ## Secrets policy (public repo)
