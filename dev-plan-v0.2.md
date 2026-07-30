@@ -133,6 +133,7 @@ Update this section at the end of meaningful work sessions so the next session (
 *   `src/lib/streams/get-active-stream.ts` — prefers `camp-clai`; nav badge + dashboard title from DB (or “No stream” banner if not a member).
 *   Migration `0002_naryan_camp_clai_admin.sql` — adds `naryan@cultivatingleadership.com` as Camp CLAI admin (must be applied in Supabase SQL editor / migration runner).
 *   Migration `0003_documents.sql` — Commons `documents` table + RLS; dashboard lists recent docs via `listRecentDocuments`.
+*   CLara Receives (text): `ReceiveUploadForm` + `receiveTextFile` server action → `createDocument` with active `stream_id`.
 
 ### Decisions to remember
 *   Product name: **CLara**; first stream: **Camp CLAI**.
@@ -158,8 +159,8 @@ Update this section at the end of meaningful work sessions so the next session (
 *   Inngest production sync verified against `https://clara-cl.vercel.app/api/inngest`; `clara/hello` triggered successfully (separate from Old Clara’s Inngest app).
 
 ### Next up
-*   Apply `0003_documents.sql` in Supabase; confirm dashboard “Recent Commons Activity” shows empty state (not an error).
-*   Phase 2: CLara Receives — upload UI that inserts into `documents` with active `stream_id`.
+*   Test CLara Receives: Sessions → upload a small `.md`/`.txt` → see it under Recent + Dashboard activity.
+*   Then: audio path (CLara Listens) or OKF LLM enrichment — pick one module at a time.
 *   Owner: Supabase Auth URLs for production (still blocked without owner access).
 
 ### Blocked / open
