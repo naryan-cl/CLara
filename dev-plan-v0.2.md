@@ -125,11 +125,12 @@ Seed V1 with at least one stream row: **Camp CLAI** (`slug: camp-clai`), `isolat
 Update this section at the end of meaningful work sessions so the next session (human or AI) does not depend on chat memory.
 
 ### Current phase
-*   **Phase 1 — in progress:** Next.js app + Supabase auth shell exist; authenticated app routes scaffolded (`/dashboard`, `/sessions`, `/map`, `/chat`, `/ask`, `/admin`). Chat and Ask are separate routes.
+*   **Phase 1 — in progress:** Active-stream helper (`getActiveStream`) wires layout + dashboard to DB. Auth shell + Inngest smoke test done.
 
 ### Shipped
 *   Streams schema migration: `supabase/migrations/0001_streams.sql` (`streams`, `stream_members`, RLS for membership read).
 *   Seed stream: Camp CLAI (`slug: camp-clai`).
+*   `src/lib/streams/get-active-stream.ts` — prefers `camp-clai`; nav badge + dashboard title from DB (or “No stream” banner if not a member).
 
 ### Decisions to remember
 *   Product name: **CLara**; first stream: **Camp CLAI**.
@@ -152,11 +153,12 @@ Update this section at the end of meaningful work sessions so the next session (
 *   Vercel deploy live: **https://clara-cl.vercel.app/**
 *   `OPENAI_API_KEY` (+ embedding/transcription model vars) added to Vercel.
 *   Inngest keys added to Vercel; scaffold: `src/lib/inngest/*`, `/api/inngest`, `/api/inngest/health`, hello event `clara/hello`, app id `clara`, package `inngest@^4`.
+*   Inngest production sync verified against `https://clara-cl.vercel.app/api/inngest`; `clara/hello` triggered successfully (separate from Old Clara’s Inngest app).
 
 ### Next up
-*   Commit/push Inngest scaffold; sync Inngest dashboard → `https://clara-cl.vercel.app/api/inngest`; verify health endpoint + send `clara/hello`.
-*   Continue Phase 1: active-stream context + membership wiring end-to-end.
-*   Owner: Supabase Auth URLs for production (still blocked).
+*   Test: sign in → badge shows Camp CLAI from DB (or “No stream” if missing from `stream_members`).
+*   Add your user to Camp CLAI membership if needed (seed currently only `ali@cultivatingleadership.com`).
+*   Owner: Supabase Auth URLs for production (still blocked without owner access).
 
 ### Blocked / open
 *   Supabase Auth Site URL + redirect allow list for `https://clara-cl.vercel.app` — needs project **owner** access (current user cannot change). Localhost may still work; production Magic Link may fail until an owner updates Auth → URL Configuration.

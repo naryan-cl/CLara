@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getActiveStream } from "@/lib/streams/get-active-stream";
 
 const anchors = [
   {
@@ -22,15 +23,24 @@ const entryPoints = [
   { href: "/ask", label: "Ask CLara", description: "Query the Commons." },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { stream } = await getActiveStream();
+  const streamName = stream?.name ?? "Your stream";
+
   return (
     <div className="flex flex-col gap-10">
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">
-          Camp CLAI Dashboard
+          {streamName} Dashboard
         </h1>
         <p className="mt-1 text-sm text-ink/60">
           Core conceptual anchors and recent activity for this stream.
+          {stream ? (
+            <span className="mt-1 block font-mono text-[11px] text-ink/40">
+              {stream.slug}
+              {stream.isolation_enabled ? " · isolated" : ""} · {stream.role}
+            </span>
+          ) : null}
         </p>
       </div>
 

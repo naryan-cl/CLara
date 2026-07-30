@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { SignOutButton } from "@/components/SignOutButton";
 
 const navItems = [
@@ -26,16 +27,29 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  const { stream, error } = await getActiveStream();
+  const streamLabel = stream?.name ?? "No stream";
+
   return (
     <div className="flex flex-1 flex-col bg-sand">
       <header className="border-b border-cloud bg-paper">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="font-display text-lg font-medium text-ink">
+            <Link
+              href="/dashboard"
+              className="font-display text-lg font-medium text-ink"
+            >
               CLara
             </Link>
-            <span className="rounded-pill border border-sage/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-sage">
-              Camp CLAI
+            <span
+              className="rounded-pill border border-sage/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-sage"
+              title={
+                stream
+                  ? `stream_id: ${stream.id} · role: ${stream.role}`
+                  : (error ?? "Not a member of any stream yet")
+              }
+            >
+              {streamLabel}
             </span>
           </div>
 
@@ -60,7 +74,22 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
+      {!stream ? (
+        <div className="border-b border-warning/30 bg-paper px-6 py-3 text-sm text-ink/80">
+          You&apos;re signed in, but not a member of any stream yet. Ask a
+          stream admin to add your account to <strong>Camp CLAI</strong>{" "}
+          (<span className="font-mono text-xs">(stream_members)</span>
+          {error ? (
+            <span className="mt-1 block font-mono text-xs text-danger">
+              {error}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+        {children}
+      </main>
     </div>
   );
 }
