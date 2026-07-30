@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
+import { inngest, CLARA_DOCUMENT_CREATED } from "@/lib/inngest/client";
 
 const ALLOWED_EXTENSIONS = new Set([".md", ".txt"]);
 const MAX_BYTES = 512 * 1024; // 512 KB — keep first Receives slice simple
@@ -120,6 +121,16 @@ export async function receiveTextContent(
 
     if (error || !document) {
       return { ok: false, error: error ?? "Receive failed." };
+    }
+
+    try {
+      await inngest.send({
+        name: CLARA_DOCUMENT_CREATED,
+        data: { documentId: document.id, streamId: stream.id },
+      });
+    } catch (err) {
+      // OKF enrichment is best-effort — never fail the user's Receive over it.
+      console.error("Failed to enqueue OKF enrichment:", err);
     }
 
     return {

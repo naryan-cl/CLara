@@ -18,7 +18,13 @@ const TYPE_OPTIONS = [
   "Theme",
 ] as const;
 
+function asStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+}
+
 export function DocumentEditor({ document }: { document: CommonsDocument }) {
+  const tags = asStringList(document.tags);
+  const participants = asStringList(document.participants);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -77,6 +83,41 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
             Edit
           </button>
         </div>
+
+        {tags.length > 0 || participants.length > 0 ? (
+          <div className="flex flex-wrap gap-4 text-xs">
+            {tags.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono uppercase tracking-wide text-ink/40">
+                  Tags
+                </span>
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-pill bg-cloud px-2.5 py-1 text-ink/70"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {participants.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono uppercase tracking-wide text-ink/40">
+                  Participants
+                </span>
+                {participants.map((person) => (
+                  <span
+                    key={person}
+                    className="rounded-pill border border-sage/40 px-2.5 py-1 text-sage"
+                  >
+                    {person}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <article className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <MarkdownView markdown={document.content} />

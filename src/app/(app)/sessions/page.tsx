@@ -1,4 +1,5 @@
 import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
+import { ListensRecorder } from "@/components/ListensRecorder";
 import { DocumentList } from "@/components/DocumentList";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listRecentDocuments } from "@/lib/documents/list-recent";
@@ -21,6 +22,8 @@ export default async function SessionsPage() {
       </div>
 
       <ReceiveUploadForm />
+
+      <ListensRecorder />
 
       <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
         <h2 className="font-display text-lg font-medium text-ink">
