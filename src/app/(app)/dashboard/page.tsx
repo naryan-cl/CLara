@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { listRecentDocuments } from "@/lib/documents/list-recent";
 
 const anchors = [
   {
@@ -26,6 +27,9 @@ const entryPoints = [
 export default async function DashboardPage() {
   const { stream } = await getActiveStream();
   const streamName = stream?.name ?? "Your stream";
+  const { documents, error: docsError } = stream
+    ? await listRecentDocuments(stream.id, 5)
+    : { documents: [], error: null };
 
   return (
     <div className="flex flex-col gap-10">
@@ -90,15 +94,47 @@ export default async function DashboardPage() {
             Recent Commons Activity
           </h2>
           <span className="rounded-pill bg-cloud px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-ink/50">
-            Placeholder data
+            {stream ? "Live query" : "No stream"}
           </span>
         </div>
         <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-          <p className="text-sm text-ink/60">
-            Nothing here yet — once ingestion (CLara Listens / Receives) is
-            built, new session transcripts and summaries will appear here as
-            they land in the Commons.
-          </p>
+          {docsError ? (
+            <p className="font-mono text-sm text-danger">
+              Could not load documents: {docsError}
+              <span className="mt-2 block text-ink/50">
+                If the table is missing, run migration{" "}
+                <code>0003_documents.sql</code> in the Supabase SQL editor.
+              </span>
+            </p>
+          ) : documents.length === 0 ? (
+            <p className="text-sm text-ink/60">
+              Nothing here yet — once ingestion (CLara Listens / Receives) is
+              built, new session transcripts and summaries will appear here as
+              they land in the Commons.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {documents.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="flex items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
+                >
+                  <div>
+                    <p className="font-medium text-ink">
+                      {doc.title?.trim() || "Untitled"}
+                    </p>
+                    <p className="font-mono text-[11px] text-ink/40">
+                      {doc.type ?? "untyped"}
+                      {doc.needs_review ? " · needs review" : ""}
+                    </p>
+                  </div>
+                  <time className="shrink-0 font-mono text-[11px] text-ink/40">
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
     </div>
