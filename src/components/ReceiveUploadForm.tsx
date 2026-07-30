@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
 import { receiveTextContent } from "@/app/(app)/sessions/actions";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 const TYPE_OPTIONS = [
   "Note",
@@ -29,7 +30,8 @@ export function ReceiveUploadForm() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<InputMode>("file");
   const [file, setFile] = useState<File | null>(null);
-  const [pastedText, setPastedText] = useState("");
+  const [markdownText, setMarkdownText] = useState("");
+  const [editorKey, setEditorKey] = useState(0);
   const [dragOver, setDragOver] = useState(false);
 
   const clearFile = useCallback(() => {
@@ -53,21 +55,12 @@ export function ReceiveUploadForm() {
         return;
       }
       setMode("file");
-      setPastedText("");
+      setMarkdownText("");
+      setEditorKey((k) => k + 1);
       setFile(next);
     },
     [clearFile],
   );
-
-  function onPasteChange(value: string) {
-    setError(null);
-    setMessage(null);
-    setPastedText(value);
-    if (value.trim()) {
-      setMode("paste");
-      clearFile();
-    }
-  }
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,11 +68,11 @@ export function ReceiveUploadForm() {
     setError(null);
 
     if (mode === "file" && !file) {
-      setError("Drop or choose a .md/.txt file, or switch to paste.");
+      setError("Drop or choose a file, or switch to Add text.");
       return;
     }
-    if (mode === "paste" && !pastedText.trim()) {
-      setError("Paste some text, or switch to a file upload.");
+    if (mode === "paste" && !markdownText.trim()) {
+      setError("Add some text, or switch to Upload.");
       return;
     }
 
@@ -91,7 +84,7 @@ export function ReceiveUploadForm() {
       formData.set("pastedText", "");
     } else {
       formData.delete("file");
-      formData.set("pastedText", pastedText);
+      formData.set("pastedText", markdownText);
     }
 
     startTransition(async () => {
@@ -107,7 +100,8 @@ export function ReceiveUploadForm() {
           : "Received — saved to the Commons.",
       );
       clearFile();
-      setPastedText("");
+      setMarkdownText("");
+      setEditorKey((k) => k + 1);
       setMode("file");
       form.reset();
       router.refresh();
@@ -124,9 +118,9 @@ export function ReceiveUploadForm() {
           CLara Receives
         </h2>
         <p className="mt-1 text-sm text-ink/60">
-          Drop a <span className="font-mono">.md</span> /{" "}
-          <span className="font-mono">.txt</span> file, or paste text — one or
-          the other, not both. Audio arrives later via CLara Listens.
+          Upload a <span className="font-mono">.md</span> /{" "}
+          <span className="font-mono">.txt</span> file, or add formatted text —
+          one or the other, not both. Stored as Markdown in the Commons.
         </p>
       </div>
 
@@ -135,7 +129,8 @@ export function ReceiveUploadForm() {
           type="button"
           onClick={() => {
             setMode("file");
-            setPastedText("");
+            setMarkdownText("");
+            setEditorKey((k) => k + 1);
             setError(null);
           }}
           className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -144,7 +139,7 @@ export function ReceiveUploadForm() {
               : "border border-cloud text-ink/70 hover:border-sage"
           }`}
         >
-          File
+          Upload
         </button>
         <button
           type="button"
@@ -159,7 +154,7 @@ export function ReceiveUploadForm() {
               : "border border-cloud text-ink/70 hover:border-sage"
           }`}
         >
-          Paste
+          Add text
         </button>
       </div>
 
@@ -223,17 +218,16 @@ export function ReceiveUploadForm() {
           ) : null}
         </div>
       ) : (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink">Paste text</span>
-          <textarea
-            name="pastedText"
-            value={pastedText}
-            onChange={(e) => onPasteChange(e.target.value)}
-            rows={10}
-            placeholder="Paste a note, transcript excerpt, or reflection…"
-            className="rounded-md border border-cloud bg-sand px-3 py-2 font-sans text-ink"
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Text</span>
+          <MarkdownEditor
+            key={editorKey}
+            initialMarkdown=""
+            placeholder="Write or paste a note — formatting is stored as Markdown…"
+            onChangeMarkdown={setMarkdownText}
+            minHeightClassName="min-h-[200px]"
           />
-        </label>
+        </div>
       )}
 
       <label className="flex flex-col gap-1 text-sm">

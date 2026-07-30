@@ -1,10 +1,9 @@
 # CLara Platform — Development & Implementation Plan
 
-**Version:** 0.2  
-**Target Tool:** Cursor (AI Coding Assistant)  
-**Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind CSS.  
-**Companion PRD:** `prd-v0.4.md`  
-**Supersedes:** `dev-plan-v0.1.md`
+> **Superseded by [`dev-plan-v0.3.md`](./dev-plan-v0.3.md).**  
+> Handoff progress, Receives/Markdown editor, and next modules live there.
+
+**Version:** 0.2 — **superseded**
 
 ---
 
@@ -135,6 +134,7 @@ Update this section at the end of meaningful work sessions so the next session (
 *   Migration `0003_documents.sql` — Commons `documents` table + RLS; dashboard lists recent docs via `listRecentDocuments`.
 *   CLara Receives (text): `ReceiveUploadForm` + `receiveTextFile` server action → `createDocument` with active `stream_id`.
 *   Document view/edit: `/sessions/documents/[id]` with `DocumentEditor` (title, type, privacy, session, content).
+*   Receives tabs: **Upload** / **Add text**; TipTap rich editor ↔ Markdown storage; formatted read view.
 
 ### Decisions to remember
 *   Product name: **CLara**; first stream: **Camp CLAI**.

@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveDocumentEdits } from "@/app/(app)/sessions/documents/actions";
 import type { CommonsDocument } from "@/lib/documents/types";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { MarkdownView } from "@/components/MarkdownView";
 
 const TYPE_OPTIONS = [
   "Note",
@@ -22,12 +24,14 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [contentMarkdown, setContentMarkdown] = useState(document.content);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
     setError(null);
     const formData = new FormData(event.currentTarget);
+    formData.set("content", contentMarkdown);
 
     startTransition(async () => {
       const result = await saveDocumentEdits(formData);
@@ -63,6 +67,7 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
           <button
             type="button"
             onClick={() => {
+              setContentMarkdown(document.content);
               setEditing(true);
               setMessage(null);
               setError(null);
@@ -74,9 +79,7 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
         </div>
 
         <article className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-ink">
-            {document.content || "(empty)"}
-          </pre>
+          <MarkdownView markdown={document.content} />
         </article>
 
         {message ? (
@@ -164,15 +167,15 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <div className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Content</span>
-        <textarea
-          name="content"
-          defaultValue={document.content}
-          rows={18}
-          className="rounded-md border border-cloud bg-sand px-3 py-2 font-sans text-sm leading-6 text-ink"
+        <MarkdownEditor
+          key={document.id + document.updated_at}
+          initialMarkdown={document.content}
+          onChangeMarkdown={setContentMarkdown}
+          minHeightClassName="min-h-[280px]"
         />
-      </label>
+      </div>
 
       {error ? (
         <p className="font-mono text-sm text-danger">{error}</p>
