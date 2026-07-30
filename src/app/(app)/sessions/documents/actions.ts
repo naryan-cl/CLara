@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { updateDocument } from "@/lib/documents/update-document";
+import { getDocumentById } from "@/lib/documents/get-document";
+import { createSession } from "@/lib/sessions/create-session";
+import { createClient } from "@/lib/supabase/server";
 import type { DocumentPrivacy } from "@/lib/documents/types";
+
+const NEW_SESSION_VALUE = "__new__";
 
 export type SaveDocumentResult =
   | { ok: true }
@@ -20,11 +25,45 @@ export async function saveDocumentEdits(
     const title = String(formData.get("title") ?? "").trim();
     const type = String(formData.get("type") ?? "").trim();
     const content = String(formData.get("content") ?? "");
-    const sessionId = String(formData.get("sessionId") ?? "").trim();
+    const sessionChoice = String(formData.get("sessionId") ?? "").trim();
+    const newSessionName = String(formData.get("newSessionName") ?? "").trim();
     const privacyRaw = String(formData.get("privacyStatus") ?? "public");
     const privacyStatus: DocumentPrivacy =
       privacyRaw === "private" ? "private" : "public";
     const needsReview = !title || !type;
+
+    let sessionId: string | null = sessionChoice || null;
+
+    if (sessionChoice === NEW_SESSION_VALUE) {
+      if (!newSessionName) {
+        return { ok: false, error: "Enter a name for the new session." };
+      }
+
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        return { ok: false, error: "Not signed in." };
+      }
+
+      const { document: existingDoc, error: docError } =
+        await getDocumentById(id);
+      if (docError || !existingDoc) {
+        return { ok: false, error: docError ?? "Document not found." };
+      }
+
+      const { session, error: sessionError } = await createSession({
+        streamId: existingDoc.stream_id,
+        createdBy: user.id,
+        name: newSessionName,
+      });
+      if (sessionError || !session) {
+        return { ok: false, error: sessionError ?? "Could not create session." };
+      }
+
+      sessionId = session.id;
+    }
 
     const { document, error } = await updateDocument({
       id,

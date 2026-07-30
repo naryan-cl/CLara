@@ -6,6 +6,7 @@ import {
 } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
+import { findOrCreateSessionByName } from "@/lib/sessions/find-or-create-session";
 
 /** Keep prompt cost/latency sane for the first slice — long docs get truncated. */
 const MAX_CONTENT_CHARS = 8_000;
@@ -95,7 +96,7 @@ export const okfEnrichFn = inngest.createFunction(
       const admin = createAdminClient();
       const { data, error } = await admin
         .from("documents")
-        .select("id, content, tags, participants, session_id")
+        .select("id, stream_id, content, tags, participants, session_id")
         .eq("id", documentId)
         .maybeSingle();
 
@@ -112,6 +113,17 @@ export const okfEnrichFn = inngest.createFunction(
         return null;
       }
     });
+
+    const resolvedSessionId =
+      !doc.session_id && proposal?.sessionId
+        ? await step.run("resolve-session", async () => {
+            const { sessionId } = await findOrCreateSessionByName(
+              doc.stream_id,
+              proposal.sessionId as string,
+            );
+            return sessionId;
+          })
+        : null;
 
     await step.run("apply-okf", async () => {
       const admin = createAdminClient();
@@ -135,8 +147,8 @@ export const okfEnrichFn = inngest.createFunction(
         ) {
           patch.participants = proposal.participants;
         }
-        if (!doc.session_id && proposal.sessionId) {
-          patch.session_id = proposal.sessionId;
+        if (resolvedSessionId) {
+          patch.session_id = resolvedSessionId;
         }
       }
 
