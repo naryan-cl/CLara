@@ -148,11 +148,14 @@ Update this section at the end of meaningful work sessions so the next session (
 
 ### Shipped (infra)
 *   `.env.example` — Festival-shaped template (Supabase, OpenAI, Inngest, app URL). `.gitignore` allows committing the example only.
+*   Vercel deploy live: **https://clara-cl.vercel.app/**
+*   `OPENAI_API_KEY` (+ embedding/transcription model vars) added to Vercel.
+*   Inngest keys added to Vercel; scaffold: `src/lib/inngest/*`, `/api/inngest`, `/api/inngest/health`, hello event `clara/hello`, app id `clara`, package `inngest@^4`.
 
 ### Next up
-*   Fill `.env.local` from the example; create Inngest + OpenAI keys; connect repo to Vercel and paste the same env vars.
+*   Commit/push Inngest scaffold; sync Inngest dashboard → `https://clara-cl.vercel.app/api/inngest`; verify health endpoint + send `clara/hello`.
 *   Continue Phase 1: active-stream context + membership wiring end-to-end.
-*   Then scaffold Inngest route/client (Festival pattern) when the other developer is ready for jobs.
+*   Owner: Supabase Auth URLs for production (still blocked).
 
 ### Blocked / open
-*   _(none logged yet)_
+*   Supabase Auth Site URL + redirect allow list for `https://clara-cl.vercel.app` — needs project **owner** access (current user cannot change). Localhost may still work; production Magic Link may fail until an owner updates Auth → URL Configuration.
