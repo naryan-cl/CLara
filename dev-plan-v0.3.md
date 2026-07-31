@@ -28,6 +28,7 @@
 *   Inngest serve + health + `clara/hello` smoke test.
 *   **CLara Listens v1** (local, verified 2026-07-30): mic recording → Whisper → Commons document. Not yet deployed to Vercel — see below.
 *   **PDF/DOCX Receives** (local, verified 2026-07-30): async Storage + Inngest conversion path. Not yet deployed to Vercel — needs `0005_receives_staging_storage.sql` run on prod Supabase first (Vercel already has `OPENAI_API_KEY`/`SUPABASE_SECRET_KEY` from the OKF enrich work).
+*   **Phase 5 (sessions, archive, harvest, admin polish)** — verified locally 2026-07-30, migrations `0004`/`0006`/`0007` already run against the one shared Supabase project (same one Vercel uses). Code was committed and pushed to `main` mid-session alongside the colleague's PDF/DOCX and auth work — **check actual Vercel deployment status before assuming this is live in production**, this dev-plan entry only confirms local verification.
 
 ### Do not break
 *   Chatbot ≠ Ask CLara (separate surfaces/pipelines).
@@ -60,6 +61,8 @@
 *   `0003_documents.sql` — `documents` + privacy enum + RLS (member read public; author read/update; member insert; stream admin update)
 *   `0004_sessions.sql` — `sessions` table (event containers) + RLS; `documents.session_id` converted from free text to a `sessions.id` FK (safe: 0 production rows had it set)
 *   `0005_receives_staging_storage.sql` — private `receives-staging` Storage bucket (path `{stream_id}/{uuid}.{ext}`) + object policies scoped to stream membership, for the PDF/DOCX Receives path
+*   `0006_session_attendees.sql` — `session_attendees` join table (who attended which session) + RLS
+*   `0007_admin_membership.sql` — admin insert/update/delete RLS on `stream_members`, admin update RLS on `streams`, plus `get_stream_members`/`add_stream_member_by_email` SECURITY DEFINER functions
 
 ### Not yet migrated
 *   `document_embeddings`, `nodes`, `edges` — see prior §1.2 plan in v0.2 history / PRD
@@ -87,7 +90,10 @@
 | Listens recorder UI | `src/components/ListensRecorder.tsx` |
 | Listens action | `src/app/(app)/sessions/listens-actions.ts` → `receiveListensRecording` |
 | Whisper transcription helper | `src/lib/openai/transcribe.ts` → `transcribeAudio`, `MAX_AUDIO_BYTES` |
-| Sessions (event containers) | `src/lib/sessions/*` — `list-sessions.ts`, `create-session.ts` (RLS-scoped), `find-or-create-session.ts` (admin, for OKF enrich) |
+| Sessions (event containers) | `src/lib/sessions/*` — `list-sessions.ts`, `create-session.ts` (RLS-scoped), `find-or-create-session.ts` (admin, for OKF enrich), `get-session.ts`, `attendance.ts` ("I Attended" harvest) |
+| Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
+| Harvest UI | `src/app/(app)/sessions/harvest/page.tsx`, `src/components/HarvestExport.tsx` |
+| Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
 | Env template | `.env.example` |
 
@@ -106,7 +112,7 @@
 
 ### Current phase
 *   **Phase 2 complete** (Receives text + PDF/DOCX + OKF enrich + Listens v1 + Admin Queue) — every Phase 2 checklist item is now shipped except optional audio-file-via-Receives.
-*   **Phase 5, modules 1–2 (sessions table + full session archive UI) shipped 2026-07-30.** Next: module 3, "I Attended" harvest.
+*   **Phase 5 complete (2026-07-30):** sessions table, full session archive UI, "I Attended" harvest, admin polish (membership + isolation UI) — all four modules shipped. Next: pick from Phase 3 (Ask + Chatbot) or Phase 4 (Knowledge Map), or Ask CLara embeddings / Listens v2 per the "Next up" list.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -124,6 +130,9 @@
 *   **Dev tooling fix (2026-07-30):** `.claude/dev-server.sh` had Windows-style CRLF line endings, which broke its shebang on macOS (`Operation not permitted` / `No such file or directory` when the preview tool tried to spawn it). Converted to LF. Also found and killed a stale `next start` (production build) process that had been squatting on port 3000 from an earlier session — always confirm with `ps` that anything already on the dev port is actually `next dev` before trusting hot reload.
 *   **Full session archive (Phase 5 module 2, 2026-07-30):** `/sessions/archive` lists every session in the active stream (`listSessions`, sorted by `occurred_at` then `created_at`); `/sessions/archive/[id]` shows one session's name/date plus every Commons document tied to it via new `listDocumentsBySession()` (`src/lib/documents/list-by-session.ts`, `eq("session_id", ...)`) rendered through the existing `DocumentList`. Same soft stream-guard pattern as the document detail page. Linked from `/sessions` via a new "Browse session archive →" button; the old "later slice" copy on that page was updated since this is no longer later. Verified end-to-end locally: archive list shows "Morning Circle 1" (created in module 1's test), opening it shows "Test Jul 30" as the one document tied to it, link back to the document works, no console errors.
 *   **Note on concurrent work (2026-07-30):** mid-session, discovered a colleague had PDF/DOCX Receives in flight uncommitted in the same working directory at the same time (new migration, Inngest job, `ReceiveUploadForm` changes) — including a migration filename collision at `0004`. Resolved by them renumbering their file to `0005_receives_staging_storage.sql`; no file overlap with Phase 5 work. Flagging the pattern: **before starting a module, check `git status` for unfamiliar uncommitted changes** — this is a public/multi-author repo and more than one person (or agent) may be working in it at once.
+*   **"I Attended" harvest (Phase 5 module 3, 2026-07-30):** `0006_session_attendees.sql` — `session_attendees` join table (`session_id`, `user_id`, PK on both), RLS: users read/insert/delete only their own rows, insert additionally checked against `stream_members` so you can only mark attendance for sessions in a stream you belong to. New lib `src/lib/sessions/attendance.ts` (`markAttended`/`unmarkAttended`/`isAttending`/`listAttendedSessionIds`). UI: `AttendanceToggle` client component (calls new `toggleAttendance` server action in `sessions/archive/actions.ts`) added to `/sessions/archive/[id]`; new `/sessions/harvest` page lists every session the signed-in user attended with that session's documents (reusing `DocumentList`), plus a `HarvestExport` client component that builds a single Markdown string (session as `#`, each document as `##`) and triggers a browser download via `Blob` + `URL.createObjectURL` — purely client-side, no data leaves the browser. Linked from `/sessions` via a new "My harvest →" button. Verified end-to-end locally: toggled attendance on "Morning Circle 1" (confirmed the button flips to "✓ I attended this session"), confirmed it then appears on `/sessions/harvest` with its document, and confirmed the downloaded Markdown Blob's actual text content is correctly formatted (captured via intercepting `URL.createObjectURL` in a test script, since `link.click()` revokes the blob URL immediately after).
+*   **Admin polish (Phase 5 module 4, 2026-07-30):** `0007_admin_membership.sql` — RLS insert/update/delete policies on `stream_members` and an update policy on `streams`, all scoped to "admins of their own stream" (same pattern as documents/sessions). Plus two `SECURITY DEFINER` functions, `get_stream_members` and `add_stream_member_by_email`, because listing members with email and resolving an email to a user id both require reading `auth.users`, which the RLS-bound client can't query directly — this project's convention is to keep the admin (service-role) client out of request-serving code, so a narrowly-scoped SQL function (each one re-checks the caller is an admin of that specific stream before doing anything) is the correct way to reach it instead. **By design, "add member" only attaches an *existing* account by email — it never creates accounts or sends invite email**, a deliberate scope decision so this feature can't send real messages to real people. New lib `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`; new `MembersPanel` and `IsolationToggle` client components wired into a redesigned `/admin` (now: Isolation, Membership, Admin Queue). UI-level guard hides remove/role-change controls for your own row (can't accidentally lock yourself out); server actions re-check the same server-side. **Bug caught during verification:** `get_stream_members`'s first draft referenced `user_id`/`role` unqualified inside a query — since `RETURNS TABLE(user_id, role, ...)` makes those names plpgsql variables in scope for the whole function body, Postgres couldn't tell if they meant the variable or the `stream_members` column ("column reference is ambiguous"). Fixed by aliasing the table and qualifying every column reference. Took two attempts to actually land — first re-run apparently re-applied the old unfixed SQL rather than the corrected version (root cause unclear — possibly a stale clipboard paste); confirmed via `pg_get_functiondef('public.get_stream_members(uuid)'::regprocedure)` before trusting the second attempt. **Lesson: when a SQL fix doesn't take effect, verify what's actually stored with `pg_get_functiondef` rather than assuming the paste landed.** Verified end-to-end locally: membership list shows both real members with correct email/role, own row correctly hides mutate controls, adding a nonexistent email shows the friendly "no account yet" error with no mutation, isolation toggle flips the DB value and UI copy correctly in both directions (tested off → on, confirmed via direct DB read each time, restored to `true` before finishing).
+*   **Note on a lost commit (2026-07-31):** module 3 + 4 work was committed once ("final edits from phase 5"), then that commit got undone by a `git reset` (most likely GitHub Desktop's "Undo commit") before a colleague's `git pull --ff` fast-forwarded this repo past it — the files vanished from disk with no working-directory trace. Recovered via `git checkout <dangling-commit-sha> -- <paths>` since the commit object itself was still reachable through `git reflog`; nothing was actually lost. **Lesson: after any commit, `git reflog` is the safety net if a reset/undo removes it — the commit isn't gone until it's garbage-collected.**
 *   **PDF/DOCX Receives (2026-07-30):** async path, since conversion is too heavy to hold up a request. `receiveConvertibleUpload` (new branch inside `sessions/actions.ts`'s `receiveTextContent`, keyed off `.pdf`/`.docx` extension) uploads the raw file to the new private `receives-staging` Storage bucket (request-scoped client, RLS-enforced — see `0005_receives_staging_storage.sql`), creates a placeholder `documents` row (`content: ""`, `needs_review: true`), and sends `clara/upload.received`. The `clara-convert-upload` Inngest function downloads the file via the admin client, extracts Markdown in one step (PDF via `unpdf`'s `extractText`; DOCX via `mammoth.convertToHtml` piped through the existing `htmlToMarkdown` turndown helper — deliberately one step, not split download/convert, to avoid Inngest step-output size limits on the raw file bytes), writes the content back (`needs_review: false` on success, or a clear human-readable placeholder message + `needs_review: true` on failure — never crashes), deletes the Storage object either way, and on success chains into `clara-okf-enrich` the same way text Receives does. Capped at ~4.5MB (same server-action body limit Listens already established in `next.config.ts`). Verified end-to-end locally for both file types via a direct admin-client + `inngest.send` test (magic-link still rate-limited): generated real test files with macOS's built-in `textutil`/`cupsfilter`, confirmed correct Markdown extraction, confirmed the Storage object was deleted after processing, and confirmed OKF enrichment ran afterward and populated tags/participants correctly on both.
 
 ### Security incident — resolved (2026-07-29)
@@ -153,9 +162,9 @@
 *   **Old Clara** — `C:\Users\narya\OneDrive\Documents\GitHub\Old Clara` — Listens recorder, Whisper, chunked upload, privacy gates.
 
 ### Next up (pick one module at a time)
-1.  "I Attended" harvest (Phase 5 module 3).
-2.  Admin polish — membership edge cases + isolation toggle UI (Phase 5 module 4).
-3.  Embeddings + **Ask CLara** (stream-scoped RAG).
+1.  Embeddings + **Ask CLara** (stream-scoped RAG) — Phase 3.
+2.  **CLara Chatbot** — separate surface/pipeline from Ask, Phase 3.
+3.  **Knowledge Map** (nodes/edges, stream-scoped) — Phase 4.
 4.  **Listens v2** (Storage bucket + async Inngest transcription) — only if long/full-meeting recordings become a real need; v1 already covers short reflections. Note: PDF/DOCX Receives already proved this exact pattern (Storage + admin client + Inngest), so Listens v2 can mostly reuse it.
 
 ### Blocked / open
@@ -182,10 +191,10 @@
 ### Phase 5 — Sessions archive, Harvest, Admin polish
 *   [x] `sessions` table (event containers) — migration + RLS; documents keep a `session_id` FK instead of a free-text field
 *   [x] Full session archive — `/sessions/archive` list + `/sessions/archive/[id]` detail page listing that session's Commons documents (reuse `DocumentList`)
-*   [ ] "I Attended" harvest — member marks sessions they attended; surface/export the Commons documents tied to those sessions for them
-*   [ ] Admin polish — membership edge cases (invite/remove `stream_members`) + isolation toggle UI (§4.2 is DB/RLS-only today, no UI)
+*   [x] "I Attended" harvest — member marks sessions they attended; surface/export the Commons documents tied to those sessions for them (`/sessions/harvest`)
+*   [x] Admin polish — membership edge cases (add/remove/promote `stream_members` by email, existing accounts only) + isolation toggle UI, both at `/admin` (§4.2 is no longer DB/RLS-only)
 
-**Note:** Phase 5 was started ahead of Phase 3/4 by deliberate choice (2026-07-30) — Ask/Chatbot and Knowledge Map remain "later." Phase 2 is now fully done except optional audio-via-Receives.
+**Phase 5 is complete as of 2026-07-30.** Started ahead of Phase 3/4 by deliberate choice — Ask/Chatbot and Knowledge Map remain "later." Phase 2 is now fully done except optional audio-via-Receives.
 
 ---
 
