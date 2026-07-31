@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-07-29 (handoff for colleague)  
+**Last updated:** 2026-07-30 (Google SSO + email/password auth)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -94,6 +94,7 @@
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
+*   Login: Google OAuth + email/password (sign-in / create account); magic link removed (`src/app/login/page.tsx`).
 *   Streams + membership + active stream UI.
 *   Vercel + OpenAI + Inngest keys; hello job verified.
 *   `documents` Commons + dashboard/sessions recent lists.
@@ -103,7 +104,9 @@
 ### Decisions (must remember)
 *   CLara platform; Camp CLAI first stream; isolation **true**.
 *   Chatbot ≠ Ask (no shared RAG/prompt state).
-*   Auth is platform-level.
+*   Auth is platform-level: **Google SSO** + **email/password**; magic link **removed** (avoids built-in SMTP rate limit).
+*   Password identity is **email** (Supabase standard), not a separate username.
+*   For email signup without custom SMTP: prefer **Auth → Providers → Email → Confirm email = off** during build, or create users in Dashboard → Authentication → Users.
 *   OKF = Open Knowledge Format; UI says **Type**.
 *   OKF fill: form Title/Type/Privacy now; **LLM+Inngest** for Session/Tags/Participants; `needs_review` fallback.
 *   Rich text ↔ Markdown storage (TipTap + marked/turndown; underline may be `<u>` in MD).
@@ -125,7 +128,8 @@
 6.  Unblock: Supabase owner sets Auth URLs for `https://clara-cl.vercel.app` (+ `/auth/callback`).
 
 ### Blocked / open
-*   Supabase Auth URL config for production — needs **owner** access.
+*   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
+*   Google provider must be enabled in Supabase with Client ID/Secret; Email provider must allow password sign-in.
 *   Vercel Hobby previously blocked non-owner commit authors on **private** repos — mitigated by going public; Pro or commit-as-`naryan-cl` if made private again.
 *   Local git push from some agents may lack GitHub auth — use GitHub Desktop / logged-in CLI.
 

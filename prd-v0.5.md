@@ -48,7 +48,7 @@ Unlike standard chat interfaces where threads are private, **all conversations, 
 ### 3.1 Platform Authentication
 *   Auth is for the **CLara platform**, not a single stream.
 *   **Unauthenticated State:** Users arriving at the website see a CLara landing page (context & framing).
-*   **Sign-in:** Login with CL Account (Supabase Magic Link / SSO).
+*   **Sign-in:** Login with CL Account via **Google SSO** or **email + password** (no magic link).
 *   **Access Control:** Primarily CL email domains; admin exception list for externals (as configured).
 *   **Stream membership:** After login, Commons access depends on `stream_members` (+ isolation).
 
@@ -56,7 +56,9 @@ Unlike standard chat interfaces where threads are private, **all conversations, 
 *   **member** — contribute and explore within streams they belong to.
 *   **admin** (per stream) — membership edge cases, metadata / `needs_review` queue, isolation settings.
 
-**Production note:** Supabase Auth Site URL / redirect allow list for `https://clara-cl.vercel.app` may still need a project **owner** to configure. Until then, production Magic Link can fail; local auth may work.
+**Production note:** Supabase Auth Site URL / redirect allow list for `https://clara-cl.vercel.app` may still need a project **owner** to configure (needed for Google OAuth redirect). Email+password works without that redirect allow list once Email provider is enabled.
+
+*Changelog (2026-07-30): Auth methods updated — Google SSO + email/password; magic link removed.*
 
 ---
 
