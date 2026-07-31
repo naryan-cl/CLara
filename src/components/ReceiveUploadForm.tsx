@@ -17,9 +17,17 @@ const TYPE_OPTIONS = [
 
 type InputMode = "file" | "paste";
 
-function isAllowedTextFile(file: File) {
+const ALLOWED_EXTENSIONS = [".md", ".txt", ".pdf", ".docx"];
+const CONVERTIBLE_EXTENSIONS = [".pdf", ".docx"];
+
+function isAllowedFile(file: File) {
   const name = file.name.toLowerCase();
-  return name.endsWith(".md") || name.endsWith(".txt");
+  return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+function isConvertibleFile(file: File) {
+  const name = file.name.toLowerCase();
+  return CONVERTIBLE_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
 export function ReceiveUploadForm() {
@@ -49,8 +57,8 @@ export function ReceiveUploadForm() {
         clearFile();
         return;
       }
-      if (!isAllowedTextFile(next)) {
-        setError("Only .md and .txt files are supported so far.");
+      if (!isAllowedFile(next)) {
+        setError("Only .md, .txt, .pdf, and .docx files are supported.");
         clearFile();
         return;
       }
@@ -79,6 +87,7 @@ export function ReceiveUploadForm() {
     const form = event.currentTarget;
     const formData = new FormData(form);
     formData.set("source", mode);
+    const convertible = mode === "file" && file ? isConvertibleFile(file) : false;
     if (mode === "file" && file) {
       formData.set("file", file);
       formData.set("pastedText", "");
@@ -95,9 +104,11 @@ export function ReceiveUploadForm() {
       }
 
       setMessage(
-        result.needsReview
-          ? "Received — saved with needs_review (missing metadata)."
-          : "Received — saved to the Commons.",
+        convertible
+          ? "Received — extracting text in the background, refresh in a moment to see it."
+          : result.needsReview
+            ? "Received — saved with needs_review (missing metadata)."
+            : "Received — saved to the Commons.",
       );
       clearFile();
       setMarkdownText("");
@@ -118,9 +129,12 @@ export function ReceiveUploadForm() {
           CLara Receives
         </h2>
         <p className="mt-1 text-sm text-ink/60">
-          Upload a <span className="font-mono">.md</span> /{" "}
-          <span className="font-mono">.txt</span> file, or add formatted text —
-          one or the other, not both. Stored as Markdown in the Commons.
+          Upload a <span className="font-mono">.md</span>,{" "}
+          <span className="font-mono">.txt</span>,{" "}
+          <span className="font-mono">.pdf</span>, or{" "}
+          <span className="font-mono">.docx</span> file, or add formatted
+          text — one or the other, not both. Stored as Markdown in the
+          Commons. PDF/DOCX text extraction happens in the background.
         </p>
       </div>
 
@@ -190,13 +204,13 @@ export function ReceiveUploadForm() {
           <p className="text-xs text-ink/50">
             {file
               ? `${Math.max(1, Math.round(file.size / 1024))} KB · click to replace`
-              : ".md or .txt · or click to browse"}
+              : ".md, .txt, .pdf, or .docx · or click to browse"}
           </p>
           <input
             ref={fileInputRef}
             type="file"
             name="file"
-            accept=".md,.txt,text/markdown,text/plain"
+            accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="absolute h-0 w-0 opacity-0"
             onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
           />

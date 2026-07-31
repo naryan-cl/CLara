@@ -4,8 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveDocumentEdits } from "@/app/(app)/sessions/documents/actions";
 import type { CommonsDocument } from "@/lib/documents/types";
+import type { SessionSummary } from "@/lib/sessions/types";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { MarkdownView } from "@/components/MarkdownView";
+
+const NEW_SESSION_VALUE = "__new__";
 
 const TYPE_OPTIONS = [
   "Note",
@@ -18,13 +21,31 @@ const TYPE_OPTIONS = [
   "Theme",
 ] as const;
 
-export function DocumentEditor({ document }: { document: CommonsDocument }) {
+function asStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+}
+
+export function DocumentEditor({
+  document,
+  sessions,
+}: {
+  document: CommonsDocument;
+  sessions: SessionSummary[];
+}) {
+  const tags = asStringList(document.tags);
+  const participants = asStringList(document.participants);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [contentMarkdown, setContentMarkdown] = useState(document.content);
+  const [sessionChoice, setSessionChoice] = useState(
+    document.session_id ?? "",
+  );
+  const currentSessionName = sessions.find(
+    (s) => s.id === document.session_id,
+  )?.name;
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +82,7 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
             </h1>
             <p className="mt-1 font-mono text-[11px] text-ink/40">
               Updated {new Date(document.updated_at).toLocaleString()}
-              {document.session_id ? ` · session ${document.session_id}` : ""}
+              {currentSessionName ? ` · session ${currentSessionName}` : ""}
             </p>
           </div>
           <button
@@ -77,6 +98,41 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
             Edit
           </button>
         </div>
+
+        {tags.length > 0 || participants.length > 0 ? (
+          <div className="flex flex-wrap gap-4 text-xs">
+            {tags.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono uppercase tracking-wide text-ink/40">
+                  Tags
+                </span>
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-pill bg-cloud px-2.5 py-1 text-ink/70"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {participants.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono uppercase tracking-wide text-ink/40">
+                  Participants
+                </span>
+                {participants.map((person) => (
+                  <span
+                    key={person}
+                    className="rounded-pill border border-sage/40 px-2.5 py-1 text-sage"
+                  >
+                    {person}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <article className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <MarkdownView markdown={document.content} />
@@ -158,13 +214,29 @@ export function DocumentEditor({ document }: { document: CommonsDocument }) {
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-ink">Session ID (optional)</span>
-        <input
+        <span className="font-medium text-ink">Session (optional)</span>
+        <select
           name="sessionId"
-          defaultValue={document.session_id ?? ""}
-          placeholder="e.g. morning-circle-1"
+          value={sessionChoice}
+          onChange={(e) => setSessionChoice(e.target.value)}
           className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
-        />
+        >
+          <option value="">— none —</option>
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+          <option value={NEW_SESSION_VALUE}>+ New session…</option>
+        </select>
+        {sessionChoice === NEW_SESSION_VALUE ? (
+          <input
+            name="newSessionName"
+            placeholder="Session name, e.g. Morning Circle 1"
+            autoFocus
+            className="mt-2 rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+          />
+        ) : null}
       </label>
 
       <div className="flex flex-col gap-1 text-sm">

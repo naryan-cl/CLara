@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocumentEditor } from "@/components/DocumentEditor";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { listSessions } from "@/lib/sessions/list-sessions";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -31,6 +32,10 @@ export default async function DocumentPage({ params }: PageProps) {
     notFound();
   }
 
+  const { sessions } = stream
+    ? await listSessions(stream.id)
+    : { sessions: [] };
+
   // Soft guard: prefer docs in the active stream (RLS is the real boundary).
   if (stream && document.stream_id !== stream.id) {
     return (
@@ -56,7 +61,7 @@ export default async function DocumentPage({ params }: PageProps) {
       >
         ← Back to Sessions
       </Link>
-      <DocumentEditor document={document} />
+      <DocumentEditor document={document} sessions={sessions} />
     </div>
   );
 }

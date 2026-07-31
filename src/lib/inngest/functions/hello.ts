@@ -20,5 +20,3 @@ export const helloWorldFn = inngest.createFunction(
     return { ok: true, message };
   },
 );
-
-export const inngestFunctions = [helloWorldFn];

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
+import { ListensRecorder } from "@/components/ListensRecorder";
 import { DocumentList } from "@/components/DocumentList";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listRecentDocuments } from "@/lib/documents/list-recent";
@@ -11,16 +13,32 @@ export default async function SessionsPage() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div>
-        <h1 className="font-display text-2xl font-medium text-ink">Sessions</h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Add thinking to the Commons, then explore what landed. Full session
-          archive and &quot;I Attended&quot; harvest come in a later slice —
-          Receives (text) is first.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-medium text-ink">Sessions</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink/60">
+            Add thinking to the Commons, then explore what landed.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/sessions/archive"
+            className="rounded-md border border-cloud px-4 py-2 text-sm font-medium text-ink/70 hover:text-ink"
+          >
+            Browse session archive →
+          </Link>
+          <Link
+            href="/sessions/harvest"
+            className="rounded-md border border-cloud px-4 py-2 text-sm font-medium text-ink/70 hover:text-ink"
+          >
+            My harvest →
+          </Link>
+        </div>
       </div>
 
       <ReceiveUploadForm />
+
+      <ListensRecorder />
 
       <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
         <h2 className="font-display text-lg font-medium text-ink">

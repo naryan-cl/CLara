@@ -18,6 +18,7 @@ export type CommonsDocument = {
   created_by: string | null;
   content: string;
   title: string | null;
+  /** FK into `sessions.id` (nullable) — see src/lib/sessions. */
   session_id: string | null;
   type: OkfDocumentType | null;
   participants: unknown;
