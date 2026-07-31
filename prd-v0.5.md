@@ -3,7 +3,11 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
+<<<<<<< Updated upstream
 **Last updated:** 2026-07-31 (Phase 2 + Phase 5 complete)  
+=======
+**Last updated:** 2026-07-31 (Receives PDF/DOCX + Listens v1 + Admin Queue shipped)  
+>>>>>>> Stashed changes
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -17,6 +21,7 @@
 *   Planned Receives expansion: **PDF + DOCX → Markdown** (after text path is solid); old `.doc` lower priority.
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
+<<<<<<< Updated upstream
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
 *   **Auth methods changed**: Google SSO + email/password replace Magic Link (rate-limit issues on Supabase's default email provider made Magic Link impractical for active dev/testing) — see §3.1.
 *   **OKF LLM enrichment** shipped: Session/Tags/Participants are proposed automatically (Inngest + OpenAI) on every new Commons document; `needs_review` now reflects extraction confidence, not just missing form fields — see §5.2.
@@ -25,6 +30,14 @@
 *   **Sessions are now first-class**: a real `sessions` table backs `Session_ID` (previously free text) — see §5.2.
 *   **Full session archive + "I Attended" harvest** shipped — see §7.2 (previously "later").
 *   **Admin surface** shipped: `/admin` now covers the `needs_review` metadata queue, membership management (add/remove/promote existing accounts by email), and the isolation toggle, all gated to stream admins — see §3.2, §4.2, §7.5 (previously "later" / DB-only).
+=======
+### Progress since initial 0.5 (through 2026-07-31)
+*   **OKF LLM enrichment shipped** — Session/Tags/Participants are now proposed automatically via Inngest + OpenAI on every new Commons document; `needs_review` reflects extraction confidence, not just missing form fields.
+*   **CLara Listens v1 shipped** — browser mic recording → Whisper → Commons document (`Type: Transcript`). Short recordings only (~15 min cap) by design; no Storage bucket, synchronous. Longer/chunked meeting capture is a deferred "v2."
+*   **CLara Receives: PDF + DOCX shipped** — async path (Storage + Inngest, mirroring the pattern Listens v2 will likely reuse). Upload/Add text/PDF/DOCX are all live now.
+*   **Admin Queue shipped** — `/admin` (stream admins only) lists `needs_review` documents; no separate "approve" action, opening and saving a flagged doc through the normal editor clears the flag.
+*   **Sessions became a real entity** — `sessions` table added; `Session_ID` on documents is now a proper reference (with an admin-resolved "find or create by name" path for LLM-proposed sessions) instead of free text. See §7.2.
+>>>>>>> Stashed changes
 
 ---
 
@@ -100,7 +113,11 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ### 5.1 Inputs
 
 1.  **CLara Chatbot** — contribute/reflect; separate from Ask CLara. *(Not built yet.)*
+<<<<<<< Updated upstream
 2.  **CLara Listens** — *(Shipped v1.)* Browser mic recording → Whisper → Commons document (`Type: Transcript`), same table/RLS as Receives. Deliberately short-recording-only for v1 (~15 min cap, synchronous, no Storage bucket) — desktop meeting-audio capture and longer/chunked recordings are a deferred "v2," not a bug in v1. Mobile = device mic (works today).
+=======
+2.  **CLara Listens** — *(Shipped v1.)* Browser mic recording → Whisper → Commons document (`Type: Transcript`), same table/RLS as Receives. Deliberately short-recording-only for v1 (~15 min cap, synchronous, no Storage bucket) — desktop meeting-audio capture and longer/chunked recordings (porting more of Old Clara's pattern) are a deferred "v2." Mobile = device mic (works today, since v1 is just browser `MediaRecorder`).
+>>>>>>> Stashed changes
 3.  **CLara Receives** — bring existing text/files into the Commons.
     *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap).
     *   **Add text** — rich-text editor (formatting visible; **stored as Markdown**).
@@ -122,9 +139,15 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   Types include: Reflection, Note, Transcript, Summary, Atom, Concept, Framework, Theme.
 
 **How OKF gets filled:**
+<<<<<<< Updated upstream
 *   **Manual:** Title (optional), Type, Privacy (default Public) at Receive time; Session is editable on document edit (pick from the stream's existing sessions, or create by name inline).
 *   **Automatic** *(Shipped)*: on every new document, an Inngest job asks an LLM to propose Session / Tags / Participants. It never overwrites a field a human already set, and sets `needs_review = true` only when the model wasn't confident it found real signal in the text — not merely because a field is empty.
 *   **Admin Queue** *(Shipped)*: humans fix `needs_review` docs via `/admin` — never blocks ingestion. See §7.5.
+=======
+*   **Manual:** Title (optional), Type, Privacy (default Public) at Receive time; Session is editable on document edit (picked from existing `sessions` for the stream, or create-by-name inline).
+*   **Automatic (Shipped):** on every new document, an Inngest job asks an LLM to propose Session / Tags / Participants; it never overwrites fields a human already set, and sets `needs_review = true` only when the model wasn't confident it found real signal in the text (not just "field is empty").
+*   **Admin Queue (Shipped):** `/admin` (stream admins only) lists `needs_review` docs; opening one through the normal editor and saving with Title + Type filled clears the flag — no separate "approve" action needed.
+>>>>>>> Stashed changes
 
 ### 5.3 Outputs
 
