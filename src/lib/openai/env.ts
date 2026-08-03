@@ -11,3 +11,7 @@ export function getOpenAiChatModel(): string {
 export function getOpenAiTranscriptionModel(): string {
   return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || "whisper-1";
 }
+
+export function getOpenAiEmbeddingModel(): string {
+  return process.env.OPENAI_EMBEDDING_MODEL?.trim() || "text-embedding-3-small";
+}
