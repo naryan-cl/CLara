@@ -1,10 +1,20 @@
-import { ComingSoon } from "@/components/ComingSoon";
+import { ChatForm } from "@/components/ChatForm";
 
 export default function ChatPage() {
   return (
-    <ComingSoon
-      title="CLara Chatbot"
-      description="Solo, reflective conversation with CLara. Contributions you choose to share get written into the Camp CLAI Commons. Kept separate from Ask CLara so contributing and querying never mix."
-    />
+    <div className="flex flex-col gap-10">
+      <div>
+        <h1 className="font-display text-2xl font-medium text-ink">
+          CLara Chatbot
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-ink/60">
+          Solo, reflective conversation with CLara. This is separate from Ask
+          CLara — it doesn&apos;t search the Commons, and nothing you say
+          here is saved unless you choose to save it.
+        </p>
+      </div>
+
+      <ChatForm />
+    </div>
   );
 }
