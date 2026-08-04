@@ -56,3 +56,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Knowledge Map edge flow — DESIGN_GUIDE.md "signature moments". Skipped
+   entirely (see KnowledgeMap.tsx) when prefers-reduced-motion is set. */
+@keyframes km-edge-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
