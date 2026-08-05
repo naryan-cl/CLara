@@ -21,11 +21,15 @@ export function ChatForm() {
   const [savePrivacy, setSavePrivacy] = useState<"private" | "public">(
     "private",
   );
+  /** Assistant message indexes that were shared as a single exchange. */
+  const [sharedIndexes, setSharedIndexes] = useState<Record<number, string>>(
+    {},
+  );
 
   const isUpToDate =
     savedDocumentId !== null && savedMessageCount === messages.length;
 
-  function onSave() {
+  function onSaveAll() {
     setSaveError(null);
     startSaveTransition(async () => {
       const result = await saveChatConversation(messages, savePrivacy);
@@ -35,6 +39,30 @@ export function ChatForm() {
       }
       setSavedDocumentId(result.documentId);
       setSavedMessageCount(messages.length);
+    });
+  }
+
+  function onShareExchange(assistantIndex: number) {
+    setSaveError(null);
+    const assistant = messages[assistantIndex];
+    if (!assistant || assistant.role !== "assistant") return;
+
+    const prior = messages[assistantIndex - 1];
+    const snippet: ChatMessage[] =
+      prior?.role === "user" ? [prior, assistant] : [assistant];
+
+    startSaveTransition(async () => {
+      const result = await saveChatConversation(snippet, savePrivacy, {
+        titlePrefix: "Chat share",
+      });
+      if (!result.ok) {
+        setSaveError(result.error);
+        return;
+      }
+      setSharedIndexes((prev) => ({
+        ...prev,
+        [assistantIndex]: result.documentId,
+      }));
     });
   }
 
@@ -90,6 +118,27 @@ export function ChatForm() {
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
                 {message.content}
               </p>
+              {message.role === "assistant" ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {sharedIndexes[index] ? (
+                    <Link
+                      href={`/sessions/documents/${sharedIndexes[index]}`}
+                      className="font-mono text-[11px] text-horizon hover:underline"
+                    >
+                      Shared ✓ — view
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => onShareExchange(index)}
+                      className="font-mono text-[11px] text-ink/50 hover:text-horizon disabled:opacity-60"
+                    >
+                      Share this exchange
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           ))
         )}
@@ -114,7 +163,7 @@ export function ChatForm() {
                     e.target.value === "public" ? "public" : "private",
                   )
                 }
-                disabled={saving || isUpToDate}
+                disabled={saving}
                 className="rounded-md border border-cloud bg-sand/40 px-2 py-1.5 text-sm text-ink disabled:opacity-60"
               >
                 <option value="private">Private (only you)</option>
@@ -123,7 +172,7 @@ export function ChatForm() {
             </label>
             <button
               type="button"
-              onClick={onSave}
+              onClick={onSaveAll}
               disabled={saving || isUpToDate}
               className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
             >
@@ -131,7 +180,7 @@ export function ChatForm() {
                 ? "Saving…"
                 : isUpToDate
                   ? "Saved ✓"
-                  : "Save conversation to Commons"}
+                  : "Save full conversation"}
             </button>
             {isUpToDate && savedDocumentId && (
               <Link
@@ -142,6 +191,10 @@ export function ChatForm() {
               </Link>
             )}
           </div>
+          <p className="text-xs text-ink/45">
+            Visibility applies to full-conversation saves and per-exchange
+            shares.
+          </p>
           {saveError && <p className="text-sm text-danger">{saveError}</p>}
         </div>
       )}

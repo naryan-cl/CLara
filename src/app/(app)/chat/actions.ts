@@ -85,13 +85,14 @@ export type SaveChatResult =
   | { ok: false; error: string };
 
 /**
- * Writes the whole conversation into the Commons as one Reflection document,
- * private by default. This is the only point where Chatbot touches the
- * Commons — everything before this is ephemeral, in-memory conversation.
+ * Writes conversation messages into the Commons as one Reflection document.
+ * Private by default; caller may pass Public. Chatbot only touches the Commons
+ * through this path — turns stay ephemeral until save/share.
  */
 export async function saveChatConversation(
   messages: ChatMessage[],
   privacyStatus: "public" | "private" = "private",
+  options?: { titlePrefix?: string },
 ): Promise<SaveChatResult> {
   if (messages.length === 0) {
     return { ok: false, error: "Nothing to save yet." };
@@ -125,11 +126,12 @@ export async function saveChatConversation(
     )
     .join("\n\n");
 
-  const title = `Chat reflection — ${new Date().toLocaleDateString("en-US", {
+  const dateLabel = new Date().toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  })}`;
+  });
+  const title = `${options?.titlePrefix ?? "Chat reflection"} — ${dateLabel}`;
 
   const { document, error } = await createDocument({
     streamId: stream.id,
