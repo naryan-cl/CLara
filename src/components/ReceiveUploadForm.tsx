@@ -17,8 +17,35 @@ const TYPE_OPTIONS = [
 
 type InputMode = "file" | "paste";
 
-const ALLOWED_EXTENSIONS = [".md", ".txt", ".pdf", ".docx"];
+const ALLOWED_EXTENSIONS = [
+  ".md",
+  ".txt",
+  ".pdf",
+  ".docx",
+  ".mp3",
+  ".m4a",
+  ".wav",
+  ".webm",
+  ".ogg",
+  ".mp4",
+  ".mpeg",
+  ".mpga",
+  ".oga",
+  ".flac",
+];
 const CONVERTIBLE_EXTENSIONS = [".pdf", ".docx"];
+const AUDIO_EXTENSIONS = [
+  ".mp3",
+  ".m4a",
+  ".wav",
+  ".webm",
+  ".ogg",
+  ".mp4",
+  ".mpeg",
+  ".mpga",
+  ".oga",
+  ".flac",
+];
 
 function isAllowedFile(file: File) {
   const name = file.name.toLowerCase();
@@ -28,6 +55,11 @@ function isAllowedFile(file: File) {
 function isConvertibleFile(file: File) {
   const name = file.name.toLowerCase();
   return CONVERTIBLE_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+function isAudioFile(file: File) {
+  const name = file.name.toLowerCase();
+  return AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
 export function ReceiveUploadForm() {
@@ -58,7 +90,9 @@ export function ReceiveUploadForm() {
         return;
       }
       if (!isAllowedFile(next)) {
-        setError("Only .md, .txt, .pdf, and .docx files are supported.");
+        setError(
+          "Only .md, .txt, .pdf, .docx, and short audio files are supported.",
+        );
         clearFile();
         return;
       }
@@ -88,6 +122,7 @@ export function ReceiveUploadForm() {
     const formData = new FormData(form);
     formData.set("source", mode);
     const convertible = mode === "file" && file ? isConvertibleFile(file) : false;
+    const audio = mode === "file" && file ? isAudioFile(file) : false;
     if (mode === "file" && file) {
       formData.set("file", file);
       formData.set("pastedText", "");
@@ -106,9 +141,11 @@ export function ReceiveUploadForm() {
       setMessage(
         convertible
           ? "Received — extracting text in the background, refresh in a moment to see it."
-          : result.needsReview
-            ? "Received — saved with needs_review (missing metadata)."
-            : "Received — saved to the Commons.",
+          : audio
+            ? "Received — transcribed with Whisper and saved as a Transcript."
+            : result.needsReview
+              ? "Received — saved with needs_review (missing metadata)."
+              : "Received — saved to the Commons.",
       );
       clearFile();
       setMarkdownText("");
@@ -131,10 +168,14 @@ export function ReceiveUploadForm() {
         <p className="mt-1 text-sm text-ink/60">
           Upload a <span className="font-mono">.md</span>,{" "}
           <span className="font-mono">.txt</span>,{" "}
-          <span className="font-mono">.pdf</span>, or{" "}
-          <span className="font-mono">.docx</span> file, or add formatted
-          text — one or the other, not both. Stored as Markdown in the
-          Commons. PDF/DOCX text extraction happens in the background.
+          <span className="font-mono">.pdf</span>,{" "}
+          <span className="font-mono">.docx</span>, or a short audio clip
+          (<span className="font-mono">.mp3</span>,{" "}
+          <span className="font-mono">.m4a</span>,{" "}
+          <span className="font-mono">.wav</span>, …), or add formatted text —
+          one or the other, not both. Text is stored as Markdown; audio is
+          transcribed with Whisper into a Transcript (same ~15 min / ~4MB cap
+          as Record).
         </p>
       </div>
 
@@ -204,13 +245,13 @@ export function ReceiveUploadForm() {
           <p className="text-xs text-ink/50">
             {file
               ? `${Math.max(1, Math.round(file.size / 1024))} KB · click to replace`
-              : ".md, .txt, .pdf, or .docx · or click to browse"}
+              : ".md, .txt, .pdf, .docx, or short audio · or click to browse"}
           </p>
           <input
             ref={fileInputRef}
             type="file"
             name="file"
-            accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".md,.txt,.pdf,.docx,.mp3,.m4a,.wav,.webm,.ogg,.mp4,.mpeg,.mpga,.oga,.flac,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/*"
             className="absolute h-0 w-0 opacity-0"
             onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
           />

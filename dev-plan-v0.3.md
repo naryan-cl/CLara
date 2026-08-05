@@ -130,6 +130,7 @@
 *   **Ask CLara v2 Module B (similarity cutoff) shipped 2026-08-05:** `searchCommons` drops chunks below `DEFAULT_MIN_SIMILARITY` (0.28) so off-topic questions skip the LLM and return the quiet "nothing found" answer.
 *   **Chatbot v2 Module B (per-exchange share) shipped 2026-08-05:** each CLara reply can "Share this exchange" (prior user turn + reply) as its own Reflection; full-conversation save remains.
 *   **Knowledge Map v2 Module A (arrow-key nav) shipped 2026-08-05:** spatial arrow-key movement between nodes (`findNearestInDirection`), roving tabindex, Enter/Space select, Escape clears; closes the DESIGN_GUIDE a11y gap that v1 only had Tab/Enter.
+*   **Audio via Receives shipped 2026-08-05:** Upload accepts short Whisper-friendly audio (`.mp3`, `.m4a`, `.wav`, …) with the same ~4MB / ~15 min cap as Listens v1; saves a public `Transcript`. Closes the Phase 2 optional checklist item (not Listens v2 — still sync, no Storage).
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -223,7 +224,7 @@
 *   [x] OKF LLM enrich (Inngest)  
 *   [x] PDF/DOCX convert  
 *   [x] Listens + Whisper (v1 — short recordings, sync; long/chunked is a later phase)  
-*   [ ] Audio file via Receives (optional share Whisper)
+*   [x] Audio file via Receives (optional share Whisper) — shipped 2026-08-05 (sync Whisper, same cap as Listens v1)
 
 ### Phase 3 — Ask + Chatbot (separate)
 *   [x] Ask CLara Module A — `document_embeddings` (pgvector) + `clara-embed-document` Inngest job — shipped + verified 2026-08-03

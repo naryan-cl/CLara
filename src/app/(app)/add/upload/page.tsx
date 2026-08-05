@@ -11,8 +11,9 @@ export default function AddUploadPage() {
           Upload
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Bring existing thinking into the Commons — upload a file or add text.
-          Both paths store Markdown with OKF metadata.
+          Bring existing thinking into the Commons — upload a file (text, PDF,
+          DOCX, or short audio), or add text. Audio is transcribed like Record;
+          both paths store Markdown with OKF metadata.
         </p>
       </div>
 

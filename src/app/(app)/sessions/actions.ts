@@ -8,16 +8,31 @@ import {
   CLARA_DOCUMENT_CREATED,
   CLARA_UPLOAD_RECEIVED,
 } from "@/lib/inngest/client";
+import { MAX_AUDIO_BYTES, transcribeAudio } from "@/lib/openai/transcribe";
 import type { StreamSummary } from "@/lib/streams/types";
 
 const TEXT_EXTENSIONS = new Set([".md", ".txt"]);
 const CONVERTIBLE_EXTENSIONS = new Set([".pdf", ".docx"]);
+/** Whisper-friendly formats (same cap as Listens v1). */
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3",
+  ".m4a",
+  ".wav",
+  ".webm",
+  ".ogg",
+  ".mp4",
+  ".mpeg",
+  ".mpga",
+  ".oga",
+  ".flac",
+]);
 const MAX_BYTES = 512 * 1024; // 512 KB — keep first Receives slice simple
 const MAX_CONVERTIBLE_BYTES = 4.5 * 1024 * 1024; // stay under the 5mb server action body limit
 const MAX_PASTE_CHARS = 100_000;
 const ALLOWED_EXTENSIONS = new Set([
   ...TEXT_EXTENSIONS,
   ...CONVERTIBLE_EXTENSIONS,
+  ...AUDIO_EXTENSIONS,
 ]);
 
 export type ReceiveResult =
@@ -25,8 +40,8 @@ export type ReceiveResult =
   | { ok: false; error: string };
 
 /**
- * CLara Receives (text path): file upload XOR pasted text → Commons document
- * for the active stream.
+ * CLara Receives: file upload XOR pasted text → Commons document
+ * for the active stream. Audio files share Listens' Whisper path.
  */
 export async function receiveTextContent(
   formData: FormData,
@@ -66,7 +81,7 @@ export async function receiveTextContent(
     if (!hasFile && !hasPaste) {
       return {
         ok: false,
-        error: "Drop/select a .md/.txt file, or paste text.",
+        error: "Drop/select a file, or paste text.",
       };
     }
 
@@ -88,8 +103,18 @@ export async function receiveTextContent(
       if (!ALLOWED_EXTENSIONS.has(extension)) {
         return {
           ok: false,
-          error: "Only .md, .txt, .pdf, and .docx uploads are supported.",
+          error:
+            "Only .md, .txt, .pdf, .docx, and short audio uploads are supported.",
         };
+      }
+
+      if (AUDIO_EXTENSIONS.has(extension)) {
+        return receiveAudioUpload({
+          file,
+          formData,
+          userId: user.id,
+          streamId: stream.id,
+        });
       }
 
       if (CONVERTIBLE_EXTENSIONS.has(extension)) {
@@ -167,6 +192,69 @@ export async function receiveTextContent(
       error: "Something went wrong while receiving. Try again.",
     };
   }
+}
+
+/**
+ * Audio via Receives: same Whisper path as Listens v1, sync, ~4MB cap.
+ * Type is always Transcript — the body is spoken word, not a typed note.
+ */
+async function receiveAudioUpload({
+  file,
+  formData,
+  userId,
+  streamId,
+}: {
+  file: File;
+  formData: FormData;
+  userId: string;
+  streamId: string;
+}): Promise<ReceiveResult> {
+  if (file.size > MAX_AUDIO_BYTES) {
+    return {
+      ok: false,
+      error:
+        "Audio is too long for this path (max ~4MB, roughly 15 minutes). Try a shorter clip, or use Add → Record for a live take.",
+    };
+  }
+
+  const transcribed = await transcribeAudio(file);
+  if (!transcribed.ok) {
+    return { ok: false, error: transcribed.error };
+  }
+
+  const titleFromForm = String(formData.get("title") ?? "").trim();
+  const defaultTitle =
+    file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() ||
+    `Audio — ${new Date().toLocaleString()}`;
+  const title = titleFromForm || defaultTitle;
+
+  const { document, error } = await createDocument({
+    streamId,
+    createdBy: userId,
+    content: transcribed.text,
+    title,
+    type: "Transcript",
+    privacyStatus: "public",
+  });
+
+  if (error || !document) {
+    return { ok: false, error: error ?? "Saving the transcript failed." };
+  }
+
+  try {
+    await inngest.send({
+      name: CLARA_DOCUMENT_CREATED,
+      data: { documentId: document.id, streamId },
+    });
+  } catch (err) {
+    console.error("Failed to enqueue OKF enrichment:", err);
+  }
+
+  return {
+    ok: true,
+    documentId: document.id,
+    needsReview: document.needs_review,
+  };
 }
 
 /**
