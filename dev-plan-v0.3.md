@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-04 (Phase 4 complete — Knowledge Map shipped)  
+**Last updated:** 2026-08-05 (Phase 6 Modules A–F shipped in code; run migration 0011)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -40,7 +40,7 @@
 ## 1. Product framing
 
 *   **Product:** CLara · **First stream:** Camp CLAI (`camp-clai`, isolation **on**)
-*   **Lens:** Input → Commons → Output
+*   **Lens:** Add → Commons → Synthesis (formerly Input → Commons → Output)
 *   **Content model:** Users see rich text; **storage is Markdown** in `documents.content`
 
 | Lens | Status |
@@ -123,11 +123,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
-*   **Phase 2 complete** (Receives text + PDF/DOCX + OKF enrich + Listens v1 + Admin Queue) — every Phase 2 checklist item is now shipped except optional audio-file-via-Receives.
-*   **Phase 5 complete (2026-07-30):** sessions table, full session archive UI, "I Attended" harvest, admin polish (membership + isolation UI) — all four modules shipped. Next: pick from Phase 3 (Ask + Chatbot) or Phase 4 (Knowledge Map), or Ask CLara embeddings / Listens v2 per the "Next up" list.
-*   **Phase 3: Ask CLara Module A + Module B both shipped and verified end-to-end (2026-08-03).** Ask CLara is functionally complete for v1 — real question in, grounded answer + source link out.
-*   **Phase 3: CLara Chatbot Module A + Module B both shipped and verified end-to-end (2026-08-04).** Phase 3 (Ask + Chatbot) is now fully complete. Next: Knowledge Map (Phase 4), or the Phase 3 v2 backlog items below.
-*   **Phase 4: Knowledge Map Module A + Module B both shipped and verified end-to-end (2026-08-04).** Phase 4 is now complete. Next: pick from the v2 backlog items below (Listens v2, Ask/Chatbot v2 ideas, or Knowledge Map's own deferred keyboard-nav item).
+*   **Phase 2–5 complete** (ingestion, Ask + Chatbot, Knowledge Map, sessions/archive/harvest/admin). See shipped log below.
+*   **Phase 6 complete (2026-08-05):** Modules A–F shipped in code — nested nav + hamburger, Add page split, Commons repository (filters/sort/eye icon), minimizable detail popup, comments + edit audit log (`0011`), landing/dashboard copy. **Requires running `0011_comments_and_attendee_edit.sql` in Supabase** before comments / attendee-edit RLS work in the shared DB.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -187,11 +184,23 @@
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
 *   **Old Clara** — `C:\Users\narya\OneDrive\Documents\GitHub\Old Clara` — Listens recorder, Whisper, chunked upload, privacy gates.
 
+### Decisions that must survive the next session (2026-08-05)
+*   **Phase 6 Modules B–F (2026-08-05, shipped in code):** Add routes `/add/chat|record|upload` (old `/chat` + `/sessions` hub redirect). Commons repository (`CommonsRepository` + pure `filterCommonsItems`) with type/date/attended/my-artifacts filters, sort, private eye icon. Minimizable `CommonsDetailPopup` loads document/session detail, DocumentEditor (`canEdit`), AttendanceToggle, `CommentThread`. Migration `0011_comments_and_attendee_edit.sql`: attendee UPDATE policy on documents, `comments` + `comment_edit_log`, `get_user_public_profiles`. Landing + dashboard copy use Add/Commons/Synthesis. **Manual test:** (1) Add menu → three pages work; (2) Commons filters + click opens popup; (3) Minimize/restore/close; (4) after `0011`, post/edit/delete comment + admin audit; (5) private doc shows eye to owner; (6) mobile hamburger still works.
+*   **Nav labels:** Dashboard · Add · Commons · Synthesis · Admin. Dashboard unchanged for now. Admin stays top-level.
+*   **Add children:** Chat (= `/chat` chatbot), Record (= Listens), Upload (= Receives including Add text).
+*   **Synthesis children:** Ask CLara (`/ask`), Knowledge Map (`/map`). Routes can stay; nav nesting is the product change.
+*   **Mobile:** hamburger; Add/Synthesis expand in-menu (not separate hub pages).
+*   **Commons absorbs archive + attendance:** session list is part of Commons; open session → "I Attended" + comments. Old `/sessions` as the add-hub is retired once Add routes exist.
+*   **Commons list content:** all chats/recordings/uploads unless Private (owner still sees own private + eye icon). Filters: element type, date, attended, my artifacts.
+*   **Detail UX:** minimizable popup (minimize control top-right), not only full-page navigation.
+*   **Edit who:** author, session attendees, stream admins.
+*   **Comments:** on documents and sessions; name + avatar/initials + timestamp; author edit/delete; "edited" marker; admin-visible edit audit log (who/when).
+*   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
+
 ### Next up (pick one module at a time)
-1.  **Listens v2** (Storage bucket + async Inngest transcription) — only if long/full-meeting recordings become a real need; v1 already covers short reflections. Note: PDF/DOCX Receives already proved this exact pattern (Storage + admin client + Inngest), so Listens v2 can mostly reuse it.
-2.  **Ask CLara v2 ideas (not scheduled):** conversation history / follow-up questions; tuning a similarity-score cutoff so very-off-topic questions skip the LLM call entirely; deploying Module A+B to Vercel (see "What works in production today" — not yet deployed).
-3.  **Chatbot v2 ideas (not scheduled):** per-message "share this" save (vs. whole-conversation save); letting the user pick Public/Private at save time instead of always defaulting Private; deploying to Vercel.
-4.  **Knowledge Map v2 ideas (not scheduled):** full arrow-key spatial navigation between nodes (DESIGN_GUIDE.md a11y spec — v1 has Tab/Enter only); deploying `0010` + `clara-extract-graph` to Vercel prod Supabase (not yet deployed, same as Ask CLara/Chatbot).
+1.  **Run migration `0011_comments_and_attendee_edit.sql`** in the shared Supabase SQL editor (comments + attendee document-edit RLS + `get_user_public_profiles`). Then smoke-test Commons popup comments.
+2.  **Listens v2** (Storage bucket + async Inngest transcription) — only if long/full-meeting recordings become a real need; v1 already covers short reflections.
+3.  **Ask / Chatbot / Map v2 ideas** — see prior backlog (history, privacy-at-save, arrow-key map nav, prod deploy of embeddings/graph migrations).
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
@@ -232,6 +241,17 @@
 *   [x] Admin polish — membership edge cases (add/remove/promote `stream_members` by email, existing accounts only) + isolation toggle UI, both at `/admin` (§4.2 is no longer DB/RLS-only)
 
 **Phase 5 is complete as of 2026-07-30.** Started ahead of Phase 3/4 by deliberate choice — Ask/Chatbot and Knowledge Map remain "later." Phase 2 is now fully done except optional audio-via-Receives.
+
+### Phase 6 — Site IA: Add / Commons / Synthesis *(decided 2026-08-05)*
+
+Build one module at a time; verify; update this Progress section; then continue.
+
+*   [x] **Module A — App nav + mobile hamburger** — shipped 2026-08-05
+*   [x] **Module B — Add page split** — `/add/chat`, `/add/record`, `/add/upload`; `/chat` and `/sessions` redirect; nav updated — shipped 2026-08-05
+*   [x] **Module C — Commons repository list** — filterable/sortable multi-element list (docs + sessions); private eye icon; filters type/date/attended/my artifacts — shipped 2026-08-05
+*   [x] **Module D — Minimizable detail popup** — click → popup with minimize; edit when author/attendee/admin (attendee RLS in `0011`); session popup includes "I Attended" — shipped 2026-08-05
+*   [x] **Module E — Comments + audit log** — `0011_comments_and_attendee_edit.sql` + CommentThread; author edit/delete; "edited" marker; admin audit — shipped 2026-08-05 (**run migration in Supabase**)
+*   [x] **Module F — Docs & landing copy** — landing triad Add/Commons/Synthesis; dashboard jump-in updated — shipped 2026-08-05
 
 ---
 

@@ -19,8 +19,9 @@ const anchors = [
 ];
 
 const entryPoints = [
-  { href: "/sessions", label: "Sessions", description: "Browse and add recordings." },
-  { href: "/chat", label: "Harvest / Chat", description: "Reflect and contribute." },
+  { href: "/commons", label: "Commons", description: "Browse sessions and artifacts." },
+  { href: "/add/chat", label: "Chat", description: "Reflect and contribute." },
+  { href: "/add/record", label: "Record", description: "Capture a short listen." },
   { href: "/map", label: "Knowledge Map", description: "Explore the concept web." },
   { href: "/ask", label: "Ask CLara", description: "Query the Commons." },
 ];

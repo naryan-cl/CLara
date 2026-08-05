@@ -1,7 +1,7 @@
 # Project Context
 - Product: **CLara** platform. **Camp CLAI** is the first stream (domain), not the whole product.
 - Source of truth: `prd-v0.5.md` (product) and `dev-plan-v0.3.md` (build roadmap + handoff). Also follow `DESIGN_GUIDE.md` for UI.
-- Architecture lens: Input → Commons → Output. Chatbot (input) and Ask CLara (output) stay **separate**.
+- Architecture lens: Add → Commons → Synthesis (formerly Input → Commons → Output). Chatbot (Add) and Ask CLara (Synthesis) stay **separate**.
 - Always scope Commons data with `stream_id`. Respect stream **isolation** when enabled.
 
 # Communication & Teaching Persona

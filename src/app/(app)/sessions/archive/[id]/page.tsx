@@ -65,10 +65,10 @@ export default async function SessionArchiveDetailPage({ params }: PageProps) {
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href="/sessions/archive"
+        href="/commons"
         className="text-sm text-horizon hover:underline"
       >
-        ← Back to Session archive
+        ← Back to Commons
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">

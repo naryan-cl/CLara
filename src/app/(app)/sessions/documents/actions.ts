@@ -80,6 +80,7 @@ export async function saveDocumentEdits(
     }
 
     revalidatePath("/sessions");
+    revalidatePath("/commons");
     revalidatePath("/dashboard");
     revalidatePath(`/sessions/documents/${id}`);
 

@@ -107,13 +107,13 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 **Knowledge Map:** dark `--forest-deep` canvas; nodes are soft circles/pills labeled in sans; active/hover nodes glow `--glow`; edges are thin `--sage` curves with a faint animated flow. Side panel slides in for node detail. Respect reduced-motion (freeze the flow).
 
-**CLara Chatbot (Input) & Ask CLara (Output):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
+**CLara Chatbot (Add) & Ask CLara (Synthesis):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
 
 **Session & summary:** editorial reading layout — serif title, date/facilitator meta, `Body-lg` prose, related-concept chips. Facilitator view adds a draft/publish bar.
 
 **Status pills:** Draft (`--cloud`), Pending (`--warning`), Published/Approved (`--success`).
 
-**Navigation:** minimal top bar — **CLara** wordmark, active **stream** badge (e.g. Camp CLAI), Dashboard · Sessions · Map · Chat · Ask CLara · Admin, and account. Calm, not crowded.
+**Navigation:** minimal top bar — **CLara** wordmark, active **stream** badge (e.g. Camp CLAI), **Dashboard · Add · Commons · Synthesis · Admin**, and account. **Add** expands to Chat / Record / Upload; **Synthesis** expands to Ask CLara / Knowledge Map. Mobile: hamburger with the same expandable groups (nav must remain reachable below `sm`). Calm, not crowded.
 
 ---
 

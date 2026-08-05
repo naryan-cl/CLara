@@ -16,12 +16,22 @@ export function DocumentList({
           className="flex items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
         >
           <div>
-            <Link
-              href={`/sessions/documents/${doc.id}`}
-              className="font-medium text-ink hover:text-forest hover:underline"
-            >
-              {doc.title?.trim() || "Untitled"}
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/sessions/documents/${doc.id}`}
+                className="font-medium text-ink hover:text-forest hover:underline"
+              >
+                {doc.title?.trim() || "Untitled"}
+              </Link>
+              {doc.privacy_status === "private" ? (
+                <span
+                  className="font-mono text-[11px] text-ink/40"
+                  title="Hidden from public"
+                >
+                  · private
+                </span>
+              ) : null}
+            </div>
             <p className="font-mono text-[11px] text-ink/40">
               {doc.type ?? "untyped"}
               {doc.needs_review ? " · needs review" : ""}

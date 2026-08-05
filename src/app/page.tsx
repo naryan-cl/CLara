@@ -30,10 +30,10 @@ export default function Home() {
         <div className="mt-8 grid w-full gap-4 rounded-lg border border-cloud bg-paper p-6 text-left shadow-soft sm:grid-cols-3">
           <div>
             <p className="font-mono text-xs font-medium uppercase tracking-wide text-horizon">
-              Input
+              Add
             </p>
             <p className="mt-1 text-sm text-ink/70">
-              Chatbot, Listens, and Receives bring thinking into the Commons.
+              Chat, Record, and Upload bring thinking into the Commons.
             </p>
           </div>
           <div>
@@ -46,7 +46,7 @@ export default function Home() {
           </div>
           <div>
             <p className="font-mono text-xs font-medium uppercase tracking-wide text-horizon">
-              Output
+              Synthesis
             </p>
             <p className="mt-1 text-sm text-ink/70">
               Ask CLara and the Knowledge Map surface what was found.

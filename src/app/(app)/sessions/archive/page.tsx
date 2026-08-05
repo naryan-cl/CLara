@@ -10,8 +10,8 @@ export default async function SessionArchivePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/sessions" className="text-sm text-horizon hover:underline">
-        ← Back to Sessions
+      <Link href="/commons" className="text-sm text-horizon hover:underline">
+        ← Back to Commons
       </Link>
 
       <div>

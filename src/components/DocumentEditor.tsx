@@ -28,9 +28,15 @@ function asStringList(value: unknown): string[] {
 export function DocumentEditor({
   document,
   sessions,
+  canEdit = true,
+  compact = false,
 }: {
   document: CommonsDocument;
   sessions: SessionSummary[];
+  /** Author, session attendees, or admins — hide Edit when false. */
+  canEdit?: boolean;
+  /** Smaller headings for use inside the Commons popup. */
+  compact?: boolean;
 }) {
   const tags = asStringList(document.tags);
   const participants = asStringList(document.participants);
@@ -77,26 +83,34 @@ export function DocumentEditor({
               {" · "}
               {document.privacy_status}
             </p>
-            <h1 className="mt-1 font-display text-2xl font-medium text-ink">
-              {document.title?.trim() || "Untitled"}
-            </h1>
+            {compact ? (
+              <h2 className="mt-1 font-display text-xl font-medium text-ink">
+                {document.title?.trim() || "Untitled"}
+              </h2>
+            ) : (
+              <h1 className="mt-1 font-display text-2xl font-medium text-ink">
+                {document.title?.trim() || "Untitled"}
+              </h1>
+            )}
             <p className="mt-1 font-mono text-[11px] text-ink/40">
               Updated {new Date(document.updated_at).toLocaleString()}
               {currentSessionName ? ` · session ${currentSessionName}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setContentMarkdown(document.content);
-              setEditing(true);
-              setMessage(null);
-              setError(null);
-            }}
-            className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
-          >
-            Edit
-          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => {
+                setContentMarkdown(document.content);
+                setEditing(true);
+                setMessage(null);
+                setError(null);
+              }}
+              className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
+            >
+              Edit
+            </button>
+          ) : null}
         </div>
 
         {tags.length > 0 || participants.length > 0 ? (

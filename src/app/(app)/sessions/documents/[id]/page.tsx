@@ -19,10 +19,10 @@ export default async function DocumentPage({ params }: PageProps) {
       <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
         <p className="font-mono text-sm text-danger">{error}</p>
         <Link
-          href="/sessions"
+          href="/commons"
           className="mt-4 inline-block text-sm text-horizon hover:underline"
         >
-          ← Back to Sessions
+          ← Back to Commons
         </Link>
       </div>
     );
@@ -44,10 +44,10 @@ export default async function DocumentPage({ params }: PageProps) {
           This document belongs to another stream than your active one.
         </p>
         <Link
-          href="/sessions"
+          href="/commons"
           className="mt-4 inline-block text-sm text-horizon hover:underline"
         >
-          ← Back to Sessions
+          ← Back to Commons
         </Link>
       </div>
     );
@@ -56,10 +56,10 @@ export default async function DocumentPage({ params }: PageProps) {
   return (
     <div className="flex flex-col gap-6">
       <Link
-        href="/sessions"
+        href="/commons"
         className="text-sm text-horizon hover:underline"
       >
-        ← Back to Sessions
+        ← Back to Commons
       </Link>
       <DocumentEditor document={document} sessions={sessions} />
     </div>

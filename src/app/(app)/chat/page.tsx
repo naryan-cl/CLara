@@ -1,20 +1,6 @@
-import { ChatForm } from "@/components/ChatForm";
+import { redirect } from "next/navigation";
 
-export default function ChatPage() {
-  return (
-    <div className="flex flex-col gap-10">
-      <div>
-        <h1 className="font-display text-2xl font-medium text-ink">
-          CLara Chatbot
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Solo, reflective conversation with CLara. This is separate from Ask
-          CLara — it doesn&apos;t search the Commons, and nothing you say
-          here is saved unless you choose to save it.
-        </p>
-      </div>
-
-      <ChatForm />
-    </div>
-  );
+/** Old Chat route — Add · Chat now lives at `/add/chat`. */
+export default function ChatRedirectPage() {
+  redirect("/add/chat");
 }

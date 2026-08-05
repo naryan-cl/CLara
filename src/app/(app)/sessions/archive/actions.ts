@@ -32,6 +32,7 @@ export async function toggleAttendance(
 
     revalidatePath(`/sessions/archive/${sessionId}`);
     revalidatePath("/sessions/harvest");
+    revalidatePath("/commons");
 
     return { ok: true, attending };
   } catch (err) {
