@@ -178,7 +178,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   Existing document routes (`/sessions/documents/[id]`, archive pages) can remain as deep links until the popup UX replaces them.
 
 ### 7.4 Synthesis — Ask CLara / Knowledge Map
-*   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav.
+*   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav. **Follow-up thread** *(2026-08-05):* same-session conversation history in the Ask UI (client-held; still a separate pipeline from Chatbot).
 *   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav.
 *   Pipelines stay separate from Chatbot — no shared prompt/state.
 
@@ -186,7 +186,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Metadata queue** — lists documents with `needs_review = true`. No separate "approve" action — opening a flagged document through the normal editor and saving with Title + Type filled clears the flag.
 *   **Membership** — add an *existing* account to the stream by email, promote/demote member ↔ admin, remove a member. Deliberately does not create accounts or send invite email — the person must have signed in at least once already; a UI guard prevents an admin from removing/demoting themselves.
 *   **Isolation** — toggle for `streams.isolation_enabled` (§4.2), previously database-only.
-*   **Comment edit audit log** *(Decided, not yet built)* — admins can inspect who edited a comment and when.
+*   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---
 

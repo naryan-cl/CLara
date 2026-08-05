@@ -13,7 +13,8 @@ export default async function AskPage() {
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Query the {stream?.name ?? "Camp CLAI"} Commons and get answers
           grounded in real transcripts and summaries, with source links back
-          to the originating document.
+          to the originating document. Follow-up questions stay in this thread
+          (still separate from Add → Chat).
         </p>
       </div>
 

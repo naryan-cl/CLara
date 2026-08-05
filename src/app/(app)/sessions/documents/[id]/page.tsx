@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CommentThread } from "@/components/CommentThread";
 import { DocumentEditor } from "@/components/DocumentEditor";
+import { loadCommonsDetail } from "@/app/(app)/commons/actions";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listSessions } from "@/lib/sessions/list-sessions";
+import { createClient } from "@/lib/supabase/server";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -53,15 +56,43 @@ export default async function DocumentPage({ params }: PageProps) {
     );
   }
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { detail } = user
+    ? await loadCommonsDetail("document", id)
+    : { detail: null };
+
+  const canEdit =
+    detail?.kind === "document"
+      ? detail.canEdit
+      : document.created_by === user?.id;
+  const comments = detail?.kind === "document" ? detail.comments : [];
+  const isAdmin = detail?.kind === "document" ? detail.isAdmin : false;
+
   return (
-    <div className="flex flex-col gap-6">
-      <Link
-        href="/commons"
-        className="text-sm text-horizon hover:underline"
-      >
+    <div className="flex flex-col gap-8">
+      <Link href="/commons" className="text-sm text-horizon hover:underline">
         ← Back to Commons
       </Link>
-      <DocumentEditor document={document} sessions={sessions} />
+      <DocumentEditor
+        document={document}
+        sessions={sessions}
+        canEdit={canEdit}
+      />
+      {user ? (
+        <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+          <CommentThread
+            targetType="document"
+            targetId={document.id}
+            initialComments={comments}
+            currentUserId={user.id}
+            isAdmin={isAdmin}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

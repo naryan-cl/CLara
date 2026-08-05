@@ -12,6 +12,12 @@ export type AskSource = {
   sessionName: string | null;
 };
 
+/** Prior turns for follow-up questions (client-held; not the Chatbot). */
+export type AskHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type AskResult =
   | { ok: true; answer: string; sources: AskSource[] }
   | { ok: false; error: string };
@@ -19,7 +25,37 @@ export type AskResult =
 const NOTHING_FOUND_ANSWER =
   "I couldn't find anything in the Camp CLAI Commons about that yet. Try a different question, or check back once more has been added.";
 
-export async function askClara(question: string): Promise<AskResult> {
+/** Cap history so prompts stay bounded (same spirit as Chatbot's cap). */
+const MAX_HISTORY_MESSAGES = 12;
+const MAX_HISTORY_CHARS = 3000;
+
+function sanitizeHistory(
+  history: AskHistoryMessage[] | undefined,
+): AskHistoryMessage[] {
+  if (!history || history.length === 0) return [];
+  return history
+    .slice(-MAX_HISTORY_MESSAGES)
+    .filter(
+      (m) =>
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string" &&
+        m.content.trim().length > 0,
+    )
+    .map((m) => ({
+      role: m.role,
+      content: m.content.trim().slice(0, MAX_HISTORY_CHARS),
+    }));
+}
+
+/**
+ * Ask CLara — grounded RAG over the Commons.
+ * Optional `history` enables follow-ups in the same UI session without
+ * mixing prompts/state with the CLara Chatbot (Add → Chat).
+ */
+export async function askClara(
+  question: string,
+  history: AskHistoryMessage[] = [],
+): Promise<AskResult> {
   const trimmed = question.trim();
   if (!trimmed) {
     return { ok: false, error: "Ask something first." };
@@ -38,26 +74,39 @@ export async function askClara(question: string): Promise<AskResult> {
     };
   }
 
+  const prior = sanitizeHistory(history);
+
+  // Retrieval uses the latest question. For short follow-ups ("what else?"),
+  // blend the previous user question so embeddings stay on-topic.
+  const lastUser = [...prior].reverse().find((m) => m.role === "user");
+  const retrievalQuery =
+    trimmed.length < 40 && lastUser
+      ? `${lastUser.content}\n${trimmed}`
+      : trimmed;
+
   const { matches, error: searchError } = await searchCommons(
     stream.id,
-    trimmed,
+    retrievalQuery,
   );
   if (searchError) {
     return { ok: false, error: searchError };
   }
 
-  if (matches.length === 0) {
+  if (matches.length === 0 && prior.length === 0) {
     return { ok: true, answer: NOTHING_FOUND_ANSWER, sources: [] };
   }
 
-  const context = matches
-    .map((match, index) => {
-      const label = [match.documentTitle ?? "Untitled", match.sessionName]
-        .filter(Boolean)
-        .join(" · ");
-      return `[${index + 1}] (${label})\n${match.content}`;
-    })
-    .join("\n\n");
+  const context =
+    matches.length === 0
+      ? "(No new Commons excerpts matched this follow-up. Answer from prior turns if you can, or say you need a clearer question.)"
+      : matches
+          .map((match, index) => {
+            const label = [match.documentTitle ?? "Untitled", match.sessionName]
+              .filter(Boolean)
+              .join(" · ");
+            return `[${index + 1}] (${label})\n${match.content}`;
+          })
+          .join("\n\n");
 
   const client = new OpenAI({ apiKey });
   const completion = await client.chat.completions.create({
@@ -71,10 +120,16 @@ export async function askClara(question: string): Promise<AskResult> {
           "Commons excerpts provided below — never your own outside " +
           "knowledge. Cite the excerpts you rely on inline using their " +
           "[n] number. If the excerpts don't actually contain enough " +
-          "information to answer, say so plainly instead of guessing.",
+          "information to answer, say so plainly instead of guessing. " +
+          "You may use earlier turns in this Ask thread only to understand " +
+          "follow-up questions — still ground factual claims in the excerpts.",
       },
+      ...prior.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
       {
-        role: "user",
+        role: "user" as const,
         content: `Commons excerpts:\n\n${context}\n\nQuestion: ${trimmed}`,
       },
     ],

@@ -91,10 +91,14 @@ export type SaveChatResult =
  */
 export async function saveChatConversation(
   messages: ChatMessage[],
+  privacyStatus: "public" | "private" = "private",
 ): Promise<SaveChatResult> {
   if (messages.length === 0) {
     return { ok: false, error: "Nothing to save yet." };
   }
+
+  const privacy: "public" | "private" =
+    privacyStatus === "public" ? "public" : "private";
 
   const supabase = await createClient();
   const {
@@ -133,7 +137,7 @@ export async function saveChatConversation(
     content,
     title,
     type: "Reflection",
-    privacyStatus: "private",
+    privacyStatus: privacy,
   });
 
   if (error || !document) {
