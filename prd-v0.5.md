@@ -110,7 +110,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 5.1 Add (contribution)
 
-1.  **Chat** (`/chat`) — *(Shipped.)* Solo, reflective conversation with CLara; separate pipeline from Ask CLara (no shared prompt, no Commons retrieval). The conversation is ephemeral/in-memory until the participant clicks **"Save conversation to Commons,"** which writes the whole transcript as one `Type: Reflection` document, **Private** by default. That save re-uses the same `createDocument()` + `clara/document.created` event Receives uses, so OKF enrichment (Tags/Participants/Session) and Ask CLara embeddings both pick it up automatically — no separate plumbing needed on that side.
+1.  **Chat** (`/chat`) — *(Shipped.)* Solo, reflective conversation with CLara; separate pipeline from Ask CLara (no shared prompt, no Commons retrieval). The conversation is ephemeral/in-memory until the participant clicks **"Save conversation to Commons,"** which writes the whole transcript as one `Type: Reflection` document. **Private by default**, with an explicit **Private / Public** choice at save time (2026-08-05) so the participant can opt into the stream Commons. That save re-uses the same `createDocument()` + `clara/document.created` event Receives uses, so OKF enrichment (Tags/Participants/Session) and Ask CLara embeddings both pick it up automatically — no separate plumbing needed on that side.
 2.  **Record** (Listens) — *(Shipped v1.)* Browser mic recording → Whisper → Commons document (`Type: Transcript`), same table/RLS as Receives. Deliberately short-recording-only for v1 (~15 min cap, synchronous, no Storage bucket) — desktop meeting-audio capture and longer/chunked recordings (porting more of Old Clara's pattern) are a deferred "v2," not a bug in v1. Mobile = device mic (works today, since v1 is just browser `MediaRecorder`).
 3.  **Upload** (Receives) — bring existing text/files into the Commons.
     *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap).
@@ -164,7 +164,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   Jump-in cards may still link into Add / Synthesis surfaces; no redesign required in this IA pass.
 
 ### 7.2 Add — Chat / Record / Upload
-*   **Chat** (`/chat`) — *(Shipped.)* CLara Chatbot; "Save conversation to Commons" writes a Private `Type: Reflection` document. Separate pipeline from Ask CLara.
+*   **Chat** (`/chat`) — *(Shipped.)* CLara Chatbot; "Save conversation to Commons" writes a `Type: Reflection` document (**Private** default, Public optional at save). Separate pipeline from Ask CLara.
 *   **Record** — *(Shipped as Listens v1 on `/sessions`.)* Move under Add nav; mic → Whisper → Transcript.
 *   **Upload** — *(Shipped as Receives on `/sessions`.)* Move under Add nav; Upload / Add text / PDF / DOCX.
 *   Route reshuffle (e.g. `/add/chat`, `/add/record`, `/add/upload` vs keeping current paths with new nav labels) is an implementation detail — see `dev-plan-v0.3.md` Phase 6.

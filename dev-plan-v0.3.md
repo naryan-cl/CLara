@@ -126,6 +126,7 @@
 *   **Phase 2–5 complete** (ingestion, Ask + Chatbot, Knowledge Map, sessions/archive/harvest/admin). See shipped log below.
 *   **Phase 6 complete (2026-08-05):** Modules A–F shipped in code — nested nav + hamburger, Add page split, Commons repository (filters/sort/eye icon), minimizable detail popup, comments + edit audit log (`0011`), landing/dashboard copy. **Verified end-to-end by user 2026-08-05** (migration `0011` applied). Comments also on full document + session archive deep-link pages.
 *   **Ask CLara v2 Module A (follow-ups) shipped 2026-08-05:** in-session conversation history on `/ask` (client-held turns; `askClara(question, history)`); short follow-ups blend prior user question into retrieval; Chatbot pipeline stays separate.
+*   **Chatbot v2 Module A (privacy at save) shipped 2026-08-05:** save UI lets the participant choose Private (default) or Public Commons before writing the reflection.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -199,8 +200,8 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Chatbot v2:** Public/Private choice at save time; per-message share.
-2.  **Ask CLara v2 further:** similarity-score cutoff for off-topic questions; deploy embeddings/`0009` to Vercel prod if not already.
+1.  **Ask CLara v2 further:** similarity-score cutoff for off-topic questions; deploy embeddings/`0009` to Vercel prod if not already.
+2.  **Chatbot v2 further:** per-message share (vs whole-conversation save).
 3.  **Listens v2** (Storage + async Inngest) — only if long/full-meeting recordings become a real need.
 4.  **Knowledge Map v2:** arrow-key spatial nav; deploy `0010` if needed.
 
