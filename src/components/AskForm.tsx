@@ -65,8 +65,11 @@ export function AskForm() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex min-h-[16rem] flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
+    >
+      <div className="flex flex-col gap-4">
         {turns.length === 0 ? (
           <p className="text-sm text-ink/50">
             Ask anything about this stream&apos;s Commons. You can follow up in
@@ -109,18 +112,24 @@ export function AskForm() {
             </div>
           ))
         )}
+        {pending ? (
+          <span className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
+            CLara is thinking…
+          </span>
+        ) : null}
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-3 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
-      >
+      <div className="flex flex-col gap-3 border-t border-cloud pt-4">
         <label
           htmlFor="ask-question"
-          className="font-mono text-[11px] uppercase tracking-wide text-ink/60"
+          className={
+            turns.length === 0
+              ? "sr-only"
+              : "font-mono text-[11px] uppercase tracking-wide text-ink/60"
+          }
         >
           {turns.length === 0
-            ? "Ask the Commons"
+            ? "Ask a question"
             : "Follow up (same grounded thread)"}
         </label>
         <textarea
@@ -155,7 +164,7 @@ export function AskForm() {
             </button>
           ) : null}
         </div>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }
