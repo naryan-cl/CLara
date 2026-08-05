@@ -129,6 +129,7 @@
 *   **Chatbot v2 Module A (privacy at save) shipped 2026-08-05:** save UI lets the participant choose Private (default) or Public Commons before writing the reflection.
 *   **Ask CLara v2 Module B (similarity cutoff) shipped 2026-08-05:** `searchCommons` drops chunks below `DEFAULT_MIN_SIMILARITY` (0.28) so off-topic questions skip the LLM and return the quiet "nothing found" answer.
 *   **Chatbot v2 Module B (per-exchange share) shipped 2026-08-05:** each CLara reply can "Share this exchange" (prior user turn + reply) as its own Reflection; full-conversation save remains.
+*   **Knowledge Map v2 Module A (arrow-key nav) shipped 2026-08-05:** spatial arrow-key movement between nodes (`findNearestInDirection`), roving tabindex, Enter/Space select, Escape clears; closes the DESIGN_GUIDE a11y gap that v1 only had Tab/Enter.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -203,7 +204,7 @@
 
 ### Next up (pick one module at a time)
 1.  **Listens v2** (Storage + async Inngest) — only if long/full-meeting recordings become a real need.
-2.  **Knowledge Map v2:** arrow-key spatial nav; deploy `0010` / embeddings if needed.
+2.  **Deploy** embeddings / graph migrations to Vercel prod Supabase if not already live.
 3.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
 
 ### Blocked / open
