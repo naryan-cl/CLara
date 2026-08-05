@@ -17,6 +17,10 @@ export function ChatForm() {
   const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
   const [savedMessageCount, setSavedMessageCount] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Default Private — personal reflection; user can opt into Public Commons. */
+  const [savePrivacy, setSavePrivacy] = useState<"private" | "public">(
+    "private",
+  );
 
   const isUpToDate =
     savedDocumentId !== null && savedMessageCount === messages.length;
@@ -24,7 +28,7 @@ export function ChatForm() {
   function onSave() {
     setSaveError(null);
     startSaveTransition(async () => {
-      const result = await saveChatConversation(messages);
+      const result = await saveChatConversation(messages, savePrivacy);
       if (!result.ok) {
         setSaveError(result.error);
         return;
@@ -97,27 +101,47 @@ export function ChatForm() {
       </div>
 
       {messages.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || isUpToDate}
-            className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
-          >
-            {saving
-              ? "Saving…"
-              : isUpToDate
-                ? "Saved ✓"
-                : "Save conversation to Commons"}
-          </button>
-          {isUpToDate && savedDocumentId && (
-            <Link
-              href={`/sessions/documents/${savedDocumentId}`}
-              className="text-sm text-horizon underline"
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-ink/70">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                Visibility
+              </span>
+              <select
+                value={savePrivacy}
+                onChange={(e) =>
+                  setSavePrivacy(
+                    e.target.value === "public" ? "public" : "private",
+                  )
+                }
+                disabled={saving || isUpToDate}
+                className="rounded-md border border-cloud bg-sand/40 px-2 py-1.5 text-sm text-ink disabled:opacity-60"
+              >
+                <option value="private">Private (only you)</option>
+                <option value="public">Public Commons</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving || isUpToDate}
+              className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
             >
-              View saved reflection
-            </Link>
-          )}
+              {saving
+                ? "Saving…"
+                : isUpToDate
+                  ? "Saved ✓"
+                  : "Save conversation to Commons"}
+            </button>
+            {isUpToDate && savedDocumentId && (
+              <Link
+                href={`/sessions/documents/${savedDocumentId}`}
+                className="text-sm text-horizon underline"
+              >
+                View saved reflection
+              </Link>
+            )}
+          </div>
           {saveError && <p className="text-sm text-danger">{saveError}</p>}
         </div>
       )}
