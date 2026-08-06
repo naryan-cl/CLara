@@ -19,8 +19,12 @@ type AskTurn = {
 /**
  * Ask CLara UI with in-session follow-ups.
  * Kept separate from ChatForm / Chatbot — different action, prompt, and RAG.
+ *
+ * `embedded` drops the outer card chrome when the parent already provides a
+ * panel border (dashboard Ask box), so the two dashboard columns stay one box
+ * each and can stretch to equal height.
  */
-export function AskForm() {
+export function AskForm({ embedded = false }: { embedded?: boolean } = {}) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<AskTurn[]>([]);
@@ -69,9 +73,13 @@ export function AskForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
+      className={
+        embedded
+          ? "flex min-h-0 flex-1 flex-col gap-4"
+          : "flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
+      }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
         {turns.length === 0 ? (
           <p className="relative text-sm text-ink/50">
             <span
@@ -132,7 +140,7 @@ export function AskForm() {
         {pending ? <ThinkingPresence /> : null}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-cloud pt-4">
+      <div className="flex shrink-0 flex-col gap-3 border-t border-cloud pt-4">
         <label
           htmlFor="ask-question"
           className={

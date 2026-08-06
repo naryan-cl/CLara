@@ -7,11 +7,11 @@ import { AskForm } from "@/components/AskForm";
  */
 export function AskClaraPanel() {
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-horizon/30 bg-paper p-6 shadow-soft ring-1 ring-horizon/15">
-      <h2 className="font-display text-lg font-medium text-ink">
+    <section className="flex h-full min-h-0 flex-col gap-4 rounded-lg border border-horizon/30 bg-paper p-6 shadow-soft ring-1 ring-horizon/15">
+      <h2 className="shrink-0 font-display text-lg font-medium text-ink">
         Ask CLara
       </h2>
-      <AskForm />
+      <AskForm embedded />
     </section>
   );
 }

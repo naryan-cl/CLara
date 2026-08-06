@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { ListensRecorder } from "@/components/ListensRecorder";
+import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
 import {
   SessionComposer,
   type SessionComposerSelection,
@@ -17,16 +19,23 @@ type Props = {
   peers: StreamPeer[];
   createLabel: string;
   loadError?: string | null;
-  children: (sessionIds: string[]) => React.ReactNode;
+  /** Which Add capture UI to show under the Session Composer. */
+  mode: "record" | "upload";
 };
 
-/** Shared Add shell: Session Composer above Record / Upload capture UI. */
+/**
+ * Shared Add shell: Session Composer above Record / Upload capture UI.
+ *
+ * `mode` is used instead of a children render-prop so Server Component pages
+ * can pass only serializable props into this Client Component (a function
+ * children callback would crash the RSC → client boundary).
+ */
 export function AddWithSessionComposer({
   sessions,
   peers,
   createLabel,
   loadError,
-  children,
+  mode,
 }: Props) {
   const [selection, setSelection] = useState<SessionComposerSelection>({
     sessionIds: [],
@@ -48,7 +57,11 @@ export function AddWithSessionComposer({
         onCreateSession={createGroupSession}
         onAddParticipants={addParticipantsToSession}
       />
-      {children(selection.sessionIds)}
+      {mode === "record" ? (
+        <ListensRecorder sessionIds={selection.sessionIds} />
+      ) : (
+        <ReceiveUploadForm sessionIds={selection.sessionIds} />
+      )}
     </div>
   );
 }

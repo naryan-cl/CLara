@@ -27,20 +27,12 @@ export default async function CommonsPage() {
             minimizable detail popup (edit, attend, comment).
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/sessions/harvest"
-            className="rounded-md border border-cloud px-4 py-2 text-sm font-medium text-ink/70 hover:text-ink"
-          >
-            My harvest →
-          </Link>
-          <Link
-            href="/add/upload"
-            className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
-          >
-            Add something
-          </Link>
-        </div>
+        <Link
+          href="/sessions/harvest"
+          className="rounded-md border border-cloud px-4 py-2 text-sm font-medium text-ink/70 hover:text-ink"
+        >
+          My harvest →
+        </Link>
       </div>
 
       {!stream || !user ? (

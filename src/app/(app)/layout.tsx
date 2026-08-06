@@ -68,7 +68,7 @@ export default async function AppLayout({
         </div>
       ) : null}
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-10">
         {children}
       </main>
     </div>

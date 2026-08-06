@@ -1,4 +1,3 @@
-import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
 import { AddWithSessionComposer } from "@/components/AddWithSessionComposer";
 import { loadSessionComposerData } from "@/app/(app)/sessions/composer-actions";
 
@@ -26,9 +25,8 @@ export default async function AddUploadPage() {
         peers={bootstrap.peers}
         createLabel="Create session"
         loadError={bootstrap.error}
-      >
-        {(sessionIds) => <ReceiveUploadForm sessionIds={sessionIds} />}
-      </AddWithSessionComposer>
+        mode="upload"
+      />
     </div>
   );
 }

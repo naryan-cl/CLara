@@ -1,4 +1,3 @@
-import { ListensRecorder } from "@/components/ListensRecorder";
 import { AddWithSessionComposer } from "@/components/AddWithSessionComposer";
 import { loadSessionComposerData } from "@/app/(app)/sessions/composer-actions";
 
@@ -26,9 +25,8 @@ export default async function AddRecordPage() {
         peers={bootstrap.peers}
         createLabel="Create session"
         loadError={bootstrap.error}
-      >
-        {(sessionIds) => <ListensRecorder sessionIds={sessionIds} />}
-      </AddWithSessionComposer>
+        mode="record"
+      />
     </div>
   );
 }

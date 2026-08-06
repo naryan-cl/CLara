@@ -1,27 +1,34 @@
+import { listCommonsItems } from "@/lib/commons/list-items";
+import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
-import { listGraph } from "@/lib/graph/list-graph";
 import { ExploreCommonsPanel } from "@/components/dashboard/ExploreCommonsPanel";
 import { AskClaraPanel } from "@/components/dashboard/AskClaraPanel";
 
 export default async function DashboardPage() {
-  const { stream } = await getActiveStream();
+  const supabase = await createClient();
   const {
-    nodes,
-    edges,
-    error: graphError,
-  } = stream
-    ? await listGraph(stream.id)
-    : { nodes: [], edges: [], error: null };
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { stream } = await getActiveStream();
+  const { items, error: commonsError } =
+    stream && user
+      ? await listCommonsItems(stream.id, user.id)
+      : { items: [], error: null };
 
   return (
-    <section className="grid items-start gap-5 lg:grid-cols-[1.55fr_1fr]">
-      {stream ? (
-        <ExploreCommonsPanel nodes={nodes} edges={edges} error={graphError} />
+    <section className="grid min-h-[calc(100vh-9.5rem)] flex-1 gap-5 lg:grid-cols-[1.55fr_1fr] lg:items-stretch">
+      {stream && user ? (
+        <ExploreCommonsPanel
+          items={items}
+          streamId={stream.id}
+          currentUserId={user.id}
+          error={commonsError}
+        />
       ) : (
-        <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+        <div className="flex h-full items-start rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <p className="text-sm text-ink/70">
-            Join a stream to explore its Knowledge Map and add to the
-            Commons.
+            Join a stream to explore its Commons and add contributions.
           </p>
         </div>
       )}

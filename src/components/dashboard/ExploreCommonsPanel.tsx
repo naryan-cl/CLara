@@ -2,43 +2,51 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { CommonsDetailPopup } from "@/components/CommonsDetailPopup";
 import { KnowledgeMap } from "@/components/KnowledgeMap";
 import { FadeRise } from "@/components/motion/FadeRise";
-import type { GraphEdge, GraphNode } from "@/lib/graph/types";
+import { commonsItemsToGraph } from "@/lib/commons/to-graph";
+import type { CommonsListItem } from "@/lib/commons/types";
 
 type View = "map" | "list";
 
-function relatedCounts(nodes: GraphNode[], edges: GraphEdge[]) {
-  const counts = new Map<string, number>();
-  for (const node of nodes) counts.set(node.id, 0);
-  for (const edge of edges) {
-    counts.set(edge.sourceNodeId, (counts.get(edge.sourceNodeId) ?? 0) + 1);
-    counts.set(edge.targetNodeId, (counts.get(edge.targetNodeId) ?? 0) + 1);
-  }
-  return counts;
+function elementLabel(item: CommonsListItem) {
+  if (item.kind === "session") return "Session";
+  if (item.elementType === "chat") return "Chat";
+  if (item.elementType === "record") return "Record";
+  if (item.elementType === "upload") return "Upload";
+  return item.type ?? "Document";
 }
 
 /**
- * Dashboard's "explore" side: List/Map toggle over the stream's Knowledge
- * Map data, plus quick entry points into Add. Map view reuses the real
- * KnowledgeMap component (dark canvas, force layout) rather than a second
- * bespoke map — one implementation, real data.
+ * Dashboard's "explore" side: List/Map toggle over the stream's Commons
+ * items, plus quick entry points into Add. Map reuses KnowledgeMap with a
+ * Commons-derived graph so contributors appear even before concept extraction.
  */
 export function ExploreCommonsPanel({
-  nodes,
-  edges,
+  items,
+  streamId,
+  currentUserId,
   error,
 }: {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+  items: CommonsListItem[];
+  streamId: string;
+  currentUserId: string;
   error?: string | null;
 }) {
   const [view, setView] = useState<View>("map");
-  const counts = useMemo(() => relatedCounts(nodes, edges), [nodes, edges]);
+  const [selected, setSelected] = useState<CommonsListItem | null>(null);
+  const { nodes, edges } = useMemo(
+    () => commonsItemsToGraph(items, streamId),
+    [items, streamId],
+  );
+
+  const actionClass =
+    "flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0";
 
   return (
-    <section className="flex flex-col gap-6 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
+    <section className="flex h-full min-h-0 flex-col gap-6 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <h2 className="font-display text-lg font-medium text-ink">
           Explore Commons
         </h2>
@@ -55,110 +63,111 @@ export function ExploreCommonsPanel({
         </div>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
-          <p className="font-mono text-sm text-danger">{error}</p>
-          <p className="mt-2 text-sm text-ink/60">
-            If this mentions a missing table, run migration{" "}
-            <span className="font-mono text-xs">0010_knowledge_map.sql</span>{" "}
-            in Supabase, then refresh.
-          </p>
-        </div>
-      ) : nodes.length === 0 ? (
-        <div className="relative min-h-[12rem] overflow-hidden rounded-lg border border-dashed border-sage/40 bg-sand/40 px-5 py-8">
-          <div
-            className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-glow/25 blur-2xl animate-clara-breathe motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute bottom-3 left-8 h-2 w-2 rounded-full bg-glow/60"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute bottom-8 left-16 h-1.5 w-1.5 rounded-full bg-horizon/50"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute right-14 top-12 h-1.5 w-1.5 rounded-full bg-sage/60"
-            aria-hidden="true"
-          />
-          <div className="relative flex max-w-md flex-col gap-2">
-            <p className="font-display text-base text-ink">
-              The map is connected — it&apos;s waiting for concepts
-            </p>
-            <p className="text-sm leading-6 text-ink/60">
-              Nodes appear after a <strong>Public</strong> Commons document is
-              saved and the Knowledge Map extraction job runs (Inngest{" "}
-              <span className="font-mono text-[11px]">clara-extract-graph</span>
-              ). Private reflections stay off the map by design.
-            </p>
-            <p className="text-sm text-ink/55">
-              Try{" "}
-              <Link href="/commons" className="text-horizon hover:underline">
-                Commons
-              </Link>{" "}
-              for documents, or add something Public below.
+      <div className="min-h-0 flex-1 overflow-auto">
+        {error ? (
+          <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
+            <p className="font-mono text-sm text-danger">{error}</p>
+            <p className="mt-2 text-sm text-ink/60">
+              If this mentions missing tables or infinite recursion, check
+              Commons migrations (
+              <span className="font-mono text-xs">0011</span>–
+              <span className="font-mono text-xs">0013</span>) in Supabase, then
+              refresh.
             </p>
           </div>
-        </div>
-      ) : view === "map" ? (
-        <FadeRise key="map" className="min-w-0">
-          <KnowledgeMap nodes={nodes} edges={edges} />
-        </FadeRise>
-      ) : (
-        <FadeRise key="list" className="grid gap-4 sm:grid-cols-2">
-          {nodes.map((node, index) => (
+        ) : items.length === 0 ? (
+          <div className="relative min-h-[12rem] overflow-hidden rounded-lg border border-dashed border-sage/40 bg-sand/40 px-5 py-8">
             <div
-              key={node.id}
-              className="card-press rounded-lg border border-cloud bg-paper p-5 shadow-soft transition-[box-shadow,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:shadow-glow animate-fade-rise motion-reduce:animate-none"
-              style={{
-                animationDelay: `${Math.min(index, 5) * 40}ms`,
-              }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-display text-lg text-ink">{node.label}</p>
-                <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
-                  {node.type}
-                </span>
-              </div>
-              {node.description ? (
-                <p className="mt-1 text-sm text-ink/60">
-                  {node.description}
-                </p>
-              ) : null}
-              <p className="mt-3 font-mono text-[11px] tracking-wide text-sage">
-                {counts.get(node.id) ?? 0} RELATED
+              className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-glow/25 blur-2xl animate-clara-breathe motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            <div className="relative flex max-w-md flex-col gap-2">
+              <p className="font-display text-base text-ink">
+                The Commons is waiting for its first contribution
+              </p>
+              <p className="text-sm leading-6 text-ink/60">
+                Record, Reflect, or Upload below — items show up here in both
+                map and list as soon as they land in this stream.
+              </p>
+              <p className="text-sm text-ink/55">
+                Full filters live on{" "}
+                <Link href="/commons" className="text-horizon hover:underline">
+                  Commons
+                </Link>
+                .
               </p>
             </div>
-          ))}
-        </FadeRise>
-      )}
+          </div>
+        ) : view === "map" ? (
+          <FadeRise key="map" className="min-w-0">
+            <KnowledgeMap nodes={nodes} edges={edges} />
+          </FadeRise>
+        ) : (
+          <FadeRise key="list" className="grid gap-3 sm:grid-cols-2">
+            {items.map((item, index) => {
+              const isPrivate =
+                item.kind === "document" && item.privacy_status === "private";
+              return (
+                <button
+                  key={`${item.kind}-${item.id}`}
+                  type="button"
+                  onClick={() => setSelected(item)}
+                  className="card-press rounded-lg border border-cloud bg-sand/40 p-4 text-left shadow-soft transition-[box-shadow,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-sage/50 hover:bg-sand hover:shadow-glow animate-fade-rise motion-reduce:animate-none"
+                  style={{
+                    animationDelay: `${Math.min(index, 5) * 40}ms`,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-display text-base text-ink">
+                      {item.title}
+                    </p>
+                    <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
+                      {elementLabel(item)}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-mono text-[11px] tracking-wide text-ink/45">
+                    {isPrivate ? "Private · " : ""}
+                    {item.kind === "document" && item.needs_review
+                      ? "Needs review · "
+                      : ""}
+                    {new Date(
+                      item.kind === "session" && item.occurred_at
+                        ? item.occurred_at
+                        : item.created_at,
+                    ).toLocaleDateString()}
+                  </p>
+                </button>
+              );
+            })}
+          </FadeRise>
+        )}
+      </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-cloud/60 p-4">
+      <div className="shrink-0 flex flex-col gap-3 rounded-lg border border-cloud/60 p-4">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/add/record"
-            className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-md bg-forest px-4 py-3 text-sm font-medium text-paper"
-          >
+          <Link href="/add/record" className={actionClass}>
             <MicIcon />
             Record
           </Link>
-          <Link
-            href="/add/chat"
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0"
-          >
+          <Link href="/add/chat" className={actionClass}>
             <PencilIcon />
             Reflect
           </Link>
-          <Link
-            href="/add/upload"
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0"
-          >
+          <Link href="/add/upload" className={actionClass}>
             <UploadIcon />
             Upload
           </Link>
         </div>
       </div>
+
+      {selected ? (
+        <CommonsDetailPopup
+          key={`${selected.kind}-${selected.id}`}
+          item={selected}
+          currentUserId={currentUserId}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </section>
   );
 }
