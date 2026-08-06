@@ -122,7 +122,7 @@ function AppNavInner({ pathname }: { pathname: string }) {
             <nav
               id={menuId}
               aria-label="Main"
-              className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),18rem)] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-lg border border-cloud bg-paper p-3 shadow-soft"
+              className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),18rem)] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-lg border border-cloud bg-paper p-3 shadow-soft animate-fade-rise motion-reduce:animate-none"
             >
               <ul className="flex flex-col gap-1">
                 {APP_NAV_ITEMS.map((item) =>
@@ -202,7 +202,9 @@ function DesktopNavLink({
     <Link
       href={item.href}
       className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-        active ? "text-forest" : "text-ink/70 hover:text-forest"
+        active
+          ? "text-forest nav-active-glow motion-reduce:animate-none"
+          : "text-ink/70 hover:text-forest"
       }`}
     >
       {item.label}
@@ -231,7 +233,9 @@ function DesktopNavGroup({
       <button
         type="button"
         className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-          active || open ? "text-forest" : "text-ink/70 hover:text-forest"
+          active || open
+            ? "text-forest nav-active-glow motion-reduce:animate-none"
+            : "text-ink/70 hover:text-forest"
         }`}
         aria-expanded={open}
         aria-controls={panelId}

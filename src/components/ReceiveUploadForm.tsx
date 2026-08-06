@@ -317,7 +317,7 @@ export function ReceiveUploadForm() {
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper transition-opacity disabled:opacity-60"
+        className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
       >
         {pending ? "Receiving…" : "Receive into Commons"}
       </button>
@@ -326,7 +326,9 @@ export function ReceiveUploadForm() {
         <p className="font-mono text-sm text-danger">{error}</p>
       ) : null}
       {message ? (
-        <p className="text-sm text-success">{message}</p>
+        <p className="rounded-md px-2 py-1.5 text-sm text-success animate-success-glow motion-reduce:animate-none">
+          {message}
+        </p>
       ) : null}
     </form>
   );

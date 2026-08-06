@@ -34,7 +34,7 @@ export default async function AppLayout({
               CLara
             </Link>
             <span
-              className="truncate rounded-pill border border-sage/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-sage"
+              className="truncate rounded-pill border border-sage/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-sage shadow-[0_0_12px_rgba(143,214,196,0.2)]"
               title={
                 stream
                   ? `stream_id: ${stream.id} · role: ${stream.role}`

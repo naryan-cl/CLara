@@ -48,7 +48,7 @@ export function CommonsDetailPopup({
 
   if (minimized) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-cloud bg-paper px-3 py-2 shadow-soft">
+      <div className="fixed bottom-4 right-4 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-cloud bg-paper px-3 py-2 shadow-soft animate-fade-rise motion-reduce:animate-none">
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
           {item.title}
         </p>
@@ -75,7 +75,7 @@ export function CommonsDetailPopup({
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <button
         type="button"
-        className="absolute inset-0 bg-ink/40"
+        className="absolute inset-0 bg-ink/40 animate-overlay-fade motion-reduce:animate-none"
         aria-label="Close detail"
         onClick={onClose}
       />
@@ -83,7 +83,7 @@ export function CommonsDetailPopup({
         role="dialog"
         aria-modal="true"
         aria-label={item.title}
-        className="relative z-10 flex max-h-[90dvh] w-full max-w-3xl flex-col rounded-t-lg border border-cloud bg-paper shadow-soft sm:rounded-lg"
+        className="relative z-10 flex max-h-[90dvh] w-full max-w-3xl flex-col rounded-t-lg border border-cloud bg-paper shadow-soft animate-fade-rise motion-reduce:animate-none sm:rounded-lg"
       >
         <div className="flex items-center justify-between gap-3 border-b border-cloud px-4 py-3">
           <p className="truncate font-mono text-[11px] uppercase tracking-wide text-ink/40">

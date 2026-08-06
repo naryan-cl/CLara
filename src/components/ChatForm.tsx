@@ -7,6 +7,8 @@ import {
   saveChatConversation,
   type ChatMessage,
 } from "@/app/(app)/chat/actions";
+import { FadeRise } from "@/components/motion/FadeRise";
+import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 
 export function ChatForm() {
   const [pending, startTransition] = useTransition();
@@ -97,12 +99,18 @@ export function ChatForm() {
     <div className="flex flex-col gap-4">
       <div className="flex min-h-[16rem] flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
         {messages.length === 0 ? (
-          <p className="text-sm text-ink/50">
-            Say whatever&apos;s on your mind — CLara&apos;s listening.
+          <p className="relative text-sm text-ink/50">
+            <span
+              className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            <span className="relative">
+              Say whatever&apos;s on your mind — CLara&apos;s listening.
+            </span>
           </p>
         ) : (
           messages.map((message, index) => (
-            <div
+            <FadeRise
               key={index}
               className={
                 message.role === "assistant"
@@ -123,7 +131,7 @@ export function ChatForm() {
                   {sharedIndexes[index] ? (
                     <Link
                       href={`/sessions/documents/${sharedIndexes[index]}`}
-                      className="font-mono text-[11px] text-horizon hover:underline"
+                      className="font-mono text-[11px] text-horizon hover:underline animate-success-glow motion-reduce:animate-none"
                     >
                       Shared ✓ — view
                     </Link>
@@ -139,14 +147,10 @@ export function ChatForm() {
                   )}
                 </div>
               ) : null}
-            </div>
+            </FadeRise>
           ))
         )}
-        {pending && (
-          <span className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-            CLara is thinking…
-          </span>
-        )}
+        {pending ? <ThinkingPresence /> : null}
       </div>
 
       {messages.length > 0 && (
@@ -174,7 +178,11 @@ export function ChatForm() {
               type="button"
               onClick={onSaveAll}
               disabled={saving || isUpToDate}
-              className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
+              className={`rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60 ${
+                isUpToDate
+                  ? "animate-success-glow motion-reduce:animate-none"
+                  : ""
+              }`}
             >
               {saving
                 ? "Saving…"
@@ -185,7 +193,7 @@ export function ChatForm() {
             {isUpToDate && savedDocumentId && (
               <Link
                 href={`/sessions/documents/${savedDocumentId}`}
-                className="text-sm text-horizon underline"
+                className="text-sm text-horizon underline animate-fade-rise motion-reduce:animate-none"
               >
                 View saved reflection
               </Link>
@@ -211,7 +219,7 @@ export function ChatForm() {
         <button
           type="submit"
           disabled={pending}
-          className="self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper transition-opacity disabled:opacity-60"
+          className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
         >
           {pending ? "Sending…" : "Send"}
         </button>

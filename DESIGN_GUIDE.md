@@ -121,6 +121,7 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 - **Feel:** slow, eased, purposeful. Durations 200–400ms UI, up to 800ms for the map/ambient glow. Easing `cubic-bezier(.22,.61,.36,1)`.  
 - **Signature moments:** map nodes gently pulse/glow when active; CLara "thinking" shows a soft breathing glow, not a spinner; page transitions fade+rise 8px.  
+- **Implementation (shipped):** CSS tokens + keyframes in `src/app/globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`). Shared UI: `ThinkingPresence` (Ask + Chat) and `FadeRise` under `src/components/motion/`. Prefer those over one-off animations.  
 - **Accessibility:** honor `prefers-reduced-motion` — disable ambient/flow animation, keep only essential fades.
 
 ---

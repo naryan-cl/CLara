@@ -213,12 +213,14 @@ export function KnowledgeMap({
                     fill={colorFor(node.type)}
                     fillOpacity={isSelected ? 1 : 0.85}
                     style={
-                      isSelected
-                        ? {
-                            filter:
-                              "drop-shadow(0 0 12px rgba(143,214,196,.6))",
-                          }
-                        : undefined
+                      isSelected && !reducedMotion
+                        ? { animation: "glow-pulse 800ms var(--ease) infinite" }
+                        : isSelected
+                          ? {
+                              filter:
+                                "drop-shadow(0 0 12px rgba(143,214,196,.6))",
+                            }
+                          : undefined
                     }
                   />
                   <text
@@ -238,7 +240,7 @@ export function KnowledgeMap({
       </div>
 
       {selected ? (
-        <aside className="w-full shrink-0 rounded-lg border border-cloud bg-paper p-6 shadow-soft lg:w-72">
+        <aside className="w-full shrink-0 rounded-lg border border-cloud bg-paper p-6 shadow-soft animate-panel-slide-in motion-reduce:animate-none lg:w-72">
           <div className="flex items-start justify-between gap-2">
             <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
               {selected.type}

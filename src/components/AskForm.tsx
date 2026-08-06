@@ -7,6 +7,8 @@ import {
   type AskHistoryMessage,
   type AskSource,
 } from "@/app/(app)/ask/actions";
+import { FadeRise } from "@/components/motion/FadeRise";
+import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 
 type AskTurn = {
   role: "user" | "assistant";
@@ -71,13 +73,20 @@ export function AskForm() {
     >
       <div className="flex flex-col gap-4">
         {turns.length === 0 ? (
-          <p className="text-sm text-ink/50">
-            Ask anything about this stream&apos;s Commons. You can follow up in
-            this thread — answers stay grounded in sources, separate from Chat.
+          <p className="relative text-sm text-ink/50">
+            <span
+              className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            <span className="relative">
+              Ask anything about this stream&apos;s Commons. You can follow up
+              in this thread — answers stay grounded in sources, separate from
+              Chat.
+            </span>
           </p>
         ) : (
           turns.map((turn, index) => (
-            <div
+            <FadeRise
               key={`${turn.role}-${index}`}
               className={
                 turn.role === "user"
@@ -98,25 +107,29 @@ export function AskForm() {
               turn.sources.length > 0 ? (
                 <div className="flex flex-wrap gap-2 border-t border-cloud pt-3">
                   {turn.sources.map((source, sourceIndex) => (
-                    <Link
+                    <FadeRise
                       key={`${source.documentId}-${sourceIndex}`}
-                      href={`/sessions/documents/${source.documentId}`}
-                      className="rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon hover:border-horizon"
+                      as="span"
+                      staggerDelayMs={Math.min(sourceIndex, 3) * 50}
+                      className="inline-flex"
                     >
-                      [{sourceIndex + 1}] {source.title}
-                      {source.sessionName ? ` · ${source.sessionName}` : ""}
-                    </Link>
+                      <Link
+                        href={`/sessions/documents/${source.documentId}`}
+                        className="rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon transition-[border-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-horizon hover:-translate-y-px"
+                      >
+                        [{sourceIndex + 1}] {source.title}
+                        {source.sessionName
+                          ? ` · ${source.sessionName}`
+                          : ""}
+                      </Link>
+                    </FadeRise>
                   ))}
                 </div>
               ) : null}
-            </div>
+            </FadeRise>
           ))
         )}
-        {pending ? (
-          <span className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-            CLara is thinking…
-          </span>
-        ) : null}
+        {pending ? <ThinkingPresence /> : null}
       </div>
 
       <div className="flex flex-col gap-3 border-t border-cloud pt-4">
@@ -149,7 +162,7 @@ export function AskForm() {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper transition-opacity disabled:opacity-60"
+            className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
           >
             {pending ? "Asking…" : turns.length === 0 ? "Ask" : "Ask follow-up"}
           </button>

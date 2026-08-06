@@ -132,6 +132,7 @@
 *   **Knowledge Map v2 Module A (arrow-key nav) shipped 2026-08-05:** spatial arrow-key movement between nodes (`findNearestInDirection`), roving tabindex, Enter/Space select, Escape clears; closes the DESIGN_GUIDE a11y gap that v1 only had Tab/Enter.
 *   **Audio via Receives shipped 2026-08-05:** Upload accepts short Whisper-friendly audio (`.mp3`, `.m4a`, `.wav`, …) with the same ~4MB / ~15 min cap as Listens v1; saves a public `Transcript`. Closes the Phase 2 optional checklist item (not Listens v2 — still sync, no Storage).
 *   **Dashboard redesign shipped 2026-08-05 (component-verified; live Supabase data path not yet verified):** `/dashboard` replaced with a two-panel Explore Commons + Ask CLara layout imported from a Claude Design mockup (`claude.ai/design` project `732f3a44…`, file `CLara Dashboard.dc.html`). Old static "Placeholder data" anchors, "Jump in" link grid, page-level `{stream} Dashboard` header, and "Recent Commons Activity" section all removed.
+*   **Motion / aliveness foundation shipped 2026-08-06:** CSS motion tokens + keyframes in `globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`, `success-glow`) with `prefers-reduced-motion` gates. Signature moments: `ThinkingPresence` (Ask + Chat — breathing glow, not spinner), Knowledge Map selected-node pulse + sliding detail panel, FadeRise on messages/source chips/Commons popup/Map↔List toggle. Micro-delight: `.btn-primary` lift, `.card-press`, empty-state ambient glow, nav active glow settle, success beat on save/share/upload/record. Helpers live in `src/components/motion/`. No motion library added. **Decision:** aliveness = luminous presence (DESIGN_GUIDE grounded · luminous · spacious), not bounce/confetti; CSS-first so beginners can read the motion vocabulary in one place.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.
@@ -207,10 +208,11 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Verify dashboard redesign against real Supabase data** — logged out this session, so only component-level (dummy-fixture) verification happened; needs a real signed-in pass on `/dashboard` (Map/List toggle with real stream nodes, a real Ask CLara round-trip).
-2.  **Listens v2** (Storage + async Inngest) — only if long/full-meeting recordings become a real need.
-3.  **Deploy** embeddings / graph migrations to Vercel prod Supabase if not already live.
-4.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+1.  **Verify motion / aliveness** — Ask/Chat thinking glow, map node pulse + panel slide, Map↔List crossfade, Commons popup enter; toggle OS reduced-motion and confirm loops freeze while text/status remain.
+2.  **Verify dashboard redesign against real Supabase data** — logged out this session, so only component-level (dummy-fixture) verification happened; needs a real signed-in pass on `/dashboard` (Map/List toggle with real stream nodes, a real Ask CLara round-trip).
+3.  **Listens v2** (Storage + async Inngest) — only if long/full-meeting recordings become a real need.
+4.  **Deploy** embeddings / graph migrations to Vercel prod Supabase if not already live.
+5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.

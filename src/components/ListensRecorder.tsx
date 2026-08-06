@@ -208,7 +208,11 @@ export function ListensRecorder() {
       </div>
 
       {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
-      {message ? <p className="text-sm text-success">{message}</p> : null}
+      {message ? (
+        <p className="rounded-md px-2 py-1.5 text-sm text-success animate-success-glow motion-reduce:animate-none">
+          {message}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { KnowledgeMap } from "@/components/KnowledgeMap";
+import { FadeRise } from "@/components/motion/FadeRise";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
 
 type View = "map" | "list";
@@ -54,18 +55,41 @@ export function ExploreCommonsPanel({
       {error ? (
         <p className="font-mono text-sm text-danger">{error}</p>
       ) : nodes.length === 0 ? (
-        <p className="text-sm text-ink/60">
-          Nothing on the map yet — it fills in automatically as Public
-          documents are added to the Commons.
-        </p>
+        <div className="relative overflow-hidden rounded-lg border border-cloud/60 bg-sand/40 px-5 py-8">
+          <div
+            className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-glow/20 blur-2xl animate-clara-breathe motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-2 left-8 h-1.5 w-1.5 rounded-full bg-glow/50"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-6 left-16 h-1 w-1 rounded-full bg-horizon/40"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute right-12 top-10 h-1 w-1 rounded-full bg-sage/50"
+            aria-hidden="true"
+          />
+          <p className="relative text-sm text-ink/60">
+            Nothing on the map yet — it fills in automatically as Public
+            documents are added to the Commons.
+          </p>
+        </div>
       ) : view === "map" ? (
-        <KnowledgeMap nodes={nodes} edges={edges} />
+        <FadeRise key="map" className="min-w-0">
+          <KnowledgeMap nodes={nodes} edges={edges} />
+        </FadeRise>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {nodes.map((node) => (
+        <FadeRise key="list" className="grid gap-4 sm:grid-cols-2">
+          {nodes.map((node, index) => (
             <div
               key={node.id}
-              className="rounded-lg border border-cloud bg-paper p-5 shadow-soft transition-shadow hover:shadow-glow"
+              className="card-press rounded-lg border border-cloud bg-paper p-5 shadow-soft transition-[box-shadow,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:shadow-glow animate-fade-rise motion-reduce:animate-none"
+              style={{
+                animationDelay: `${Math.min(index, 5) * 40}ms`,
+              }}
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="font-display text-lg text-ink">{node.label}</p>
@@ -83,28 +107,28 @@ export function ExploreCommonsPanel({
               </p>
             </div>
           ))}
-        </div>
+        </FadeRise>
       )}
 
       <div className="flex flex-col gap-3 rounded-lg border border-cloud/60 p-4">
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
             href="/add/record"
-            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-forest px-4 py-3 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+            className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-md bg-forest px-4 py-3 text-sm font-medium text-paper"
           >
             <MicIcon />
             Record
           </Link>
           <Link
             href="/add/chat"
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-colors hover:bg-forest/5"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0"
           >
             <PencilIcon />
             Reflect
           </Link>
           <Link
             href="/add/upload"
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-colors hover:bg-forest/5"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0"
           >
             <UploadIcon />
             Upload
@@ -128,8 +152,10 @@ function ViewButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-pill px-5 py-2 text-sm font-semibold transition-colors ${
-        active ? "bg-forest text-paper" : "text-ink/60 hover:text-ink"
+      className={`rounded-pill px-5 py-2 text-sm font-semibold transition-[color,background-color,box-shadow] duration-[var(--duration-ui)] ease-[var(--ease)] ${
+        active
+          ? "bg-forest text-paper shadow-[0_0_16px_rgba(143,214,196,0.25)]"
+          : "text-ink/60 hover:text-ink"
       }`}
     >
       {children}
