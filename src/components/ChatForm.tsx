@@ -1,72 +1,117 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import {
   sendChatMessage,
-  saveChatConversation,
+  autosaveReflectDraft,
+  submitReflectConversation,
   type ChatMessage,
 } from "@/app/(app)/chat/actions";
 import { FadeRise } from "@/components/motion/FadeRise";
 import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
+import { ListeningPresence } from "@/components/motion/ListeningPresence";
+import { FlowerMark } from "@/components/FlowerMark";
+import type { SessionSummary } from "@/lib/sessions/types";
 
-export function ChatForm() {
+const AUTOSAVE_MS = 1200;
+const SUBMIT_AFTER_USER_TURNS = 2;
+
+type Props = {
+  sessionIds: string[];
+  connectedSessions: SessionSummary[];
+};
+
+function countUserTurns(messages: ChatMessage[]): number {
+  return messages.filter((m) => m.role === "user").length;
+}
+
+function buildSeedMessages(sessions: SessionSummary[]): ChatMessage[] {
+  const seeds = sessions
+    .map((s) => s.seed_question?.trim())
+    .filter((q): q is string => Boolean(q));
+  if (seeds.length === 0) return [];
+  if (seeds.length === 1) {
+    return [{ role: "assistant", content: seeds[0]! }];
+  }
+  return [
+    {
+      role: "assistant",
+      content: seeds.map((q, i) => `${i + 1}. ${q}`).join("\n\n"),
+    },
+  ];
+}
+
+export function ChatForm({ sessionIds, connectedSessions }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [saving, startSaveTransition] = useTransition();
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
-  const [savedMessageCount, setSavedMessageCount] = useState(0);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const documentIdRef = useRef<string | null>(null);
+  const [isPrivate, setIsPrivate] = useState(true);
+  const [savingNotice, setSavingNotice] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  /** Default Private — personal reflection; user can opt into Public Commons. */
-  const [savePrivacy, setSavePrivacy] = useState<"private" | "public">(
-    "private",
-  );
-  /** Assistant message indexes that were shared as a single exchange. */
-  const [sharedIndexes, setSharedIndexes] = useState<Record<number, string>>(
-    {},
-  );
+  const [showThanks, setShowThanks] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [hasUserStarted, setHasUserStarted] = useState(false);
 
-  const isUpToDate =
-    savedDocumentId !== null && savedMessageCount === messages.length;
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function onSaveAll() {
-    setSaveError(null);
-    startSaveTransition(async () => {
-      const result = await saveChatConversation(messages, savePrivacy);
-      if (!result.ok) {
-        setSaveError(result.error);
-        return;
-      }
-      setSavedDocumentId(result.documentId);
-      setSavedMessageCount(messages.length);
-    });
+  function setDraftDocumentId(id: string) {
+    documentIdRef.current = id;
+    setDocumentId(id);
   }
 
-  function onShareExchange(assistantIndex: number) {
-    setSaveError(null);
-    const assistant = messages[assistantIndex];
-    if (!assistant || assistant.role !== "assistant") return;
+  // Inject seed questions as opening CLara messages when connections change,
+  // until the participant sends their first message.
+  useEffect(() => {
+    if (hasUserStarted) return;
+    setMessages(buildSeedMessages(connectedSessions));
+  }, [connectedSessions, hasUserStarted]);
 
-    const prior = messages[assistantIndex - 1];
-    const snippet: ChatMessage[] =
-      prior?.role === "user" ? [prior, assistant] : [assistant];
-
-    startSaveTransition(async () => {
-      const result = await saveChatConversation(snippet, savePrivacy, {
-        titlePrefix: "Chat share",
-      });
-      if (!result.ok) {
-        setSaveError(result.error);
-        return;
-      }
-      setSharedIndexes((prev) => ({
-        ...prev,
-        [assistantIndex]: result.documentId,
-      }));
-    });
+  function scheduleAutosave(nextMessages: ChatMessage[]) {
+    if (!nextMessages.some((m) => m.role === "user")) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      void runAutosave(nextMessages);
+    }, AUTOSAVE_MS);
   }
+
+  async function runAutosave(nextMessages: ChatMessage[]) {
+    setSaveError(null);
+    setSavingNotice(true);
+    const result = await autosaveReflectDraft(
+      nextMessages,
+      isPrivate ? "private" : "public",
+      sessionIds,
+      documentIdRef.current,
+    );
+    if (!result.ok) {
+      setSaveError(result.error);
+      setSavingNotice(false);
+      return;
+    }
+    setDraftDocumentId(result.documentId);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setSavingNotice(false), 1600);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!messages.some((m) => m.role === "user")) return;
+    scheduleAutosave(messages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPrivate, sessionIds.join(",")]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,12 +123,14 @@ export function ChatForm() {
       return;
     }
 
+    setHasUserStarted(true);
     const nextMessages: ChatMessage[] = [
       ...messages,
       { role: "user", content: trimmed },
     ];
     setMessages(nextMessages);
     setDraft("");
+    scheduleAutosave(nextMessages);
 
     startTransition(async () => {
       const result = await sendChatMessage(nextMessages);
@@ -91,27 +138,55 @@ export function ChatForm() {
         setError(result.error);
         return;
       }
-      setMessages((current) => [...current, result.message]);
+      setMessages((current) => {
+        const withAssistant = [...current, result.message];
+        scheduleAutosave(withAssistant);
+        return withAssistant;
+      });
     });
   }
 
+  async function onSubmitReflection() {
+    setSubmitting(true);
+    setSaveError(null);
+    const result = await submitReflectConversation(
+      messages,
+      isPrivate ? "private" : "public",
+      sessionIds,
+      documentId,
+    );
+    if (!result.ok) {
+      setSaveError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    setDraftDocumentId(result.documentId);
+
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.65 },
+      colors: ["#7A9B76", "#C4A574", "#D4B896", "#F5F0E8", "#4a6741"],
+    });
+    setShowThanks(true);
+
+    window.setTimeout(() => {
+      router.push("/dashboard");
+    }, 2800);
+  }
+
+  const userTurns = countUserTurns(messages);
+  const canSubmit = userTurns >= SUBMIT_AFTER_USER_TURNS;
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="relative flex flex-col gap-4">
       <div className="flex min-h-[16rem] flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
         {messages.length === 0 ? (
-          <p className="relative text-sm text-ink/50">
-            <span
-              className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            <span className="relative">
-              Say whatever&apos;s on your mind — CLara&apos;s listening.
-            </span>
-          </p>
+          <ListeningPresence />
         ) : (
           messages.map((message, index) => (
             <FadeRise
-              key={index}
+              key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
               className={
                 message.role === "assistant"
                   ? "max-w-2xl rounded-lg border border-cloud bg-paper p-4 shadow-soft"
@@ -126,86 +201,34 @@ export function ChatForm() {
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
                 {message.content}
               </p>
-              {message.role === "assistant" ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {sharedIndexes[index] ? (
-                    <Link
-                      href={`/sessions/documents/${sharedIndexes[index]}`}
-                      className="font-mono text-[11px] text-horizon hover:underline animate-success-glow motion-reduce:animate-none"
-                    >
-                      Shared ✓ — view
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => onShareExchange(index)}
-                      className="font-mono text-[11px] text-ink/50 hover:text-horizon disabled:opacity-60"
-                    >
-                      Share this exchange
-                    </button>
-                  )}
-                </div>
-              ) : null}
             </FadeRise>
           ))
         )}
         {pending ? <ThinkingPresence /> : null}
       </div>
 
-      {messages.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-ink/70">
-              <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                Visibility
-              </span>
-              <select
-                value={savePrivacy}
-                onChange={(e) =>
-                  setSavePrivacy(
-                    e.target.value === "public" ? "public" : "private",
-                  )
-                }
-                disabled={saving}
-                className="rounded-md border border-cloud bg-sand/40 px-2 py-1.5 text-sm text-ink disabled:opacity-60"
-              >
-                <option value="private">Private (only you)</option>
-                <option value="public">Public Commons</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={onSaveAll}
-              disabled={saving || isUpToDate}
-              className={`rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink transition-opacity disabled:opacity-60 ${
-                isUpToDate
-                  ? "animate-success-glow motion-reduce:animate-none"
-                  : ""
-              }`}
-            >
-              {saving
-                ? "Saving…"
-                : isUpToDate
-                  ? "Saved ✓"
-                  : "Save full conversation"}
-            </button>
-            {isUpToDate && savedDocumentId && (
-              <Link
-                href={`/sessions/documents/${savedDocumentId}`}
-                className="text-sm text-horizon underline animate-fade-rise motion-reduce:animate-none"
-              >
-                View saved reflection
-              </Link>
-            )}
-          </div>
-          <p className="text-xs text-ink/45">
-            Visibility applies to full-conversation saves and per-exchange
-            shares.
-          </p>
-          {saveError && <p className="text-sm text-danger">{saveError}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label className="flex max-w-xl items-start gap-2 text-sm text-ink/70">
+          <input
+            type="checkbox"
+            checked={isPrivate}
+            onChange={(e) => setIsPrivate(e.target.checked)}
+            className="mt-1 rounded border-cloud"
+          />
+          <span>
+            Make this reflection private
+            <span className="mt-0.5 block text-xs text-ink/45">
+              Hidden from public Commons &amp; map; session attendees can still
+              see it.
+            </span>
+          </span>
+        </label>
+        <div className="min-h-[1.25rem] text-right font-mono text-[11px] uppercase tracking-wide text-ink/40">
+          {savingNotice ? "Saving…" : null}
         </div>
-      )}
+      </div>
+
+      {saveError ? <p className="text-sm text-danger">{saveError}</p> : null}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <textarea
@@ -213,17 +236,51 @@ export function ChatForm() {
           onChange={(event) => setDraft(event.target.value)}
           rows={3}
           placeholder="What's on your mind?"
-          className="rounded-md border border-cloud bg-sand/40 p-3 text-sm text-ink outline-none focus:border-horizon"
+          className="rounded-md border border-cloud bg-white p-3 text-sm text-ink outline-none focus:border-horizon"
         />
         {error && <p className="text-sm text-danger">{error}</p>}
-        <button
-          type="submit"
-          disabled={pending}
-          className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
-        >
-          {pending ? "Sending…" : "Send"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={pending || submitting}
+            className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
+          >
+            {pending ? "Sending…" : "Send"}
+          </button>
+          {canSubmit ? (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => void onSubmitReflection()}
+              className="rounded-md border border-forest bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest hover:text-paper disabled:opacity-60 animate-fade-rise motion-reduce:animate-none"
+            >
+              {submitting ? "Submitting…" : "Submit"}
+            </button>
+          ) : null}
+        </div>
       </form>
+
+      {showThanks ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6 animate-fade-rise motion-reduce:animate-none"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reflect-thanks-title"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-4 rounded-lg border border-cloud bg-paper p-8 text-center shadow-soft">
+            <FlowerMark className="h-24 w-24" />
+            <h2
+              id="reflect-thanks-title"
+              className="font-display text-xl font-medium text-ink"
+            >
+              Thank you for contributing to our Commons!
+            </h2>
+            <p className="text-sm text-ink/55">
+              Taking you back to the dashboard…
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

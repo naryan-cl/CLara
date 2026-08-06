@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-05 (Phase 6 Modules A–F shipped in code; run migration 0011)  
+**Last updated:** 2026-08-06 (Reflect + Session Composer; run migration 0012)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,8 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Read **§4 Progress & Decisions** below before coding.
+5. Apply newer Supabase migrations if missing (`0011`, **`0012_session_composer.sql`** for Reflect / Session Composer).
+6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
 *   Auth shell, landing, dashboard, sessions nav.
@@ -68,12 +69,14 @@
 *   `0008_document_embeddings.sql` — enables `pgvector`; `document_embeddings` (chunked, `vector(1536)`, HNSW cosine index, RLS on with **no** policies — service-role/SECURITY DEFINER only). Ask CLara Module A.
 *   `0009_match_document_chunks.sql` — `match_document_chunks(stream_id, query_embedding, match_count)` SECURITY DEFINER function (stream-membership + document-privacy checked internally, same pattern as `get_stream_members`). Ask CLara Module B.
 *   `0010_knowledge_map.sql` — `nodes` (Atom/Concept/Framework/Theme, unique per `(stream_id, lower(label))`) + `edges` (directed, unique per `(stream_id, source_node_id, target_node_id)`), RLS: stream members can `select` both, no insert/update/delete policies (admin-client-only writes, same posture as `document_embeddings`). Knowledge Map (Phase 4).
+*   `0011_comments_and_attendee_edit.sql` — attendee document UPDATE, `comments` + `comment_edit_log`, `get_user_public_profiles`
+*   **`0012_session_composer.sql`** — sessions `seed_question` / `description` / `share_token`; `document_sessions`; `session_relations`; private-doc read for attendees/admins; creator attendee insert; `list_stream_peers` RPC. **Run this before Reflect / Session Composer.**
 
 ### Not yet migrated
-*   (none outstanding)
+*   (none outstanding — ensure **0012** is applied on the shared Supabase project)
 
 ### `documents` columns (shipped)
-`id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at`
+`id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
 
 ---
 
@@ -102,7 +105,9 @@
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
 | Ask CLara embeddings (Module A) | `src/lib/embeddings/{chunk-text,store-document-embeddings}.ts`, `src/lib/openai/embed.ts`, `src/lib/inngest/functions/embed-document.ts` — chunk → embed → `document_embeddings` on `clara/document.created` |
 | Ask CLara retrieval + UI (Module B) | `src/lib/embeddings/search-commons.ts` (embed question → `match_document_chunks` RPC), `src/app/(app)/ask/actions.ts` (`askClara` — grounded chat completion + citations), `src/components/AskForm.tsx`, `src/app/(app)/ask/page.tsx` |
-| CLara Chatbot — conversation + save (Module A + B) | `src/app/(app)/chat/actions.ts` (`sendChatMessage` — reflective-persona chat completion, in-memory only; `saveChatConversation` — writes transcript to `documents` as `Type: Reflection` / Private, fires `clara/document.created`), `src/components/ChatForm.tsx`, `src/app/(app)/chat/page.tsx` |
+| CLara Chatbot / Reflect | `src/app/(app)/chat/actions.ts`, `src/components/ChatForm.tsx`, `src/components/ReflectPageClient.tsx`, `/add/chat` |
+| Session Composer | `src/components/SessionComposer.tsx`, `src/app/(app)/sessions/composer-actions.ts`, `/join/[token]` |
+| Listens (Record) | `src/app/(app)/sessions/listens-actions.ts`, `src/components/ListensRecorder.tsx`, `/add/record` |
 | Knowledge Map extraction (Module A) | `src/lib/graph/{types,extract-graph,upsert-graph}.ts` (LLM proposes nodes/edges → admin-client upsert, dedupes nodes by label), `src/lib/inngest/functions/extract-graph.ts` — public-documents-only, on `clara/document.created` |
 | Knowledge Map read + UI (Module B) | `src/lib/graph/{list-graph,layout}.ts` (RLS read; `computeGraphLayout` — pure d3-force layout, deterministic seeded positions), `src/components/KnowledgeMap.tsx` (dark-canvas SVG render + detail panel), `src/app/(app)/map/page.tsx` |
 | Env template | `.env.example` |
@@ -128,11 +133,21 @@
 *   **Ask CLara v2 Module A (follow-ups) shipped 2026-08-05:** in-session conversation history on `/ask` (client-held turns; `askClara(question, history)`); short follow-ups blend prior user question into retrieval; Chatbot pipeline stays separate.
 *   **Chatbot v2 Module A (privacy at save) shipped 2026-08-05:** save UI lets the participant choose Private (default) or Public Commons before writing the reflection.
 *   **Ask CLara v2 Module B (similarity cutoff) shipped 2026-08-05:** `searchCommons` drops chunks below `DEFAULT_MIN_SIMILARITY` (0.28) so off-topic questions skip the LLM and return the quiet "nothing found" answer.
-*   **Chatbot v2 Module B (per-exchange share) shipped 2026-08-05:** each CLara reply can "Share this exchange" (prior user turn + reply) as its own Reflection; full-conversation save remains.
+*   **Chatbot v2 Module B (per-exchange share) shipped 2026-08-05:** each CLara reply can "Share this exchange" (prior user turn + reply) as its own Reflection; full-conversation save remains. *(Superseded on Reflect surface by autosave + Submit — see Reflect note below.)*
 *   **Knowledge Map v2 Module A (arrow-key nav) shipped 2026-08-05:** spatial arrow-key movement between nodes (`findNearestInDirection`), roving tabindex, Enter/Space select, Escape clears; closes the DESIGN_GUIDE a11y gap that v1 only had Tab/Enter.
 *   **Audio via Receives shipped 2026-08-05:** Upload accepts short Whisper-friendly audio (`.mp3`, `.m4a`, `.wav`, …) with the same ~4MB / ~15 min cap as Listens v1; saves a public `Transcript`. Closes the Phase 2 optional checklist item (not Listens v2 — still sync, no Storage).
 *   **Dashboard redesign shipped 2026-08-05 (component-verified; live Supabase data path not yet verified):** `/dashboard` replaced with a two-panel Explore Commons + Ask CLara layout imported from a Claude Design mockup (`claude.ai/design` project `732f3a44…`, file `CLara Dashboard.dc.html`). Old static "Placeholder data" anchors, "Jump in" link grid, page-level `{stream} Dashboard` header, and "Recent Commons Activity" section all removed.
-*   **Motion / aliveness foundation shipped 2026-08-06:** CSS motion tokens + keyframes in `globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`, `success-glow`) with `prefers-reduced-motion` gates. Signature moments: `ThinkingPresence` (Ask + Chat — breathing glow, not spinner), Knowledge Map selected-node pulse + sliding detail panel, FadeRise on messages/source chips/Commons popup/Map↔List toggle. Micro-delight: `.btn-primary` lift, `.card-press`, empty-state ambient glow, nav active glow settle, success beat on save/share/upload/record. Helpers live in `src/components/motion/`. No motion library added. **Decision:** aliveness = luminous presence (DESIGN_GUIDE grounded · luminous · spacious), not bounce/confetti; CSS-first so beginners can read the motion vocabulary in one place.
+*   **Motion / aliveness foundation shipped 2026-08-06:** CSS motion tokens + keyframes in `globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`, `success-glow`) with `prefers-reduced-motion` gates. Signature moments: `ThinkingPresence` (Ask + Chat — breathing glow, not spinner), Knowledge Map selected-node pulse + sliding detail panel, FadeRise on messages/source chips/Commons popup/Map↔List toggle. Micro-delight: `.btn-primary` lift, `.card-press`, empty-state ambient glow, nav active glow settle, success beat on save/share/upload/record. Helpers live in `src/components/motion/`. No motion library added. **Decision:** aliveness = luminous presence (DESIGN_GUIDE grounded · luminous · spacious), not bounce/confetti; CSS-first so beginners can read the motion vocabulary in one place. *(Reflect Submit adds a one-shot confetti celebration as an intentional exception for contribution gratitude.)*
+*   **Motion bugfix (2026-08-06):** `@theme inline --animate-*` tokens that nested `var(--duration-*)` / `var(--ease)` produced broken animation shorthands — classes looked present in markup but motion never ran. Fixed by defining `.animate-clara-breathe` / `.animate-fade-rise` / etc. as explicit `@layer utilities` that resolve `:root` vars at runtime. Dashboard empty map clarified: Explore panel is wired to real `listGraph()`; empty = no `nodes` rows yet (needs Public doc + `clara-extract-graph`), not a missing UI connection. Empty-state copy + error hint for missing `0010` migration.
+*   **Reflect + Session Composer shipped in code (2026-08-06):** Apply Supabase migration **`0012_session_composer.sql`** before using. Nav **Add → Reflect**; `/add/chat` page copy + `SessionComposer` + Reflect chat UX (listening empty state, white input, private checkbox, seed-as-CLara-messages, autosave + “Saving…”, Submit after 2 exchanges → confetti + flower thank-you → dashboard). Create group reflection = create `sessions` row. `document_sessions` links reflections to 1–3 sessions (primary also on `documents.session_id`). `/join/[token]` deep link. Same composer on Record + Upload; createDocument paths accept `sessionIds`. **Decisions to keep:** (1) one session type for group reflections; (2) private = off public Commons/map, visible to attendees/admins; (3) seeds as opening CLara messages; (4) never merge many reflections into one session body; (5) map flower sprites = later phase (placeholder `FlowerMark` for thank-you only).
+
+### Manual test checklist (Reflect)
+1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
+2. Open Add → Reflect — empty chat shows listening animation; input is white.
+3. Create group reflection with a seed question → appears in Connect list; share link + QR show; open `/join/[token]` in another session → Reflect opens with that session selected and seed in chat.
+4. Connect 1–3 sessions; send two user turns; Submit → thank-you + flower → dashboard; document is Reflection linked to session(s).
+5. Private checked → not on public Commons/map; as an attendee of the linked session, another member can open it.
+6. Record / Upload show the same Session Composer; saving with a selection sets `session_id` / `document_sessions`.
 
 ### Shipped
 *   Phase 1 shell: Next.js + Supabase auth + app routes + CLara branding.

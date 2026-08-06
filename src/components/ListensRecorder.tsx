@@ -25,7 +25,11 @@ function formatElapsed(totalSeconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function ListensRecorder() {
+export function ListensRecorder({
+  sessionIds = [],
+}: {
+  sessionIds?: string[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [isRecording, setIsRecording] = useState(false);
@@ -63,6 +67,9 @@ export function ListensRecorder() {
       const formData = new FormData();
       formData.append("audio", blob, `listens-recording.${extension}`);
       formData.append("title", title);
+      if (sessionIds.length > 0) {
+        formData.append("sessionIds", sessionIds.join(","));
+      }
 
       startTransition(async () => {
         const result = await receiveListensRecording(formData);
@@ -79,7 +86,7 @@ export function ListensRecorder() {
         router.refresh();
       });
     },
-    [router, startTransition, title],
+    [router, startTransition, title, sessionIds],
   );
 
   const stopRecording = useCallback(() => {

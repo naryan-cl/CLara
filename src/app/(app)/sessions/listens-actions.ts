@@ -1,8 +1,8 @@
-"use server";
-
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
+import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
+import { parseSessionIdsFromFormData } from "@/lib/documents/parse-session-ids";
 import { inngest, CLARA_DOCUMENT_CREATED } from "@/lib/inngest/client";
 import { transcribeAudio, MAX_AUDIO_BYTES } from "@/lib/openai/transcribe";
 
@@ -57,6 +57,8 @@ export async function receiveListensRecording(
 
     const titleFromForm = String(formData.get("title") ?? "").trim();
     const title = titleFromForm || `Recording — ${new Date().toLocaleString()}`;
+    const sessionIds = parseSessionIdsFromFormData(formData);
+    const primarySessionId = sessionIds[0] ?? null;
 
     const { document, error } = await createDocument({
       streamId: stream.id,
@@ -65,10 +67,16 @@ export async function receiveListensRecording(
       title,
       type: "Transcript",
       privacyStatus: "public",
+      sessionId: primarySessionId,
     });
 
     if (error || !document) {
       return { ok: false, error: error ?? "Saving the transcript failed." };
+    }
+
+    const linkError = await linkDocumentSessions(document.id, sessionIds);
+    if (linkError.error) {
+      return { ok: false, error: linkError.error };
     }
 
     try {

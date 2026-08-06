@@ -15,7 +15,7 @@ export function ThinkingPresence({
       aria-live="polite"
     >
       <span
-        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-glow shadow-glow animate-clara-breathe motion-reduce:animate-none"
+        className="inline-block h-3.5 w-3.5 shrink-0 rounded-full bg-glow shadow-glow animate-clara-breathe motion-reduce:animate-none"
         aria-hidden="true"
       />
       <span className="font-mono text-[11px] uppercase tracking-wide text-ink/40">

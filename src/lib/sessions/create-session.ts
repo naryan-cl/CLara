@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SessionSummary } from "@/lib/sessions/types";
+import { SESSION_SELECT, type SessionSummary } from "@/lib/sessions/types";
 
 export type CreateSessionInput = {
   streamId: string;
   createdBy: string;
   name: string;
   occurredAt?: string | null;
+  seedQuestion?: string | null;
+  description?: string | null;
 };
 
 const UNIQUE_VIOLATION = "23505";
@@ -26,6 +28,9 @@ export async function createSession(
     return { session: null, error: "Session name is required." };
   }
 
+  const seedQuestion = input.seedQuestion?.trim() || null;
+  const description = input.description?.trim() || null;
+
   const { data, error } = await supabase
     .from("sessions")
     .insert({
@@ -33,8 +38,10 @@ export async function createSession(
       created_by: input.createdBy,
       name,
       occurred_at: input.occurredAt ?? null,
+      seed_question: seedQuestion,
+      description,
     })
-    .select("id, stream_id, name, occurred_at, created_by, created_at, updated_at")
+    .select(SESSION_SELECT)
     .single();
 
   if (!error) {
@@ -44,7 +51,7 @@ export async function createSession(
   if (error.code === UNIQUE_VIOLATION) {
     const { data: existing, error: fetchError } = await supabase
       .from("sessions")
-      .select("id, stream_id, name, occurred_at, created_by, created_at, updated_at")
+      .select(SESSION_SELECT)
       .eq("stream_id", input.streamId)
       .eq("name", name)
       .maybeSingle();

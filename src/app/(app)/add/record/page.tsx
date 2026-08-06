@@ -1,6 +1,10 @@
 import { ListensRecorder } from "@/components/ListensRecorder";
+import { AddWithSessionComposer } from "@/components/AddWithSessionComposer";
+import { loadSessionComposerData } from "@/app/(app)/sessions/composer-actions";
 
-export default function AddRecordPage() {
+export default async function AddRecordPage() {
+  const bootstrap = await loadSessionComposerData();
+
   return (
     <div className="flex flex-col gap-10">
       <div>
@@ -12,11 +16,19 @@ export default function AddRecordPage() {
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Capture a short reflection with your mic. CLara transcribes it into
-          a Commons transcript (Listens v1 — about 15 minutes max).
+          a Commons transcript (Listens v1 — about 15 minutes max). Connect to
+          a session or create one so others can join.
         </p>
       </div>
 
-      <ListensRecorder />
+      <AddWithSessionComposer
+        sessions={bootstrap.sessions}
+        peers={bootstrap.peers}
+        createLabel="Create session"
+        loadError={bootstrap.error}
+      >
+        {(sessionIds) => <ListensRecorder sessionIds={sessionIds} />}
+      </AddWithSessionComposer>
     </div>
   );
 }

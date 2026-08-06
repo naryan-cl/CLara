@@ -14,7 +14,7 @@ export default async function AskPage() {
           Query the {stream?.name ?? "Camp CLAI"} Commons and get answers
           grounded in real transcripts and summaries, with source links back
           to the originating document. Follow-up questions stay in this thread
-          (still separate from Add → Chat).
+          (still separate from Add → Reflect).
         </p>
       </div>
 

@@ -19,10 +19,13 @@
   --background: var(--sand);
   --foreground: var(--ink);
 
-  /* Motion — DESIGN_GUIDE.md §6 */
+  /* Motion — DESIGN_GUIDE.md §6
+     Keep these on :root (not only @theme inline). Animation utilities below
+     reference them at runtime; @theme inline would try to bake unresolved
+     vars into --animate-* and silently break motion. */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --duration-ui: 280ms;
-  --duration-ambient: 800ms;
+  --duration-ambient: 1.6s;
 }
 
 @theme inline {
@@ -54,15 +57,6 @@
 
   --shadow-soft: 0 4px 24px rgba(28, 42, 46, 0.08);
   --shadow-glow: 0 0 24px rgba(143, 214, 196, 0.45);
-
-  --ease-clara: var(--ease);
-  --animate-clara-breathe: clara-breathe var(--duration-ambient) var(--ease)
-    infinite;
-  --animate-fade-rise: fade-rise var(--duration-ui) var(--ease) both;
-  --animate-glow-pulse: glow-pulse var(--duration-ambient) var(--ease) infinite;
-  --animate-panel-slide-in: panel-slide-in var(--duration-ui) var(--ease) both;
-  --animate-overlay-fade: overlay-fade var(--duration-ui) var(--ease) both;
-  --animate-success-glow: success-glow 600ms var(--ease) both;
 }
 
 body {
@@ -83,22 +77,22 @@ body {
 @keyframes clara-breathe {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.45;
     transform: scale(1);
-    box-shadow: 0 0 8px rgba(143, 214, 196, 0.25);
+    box-shadow: 0 0 6px rgba(143, 214, 196, 0.3);
   }
   50% {
     opacity: 1;
-    transform: scale(1.08);
-    box-shadow: 0 0 20px rgba(143, 214, 196, 0.55);
+    transform: scale(1.15);
+    box-shadow: 0 0 22px rgba(143, 214, 196, 0.75);
   }
 }
 
-/* Content enter — fade + rise 8px (DESIGN_GUIDE §6). */
+/* Content enter — fade + rise (DESIGN_GUIDE §6). */
 @keyframes fade-rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -113,7 +107,7 @@ body {
     filter: drop-shadow(0 0 6px rgba(143, 214, 196, 0.35));
   }
   50% {
-    filter: drop-shadow(0 0 16px rgba(143, 214, 196, 0.7));
+    filter: drop-shadow(0 0 18px rgba(143, 214, 196, 0.85));
   }
 }
 
@@ -121,7 +115,7 @@ body {
 @keyframes panel-slide-in {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(16px);
   }
   to {
     opacity: 1;
@@ -144,10 +138,42 @@ body {
     box-shadow: 0 0 0 0 rgba(143, 214, 196, 0);
   }
   40% {
-    box-shadow: 0 0 20px 2px rgba(143, 214, 196, 0.45);
+    box-shadow: 0 0 22px 3px rgba(143, 214, 196, 0.5);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(143, 214, 196, 0);
+  }
+}
+
+/*
+  Explicit motion utilities (not @theme --animate-*).
+  Why: @theme inline inlines token values at build time; nesting
+  var(--duration-*) / var(--ease) there produced broken animation
+  shorthands, so classes like animate-fade-rise never visibly ran.
+*/
+@layer utilities {
+  .animate-clara-breathe {
+    animation: clara-breathe var(--duration-ambient) var(--ease) infinite;
+  }
+
+  .animate-fade-rise {
+    animation: fade-rise var(--duration-ui) var(--ease) both;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse var(--duration-ambient) var(--ease) infinite;
+  }
+
+  .animate-panel-slide-in {
+    animation: panel-slide-in var(--duration-ui) var(--ease) both;
+  }
+
+  .animate-overlay-fade {
+    animation: overlay-fade var(--duration-ui) var(--ease) both;
+  }
+
+  .animate-success-glow {
+    animation: success-glow 700ms var(--ease) both;
   }
 }
 
@@ -162,7 +188,8 @@ body {
   .animate-fade-rise,
   .animate-panel-slide-in,
   .animate-overlay-fade,
-  .animate-success-glow {
+  .animate-success-glow,
+  .nav-active-glow {
     animation: none !important;
   }
 
@@ -183,9 +210,9 @@ body {
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(1.06);
-  box-shadow: 0 4px 16px rgba(46, 75, 69, 0.22);
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px rgba(46, 75, 69, 0.28);
 }
 
 .btn-primary:active:not(:disabled) {

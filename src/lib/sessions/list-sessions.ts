@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SessionSummary } from "@/lib/sessions/types";
+import { SESSION_SELECT, type SessionSummary } from "@/lib/sessions/types";
 
 /**
  * Sessions visible to the current member in a stream (RLS-scoped).
- * Kept in lib/ so UI stays thin, same pattern as lib/documents/list-recent.
+ * Most recent first (created_at), so Connect dropdowns stay useful.
  */
 export async function listSessions(
   streamId: string,
@@ -12,9 +12,8 @@ export async function listSessions(
 
   const { data, error } = await supabase
     .from("sessions")
-    .select("id, stream_id, name, occurred_at, created_by, created_at, updated_at")
+    .select(SESSION_SELECT)
     .eq("stream_id", streamId)
-    .order("occurred_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
   if (error) {

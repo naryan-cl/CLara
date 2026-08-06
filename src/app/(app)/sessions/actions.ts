@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
+import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
+import { parseSessionIdsFromFormData } from "@/lib/documents/parse-session-ids";
 import {
   inngest,
   CLARA_DOCUMENT_CREATED,
@@ -156,6 +158,8 @@ export async function receiveTextContent(
     const titleFromForm = String(formData.get("title") ?? "").trim();
     const typeFromForm = String(formData.get("type") ?? "").trim() || "Note";
     const title = titleFromForm || defaultTitle;
+    const sessionIds = parseSessionIdsFromFormData(formData);
+    const primarySessionId = sessionIds[0] ?? null;
 
     const { document, error } = await createDocument({
       streamId: stream.id,
@@ -164,10 +168,16 @@ export async function receiveTextContent(
       title,
       type: typeFromForm,
       privacyStatus: "public",
+      sessionId: primarySessionId,
     });
 
     if (error || !document) {
       return { ok: false, error: error ?? "Receive failed." };
+    }
+
+    const linkError = await linkDocumentSessions(document.id, sessionIds);
+    if (linkError.error) {
+      return { ok: false, error: linkError.error };
     }
 
     try {
@@ -227,6 +237,8 @@ async function receiveAudioUpload({
     file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() ||
     `Audio — ${new Date().toLocaleString()}`;
   const title = titleFromForm || defaultTitle;
+  const sessionIds = parseSessionIdsFromFormData(formData);
+  const primarySessionId = sessionIds[0] ?? null;
 
   const { document, error } = await createDocument({
     streamId,
@@ -235,10 +247,16 @@ async function receiveAudioUpload({
     title,
     type: "Transcript",
     privacyStatus: "public",
+    sessionId: primarySessionId,
   });
 
   if (error || !document) {
     return { ok: false, error: error ?? "Saving the transcript failed." };
+  }
+
+  const linkError = await linkDocumentSessions(document.id, sessionIds);
+  if (linkError.error) {
+    return { ok: false, error: linkError.error };
   }
 
   try {
@@ -301,6 +319,8 @@ async function receiveConvertibleUpload({
   const defaultTitle =
     file.name.replace(/\.(pdf|docx)$/i, "").replace(/[-_]+/g, " ").trim() ||
     "Untitled upload";
+  const sessionIds = parseSessionIdsFromFormData(formData);
+  const primarySessionId = sessionIds[0] ?? null;
 
   const { document, error } = await createDocument({
     streamId: stream.id,
@@ -310,11 +330,19 @@ async function receiveConvertibleUpload({
     type: typeFromForm,
     privacyStatus: "public",
     needsReview: true, // pending conversion
+    sessionId: primarySessionId,
   });
 
   if (error || !document) {
     await supabase.storage.from("receives-staging").remove([storagePath]);
     return { ok: false, error: error ?? "Receive failed." };
+  }
+
+  const linkError = await linkDocumentSessions(document.id, sessionIds);
+  if (linkError.error) {
+    await supabase.storage.from("receives-staging").remove([storagePath]);
+    await supabase.from("documents").delete().eq("id", document.id);
+    return { ok: false, error: linkError.error };
   }
 
   try {

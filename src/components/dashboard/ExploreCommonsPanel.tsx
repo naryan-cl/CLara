@@ -38,7 +38,10 @@ export function ExploreCommonsPanel({
 
   return (
     <section className="flex flex-col gap-6 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-medium text-ink">
+          Explore Commons
+        </h2>
         <div className="inline-flex gap-1 rounded-pill bg-cloud/40 p-1">
           <ViewButton active={view === "map"} onClick={() => setView("map")}>
             Map
@@ -53,29 +56,50 @@ export function ExploreCommonsPanel({
       </div>
 
       {error ? (
-        <p className="font-mono text-sm text-danger">{error}</p>
-      ) : nodes.length === 0 ? (
-        <div className="relative overflow-hidden rounded-lg border border-cloud/60 bg-sand/40 px-5 py-8">
-          <div
-            className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-glow/20 blur-2xl animate-clara-breathe motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute bottom-2 left-8 h-1.5 w-1.5 rounded-full bg-glow/50"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute bottom-6 left-16 h-1 w-1 rounded-full bg-horizon/40"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute right-12 top-10 h-1 w-1 rounded-full bg-sage/50"
-            aria-hidden="true"
-          />
-          <p className="relative text-sm text-ink/60">
-            Nothing on the map yet — it fills in automatically as Public
-            documents are added to the Commons.
+        <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
+          <p className="font-mono text-sm text-danger">{error}</p>
+          <p className="mt-2 text-sm text-ink/60">
+            If this mentions a missing table, run migration{" "}
+            <span className="font-mono text-xs">0010_knowledge_map.sql</span>{" "}
+            in Supabase, then refresh.
           </p>
+        </div>
+      ) : nodes.length === 0 ? (
+        <div className="relative min-h-[12rem] overflow-hidden rounded-lg border border-dashed border-sage/40 bg-sand/40 px-5 py-8">
+          <div
+            className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-glow/25 blur-2xl animate-clara-breathe motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-3 left-8 h-2 w-2 rounded-full bg-glow/60"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-8 left-16 h-1.5 w-1.5 rounded-full bg-horizon/50"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute right-14 top-12 h-1.5 w-1.5 rounded-full bg-sage/60"
+            aria-hidden="true"
+          />
+          <div className="relative flex max-w-md flex-col gap-2">
+            <p className="font-display text-base text-ink">
+              The map is connected — it&apos;s waiting for concepts
+            </p>
+            <p className="text-sm leading-6 text-ink/60">
+              Nodes appear after a <strong>Public</strong> Commons document is
+              saved and the Knowledge Map extraction job runs (Inngest{" "}
+              <span className="font-mono text-[11px]">clara-extract-graph</span>
+              ). Private reflections stay off the map by design.
+            </p>
+            <p className="text-sm text-ink/55">
+              Try{" "}
+              <Link href="/commons" className="text-horizon hover:underline">
+                Commons
+              </Link>{" "}
+              for documents, or add something Public below.
+            </p>
+          </div>
         </div>
       ) : view === "map" ? (
         <FadeRise key="map" className="min-w-0">

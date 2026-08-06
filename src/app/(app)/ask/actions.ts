@@ -50,7 +50,7 @@ function sanitizeHistory(
 /**
  * Ask CLara — grounded RAG over the Commons.
  * Optional `history` enables follow-ups in the same UI session without
- * mixing prompts/state with the CLara Chatbot (Add → Chat).
+ * mixing prompts/state with the CLara Chatbot (Add → Reflect).
  */
 export async function askClara(
   question: string,

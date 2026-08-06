@@ -1,15 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_SELECT, type SessionSummary } from "@/lib/sessions/types";
 
-export async function getSessionById(
-  id: string,
+/** Resolve a share/join token to a session the caller can read (RLS). */
+export async function getSessionByShareToken(
+  shareToken: string,
 ): Promise<{ session: SessionSummary | null; error: string | null }> {
-  const supabase = await createClient();
+  const token = shareToken.trim();
+  if (!token) {
+    return { session: null, error: "Missing share token." };
+  }
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
-    .eq("id", id)
+    .eq("share_token", token)
     .maybeSingle();
 
   if (error) {

@@ -165,7 +165,7 @@ export function CommonsRepository({
         {visible.length === 0 ? (
           <p className="mt-4 text-sm text-ink/60">
             Nothing matches these filters. Try clearing them, or contribute via
-            Add → Chat / Record / Upload.
+            Add → Reflect / Record / Upload.
           </p>
         ) : (
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
