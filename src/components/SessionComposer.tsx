@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { SessionSummary } from "@/lib/sessions/types";
 import type { StreamPeer } from "@/lib/streams/list-stream-peers";
 
-type Props = {
+type ShareProps = {
   joinPath: string;
   sessionName: string;
 };
 
-/** Share URL + QR for a newly created (or selected) session. */
-export function SessionShareCard({ joinPath, sessionName }: Props) {
+/** Share URL + QR for a newly created session. */
+export function SessionShareCard({ joinPath, sessionName }: ShareProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -49,7 +49,7 @@ export function SessionShareCard({ joinPath, sessionName }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-md border border-cloud bg-paper p-3">
+    <div className="rounded-md border border-cloud bg-paper p-3">
       <p className="text-sm font-medium text-ink">Share “{sessionName}”</p>
       <p className="mt-1 break-all font-mono text-[11px] text-ink/55">
         {absoluteUrl}
@@ -89,19 +89,15 @@ export type SessionComposerSelection = {
 type SessionComposerProps = {
   sessions: SessionSummary[];
   peers: StreamPeer[];
-  /** Pre-select these session ids (e.g. from /join/[token]). */
   initialSessionIds?: string[];
-  /** Soft label for the create button — Reflect vs Record/Upload. */
   createLabel?: string;
   onSelectionChange: (selection: SessionComposerSelection) => void;
   onCreateSession: (input: {
     name: string;
-    seedQuestion: string;
-    description: string;
-    relatedSessionIds: string[];
+    inquiry: string;
     participantUserIds: string[];
   }) => Promise<
-    | { ok: true; session: SessionSummary; joinPath: string }
+    | { ok: true; session: SessionSummary; joinPath: string; warning?: string }
     | { ok: false; error: string }
   >;
   onAddParticipants?: (
@@ -113,8 +109,8 @@ type SessionComposerProps = {
 const MAX_CONNECT = 3;
 
 /**
- * Shared Add box: connect to 1–3 sessions and/or create a group session
- * with seed question, share link/QR, and participant autocomplete.
+ * Minimal shared Add box: Connect + Create as buttons that open pickers/popups.
+ * Inquiry (stored as sessions.seed_question) seeds Reflect chat when connected.
  */
 export function SessionComposer({
   sessions: initialSessions,
@@ -123,26 +119,28 @@ export function SessionComposer({
   createLabel = "Create group reflection",
   onSelectionChange,
   onCreateSession,
-  onAddParticipants,
 }: SessionComposerProps) {
   const [sessions, setSessions] = useState(initialSessions);
   const [selectedIds, setSelectedIds] = useState<string[]>(
     initialSessionIds.slice(0, MAX_CONNECT),
   );
-  const [showCreate, setShowCreate] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [sessionQuery, setSessionQuery] = useState("");
   const [name, setName] = useState("");
-  const [seedQuestion, setSeedQuestion] = useState("");
-  const [description, setDescription] = useState("");
-  const [relatedIds, setRelatedIds] = useState<string[]>([]);
+  const [inquiry, setInquiry] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [peerQuery, setPeerQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [createdShare, setCreatedShare] = useState<{
     joinPath: string;
     name: string;
     sessionId: string;
   } | null>(null);
+
+  const connectPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSessions(initialSessions);
@@ -151,9 +149,10 @@ export function SessionComposer({
   useEffect(() => {
     if (initialSessionIds.length === 0) return;
     setSelectedIds((prev) => {
-      const merged = [
-        ...new Set([...initialSessionIds, ...prev]),
-      ].slice(0, MAX_CONNECT);
+      const merged = [...new Set([...initialSessionIds, ...prev])].slice(
+        0,
+        MAX_CONNECT,
+      );
       return merged;
     });
   }, [initialSessionIds]);
@@ -161,9 +160,22 @@ export function SessionComposer({
   useEffect(() => {
     const selected = sessions.filter((s) => selectedIds.includes(s.id));
     onSelectionChange({ sessionIds: selectedIds, sessions: selected });
-    // Intentionally omit onSelectionChange from deps — parent may pass inline fn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, sessions]);
+
+  useEffect(() => {
+    if (!connectOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (
+        connectPanelRef.current &&
+        !connectPanelRef.current.contains(event.target as Node)
+      ) {
+        setConnectOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [connectOpen]);
 
   function toggleSession(id: string) {
     setSelectedIds((prev) => {
@@ -175,12 +187,8 @@ export function SessionComposer({
     });
   }
 
-  function toggleRelated(id: string) {
-    setRelatedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= MAX_CONNECT) return prev;
-      return [...prev, id];
-    });
+  function removeSession(id: string) {
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
   }
 
   function toggleParticipant(userId: string) {
@@ -190,6 +198,17 @@ export function SessionComposer({
         : [...prev, userId],
     );
   }
+
+  const selectedSessions = sessions.filter((s) => selectedIds.includes(s.id));
+
+  const filteredSessions = sessions.filter((session) => {
+    const q = sessionQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      session.name.toLowerCase().includes(q) ||
+      (session.seed_question?.toLowerCase().includes(q) ?? false)
+    );
+  });
 
   const filteredPeers = peers.filter((peer) => {
     const q = peerQuery.trim().toLowerCase();
@@ -203,12 +222,11 @@ export function SessionComposer({
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setWarning(null);
     setPending(true);
     const result = await onCreateSession({
       name,
-      seedQuestion,
-      description,
-      relatedSessionIds: relatedIds,
+      inquiry,
       participantUserIds: participantIds,
     });
     setPending(false);
@@ -216,6 +234,10 @@ export function SessionComposer({
     if (!result.ok) {
       setError(result.error);
       return;
+    }
+
+    if (result.warning) {
+      setWarning(result.warning);
     }
 
     setSessions((prev) => {
@@ -231,235 +253,242 @@ export function SessionComposer({
       sessionId: result.session.id,
     });
     setName("");
-    setSeedQuestion("");
-    setDescription("");
-    setRelatedIds([]);
+    setInquiry("");
     setParticipantIds([]);
-    setShowCreate(false);
-  }
-
-  async function addMoreParticipants() {
-    if (!createdShare || !onAddParticipants || participantIds.length === 0) {
-      return;
-    }
-    setPending(true);
-    const result = await onAddParticipants(
-      createdShare.sessionId,
-      participantIds,
-    );
-    setPending(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setParticipantIds([]);
+    setCreateOpen(false);
   }
 
   return (
-    <section className="rounded-lg border border-cloud bg-sand/20 p-5 shadow-soft">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <h2 className="font-display text-lg font-medium text-ink">
-            Connect to a session / artifact
-          </h2>
-          <p className="mt-1 text-sm text-ink/55">
-            Link this contribution to up to {MAX_CONNECT} sessions (most recent
-            first). Leave empty for a stand-alone reflection.
-          </p>
-          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-md border border-cloud bg-paper p-2">
-            {sessions.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-ink/45">
-                No sessions yet — create one beside this list.
-              </p>
-            ) : (
-              sessions.map((session) => {
-                const checked = selectedIds.includes(session.id);
-                const disabled = !checked && selectedIds.length >= MAX_CONNECT;
-                return (
-                  <label
-                    key={session.id}
-                    className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-sand/40 ${
-                      disabled ? "opacity-40" : ""
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => toggleSession(session.id)}
-                    />
-                    <span>
-                      <span className="font-medium text-ink">{session.name}</span>
-                      {session.seed_question ? (
-                        <span className="mt-0.5 block text-xs text-ink/45">
-                          Seed: {session.seed_question}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                );
-              })
-            )}
-          </div>
-        </div>
+    <section className="grid gap-6 lg:grid-cols-2">
+      {/* Connect */}
+      <div className="relative" ref={connectPanelRef}>
+        <button
+          type="button"
+          onClick={() => {
+            setConnectOpen((v) => !v);
+            setCreateOpen(false);
+          }}
+          className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
+        >
+          Connect to a session / artifact
+          {selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
+        </button>
 
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-display text-lg font-medium text-ink">
+        {connectOpen ? (
+          <div className="absolute left-0 z-20 mt-2 w-full min-w-[18rem] max-w-md rounded-lg border border-cloud bg-paper p-3 shadow-soft">
+            <input
+              value={sessionQuery}
+              onChange={(e) => setSessionQuery(e.target.value)}
+              placeholder="Search sessions…"
+              className="w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
+              autoFocus
+            />
+            <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
+              {filteredSessions.length === 0 ? (
+                <p className="px-1 py-2 text-sm text-ink/45">No sessions found.</p>
+              ) : (
+                filteredSessions.map((session) => {
+                  const checked = selectedIds.includes(session.id);
+                  const disabled = !checked && selectedIds.length >= MAX_CONNECT;
+                  return (
+                    <label
+                      key={session.id}
+                      className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-sand/40 ${
+                        disabled ? "opacity-40" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggleSession(session.id)}
+                      />
+                      <span>
+                        <span className="font-medium text-ink">
+                          {session.name}
+                        </span>
+                        {session.seed_question ? (
+                          <span className="mt-0.5 block text-xs text-ink/45">
+                            {session.seed_question}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setConnectOpen(false)}
+                className="text-sm text-horizon hover:underline"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {selectedSessions.length > 0 ? (
+          <ul className="mt-3 space-y-1.5">
+            {selectedSessions.map((session) => (
+              <li
+                key={session.id}
+                className="flex items-start justify-between gap-2 rounded-md border border-cloud bg-sand/20 px-3 py-2 text-sm"
+              >
+                <span>
+                  <span className="font-medium text-ink">{session.name}</span>
+                  {session.seed_question ? (
+                    <span className="mt-0.5 block text-xs text-ink/50">
+                      {session.seed_question}
+                    </span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeSession(session.id)}
+                  className="shrink-0 font-mono text-[11px] text-ink/45 hover:text-danger"
+                  aria-label={`Remove ${session.name}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {/* Create */}
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            setCreateOpen(true);
+            setConnectOpen(false);
+            setError(null);
+          }}
+          className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
+        >
+          {createLabel}
+        </button>
+
+        {createdShare ? (
+          <div className="mt-3 space-y-2">
+            {warning ? (
+              <p className="text-sm text-ink/60">{warning}</p>
+            ) : null}
+            <SessionShareCard
+              joinPath={createdShare.joinPath}
+              sessionName={createdShare.name}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {createOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-session-title"
+        >
+          <form
+            onSubmit={handleCreate}
+            className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-cloud bg-paper p-5 shadow-soft"
+          >
+            <h2
+              id="create-session-title"
+              className="font-display text-lg font-medium text-ink"
+            >
               {createLabel}
             </h2>
-            <button
-              type="button"
-              onClick={() => setShowCreate((v) => !v)}
-              className="rounded-md border border-cloud bg-paper px-3 py-1.5 text-sm text-ink hover:border-horizon"
-            >
-              {showCreate ? "Cancel" : "New…"}
-            </button>
-          </div>
-          <p className="mt-1 text-sm text-ink/55">
-            Name a shared container, optional seed question, then share a link
-            or QR so others can join.
-          </p>
 
-          {showCreate ? (
-            <form onSubmit={handleCreate} className="mt-3 flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                  Name
-                </span>
-                <input
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="rounded-md border border-cloud bg-white px-3 py-2 text-ink outline-none focus:border-horizon"
-                  placeholder="Morning circle reflections"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                  Seed question (optional)
-                </span>
-                <textarea
-                  value={seedQuestion}
-                  onChange={(e) => setSeedQuestion(e.target.value)}
-                  rows={2}
-                  className="rounded-md border border-cloud bg-white px-3 py-2 text-ink outline-none focus:border-horizon"
-                  placeholder="What felt most alive in that session?"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                  Description (optional)
-                </span>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="rounded-md border border-cloud bg-white px-3 py-2 text-ink outline-none focus:border-horizon"
-                />
-              </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                Name
+              </span>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="rounded-md border border-cloud bg-white px-3 py-2 text-ink outline-none focus:border-horizon"
+                placeholder="Morning circle reflections"
+                autoFocus
+              />
+            </label>
 
-              {sessions.length > 0 ? (
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                    Related sessions (up to {MAX_CONNECT})
-                  </p>
-                  <div className="mt-1 max-h-28 space-y-1 overflow-y-auto rounded-md border border-cloud bg-paper p-2">
-                    {sessions.map((session) => {
-                      const checked = relatedIds.includes(session.id);
-                      const disabled =
-                        !checked && relatedIds.length >= MAX_CONNECT;
-                      return (
-                        <label
-                          key={`rel-${session.id}`}
-                          className={`flex cursor-pointer gap-2 px-1 py-0.5 text-sm ${
-                            disabled ? "opacity-40" : ""
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={disabled}
-                            onChange={() => toggleRelated(session.id)}
-                          />
-                          {session.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                Inquiry (optional)
+              </span>
+              <textarea
+                value={inquiry}
+                onChange={(e) => setInquiry(e.target.value)}
+                rows={3}
+                className="rounded-md border border-cloud bg-white px-3 py-2 text-ink outline-none focus:border-horizon"
+                placeholder="What felt most alive in that session?"
+              />
+            </label>
 
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
-                  Participants
-                </p>
-                <input
-                  value={peerQuery}
-                  onChange={(e) => setPeerQuery(e.target.value)}
-                  placeholder="Search stream members…"
-                  className="mt-1 w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
-                />
-                <div className="mt-1 max-h-28 space-y-1 overflow-y-auto rounded-md border border-cloud bg-paper p-2">
-                  {filteredPeers.length === 0 ? (
-                    <p className="px-1 text-xs text-ink/45">No matches.</p>
-                  ) : (
-                    filteredPeers.map((peer) => (
-                      <label
-                        key={peer.user_id}
-                        className="flex cursor-pointer gap-2 px-1 py-0.5 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={participantIds.includes(peer.user_id)}
-                          onChange={() => toggleParticipant(peer.user_id)}
-                        />
-                        <span>
-                          {peer.display_name}
-                          <span className="ml-1 text-xs text-ink/40">
-                            {peer.email}
-                          </span>
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                Participants (optional)
+              </p>
+              <input
+                value={peerQuery}
+                onChange={(e) => setPeerQuery(e.target.value)}
+                placeholder="Search stream members…"
+                className="mt-1 w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
+              />
+              <div className="mt-1 max-h-28 space-y-1 overflow-y-auto rounded-md border border-cloud bg-sand/20 p-2">
+                {filteredPeers.length === 0 ? (
+                  <p className="px-1 text-xs text-ink/45">No matches.</p>
+                ) : (
+                  filteredPeers.map((peer) => (
+                    <label
+                      key={peer.user_id}
+                      className="flex cursor-pointer gap-2 px-1 py-0.5 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={participantIds.includes(peer.user_id)}
+                        onChange={() => toggleParticipant(peer.user_id)}
+                      />
+                      <span>
+                        {peer.display_name}
+                        <span className="ml-1 text-xs text-ink/40">
+                          {peer.email}
                         </span>
-                      </label>
-                    ))
-                  )}
-                </div>
+                      </span>
+                    </label>
+                  ))
+                )}
               </div>
+            </div>
 
-              {error ? <p className="text-sm text-danger">{error}</p> : null}
+            {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+            <div className="mt-1 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCreateOpen(false)}
+                className="rounded-md border border-cloud px-4 py-2 text-sm text-ink"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={pending || !name.trim()}
-                className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
+                className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
               >
-                {pending ? "Creating…" : createLabel}
+                {pending ? "Creating…" : "Create"}
               </button>
-            </form>
-          ) : null}
-
-          {createdShare ? (
-            <>
-              <SessionShareCard
-                joinPath={createdShare.joinPath}
-                sessionName={createdShare.name}
-              />
-              {onAddParticipants ? (
-                <div className="mt-2">
-                  <button
-                    type="button"
-                    disabled={pending || participantIds.length === 0}
-                    onClick={addMoreParticipants}
-                    className="text-sm text-horizon hover:underline disabled:opacity-50"
-                  >
-                    Add selected participants to this session
-                  </button>
-                </div>
-              ) : null}
-            </>
-          ) : null}
+            </div>
+          </form>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

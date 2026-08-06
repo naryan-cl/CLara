@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createSession } from "@/lib/sessions/create-session";
 import { listSessions } from "@/lib/sessions/list-sessions";
-import { setSessionRelations } from "@/lib/sessions/set-session-relations";
 import {
   addSessionParticipant,
   listSessionParticipantIds,
@@ -50,6 +49,7 @@ export type CreateGroupSessionResult =
       ok: true;
       session: SessionSummary;
       joinPath: string;
+      warning?: string;
     }
   | { ok: false; error: string };
 
@@ -59,9 +59,9 @@ export type CreateGroupSessionResult =
  */
 export async function createGroupSession(input: {
   name: string;
+  /** Stored as sessions.seed_question — shown as Inquiry in the UI. */
+  inquiry?: string;
   seedQuestion?: string;
-  description?: string;
-  relatedSessionIds?: string[];
   participantUserIds?: string[];
 }): Promise<CreateGroupSessionResult> {
   const supabase = await createClient();
@@ -81,36 +81,32 @@ export async function createGroupSession(input: {
     };
   }
 
+  const inquiry = (input.inquiry ?? input.seedQuestion ?? "").trim();
+
   const { session, error } = await createSession({
     streamId: stream.id,
     createdBy: user.id,
     name: input.name,
-    seedQuestion: input.seedQuestion,
-    description: input.description,
+    seedQuestion: inquiry || null,
+    description: null,
   });
 
   if (error || !session) {
     return { ok: false, error: error ?? "Could not create session." };
   }
 
-  if (input.relatedSessionIds?.length) {
-    const relError = await setSessionRelations(
-      session.id,
-      input.relatedSessionIds,
-    );
-    if (relError.error) {
-      return { ok: false, error: relError.error };
-    }
-  }
-
   // Creator is a participant; then any manually added peers.
-  await markAttended(session.id, user.id);
+  const attended = await markAttended(session.id, user.id);
+  const warnings: string[] = [];
+  if (attended.error) {
+    warnings.push(`Could not mark you as a participant: ${attended.error}`);
+  }
 
   for (const peerId of input.participantUserIds ?? []) {
     if (peerId === user.id) continue;
     const addError = await addSessionParticipant(session.id, peerId);
     if (addError.error) {
-      return { ok: false, error: addError.error };
+      warnings.push(`Could not add a participant: ${addError.error}`);
     }
   }
 
@@ -118,6 +114,7 @@ export async function createGroupSession(input: {
     ok: true,
     session,
     joinPath: `/join/${session.share_token}`,
+    warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }
 

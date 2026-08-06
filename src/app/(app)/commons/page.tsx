@@ -53,9 +53,12 @@ export default async function CommonsPage() {
         <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <p className="font-mono text-sm text-danger">{error}</p>
           <p className="mt-2 text-sm text-ink/60">
-            If this mentions missing tables (comments / profiles), run migration{" "}
-            <span className="font-mono">0011_comments_and_attendee_edit.sql</span>{" "}
-            in the Supabase SQL editor.
+            If this mentions <span className="font-mono">infinite recursion</span>{" "}
+            on <span className="font-mono">documents</span>, run migration{" "}
+            <span className="font-mono">0013_fix_document_sessions_rls.sql</span>{" "}
+            in the Supabase SQL editor. If it mentions missing tables (comments /
+            profiles), run{" "}
+            <span className="font-mono">0011_comments_and_attendee_edit.sql</span>.
           </p>
         </section>
       ) : (

@@ -51,7 +51,8 @@ export function ChatForm({ sessionIds, connectedSessions }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const documentIdRef = useRef<string | null>(null);
-  const [isPrivate, setIsPrivate] = useState(true);
+  /** Default public — opt into private. */
+  const [isPrivate, setIsPrivate] = useState(false);
   const [savingNotice, setSavingNotice] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showThanks, setShowThanks] = useState(false);
@@ -207,25 +208,8 @@ export function ChatForm({ sessionIds, connectedSessions }: Props) {
         {pending ? <ThinkingPresence /> : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex max-w-xl items-start gap-2 text-sm text-ink/70">
-          <input
-            type="checkbox"
-            checked={isPrivate}
-            onChange={(e) => setIsPrivate(e.target.checked)}
-            className="mt-1 rounded border-cloud"
-          />
-          <span>
-            Make this reflection private
-            <span className="mt-0.5 block text-xs text-ink/45">
-              Hidden from public Commons &amp; map; session attendees can still
-              see it.
-            </span>
-          </span>
-        </label>
-        <div className="min-h-[1.25rem] text-right font-mono text-[11px] uppercase tracking-wide text-ink/40">
-          {savingNotice ? "Saving…" : null}
-        </div>
+      <div className="flex min-h-[1.25rem] justify-end font-mono text-[11px] uppercase tracking-wide text-ink/40">
+        {savingNotice ? "Saving…" : null}
       </div>
 
       {saveError ? <p className="text-sm text-danger">{saveError}</p> : null}
@@ -258,6 +242,21 @@ export function ChatForm({ sessionIds, connectedSessions }: Props) {
             </button>
           ) : null}
         </div>
+        <label className="flex max-w-xl items-start gap-2 text-sm text-ink/70">
+          <input
+            type="checkbox"
+            checked={isPrivate}
+            onChange={(e) => setIsPrivate(e.target.checked)}
+            className="mt-1 rounded border-cloud"
+          />
+          <span>
+            Make this reflection private
+            <span className="mt-0.5 block text-xs text-ink/45">
+              Hidden from public Commons &amp; map; session attendees can still
+              see it.
+            </span>
+          </span>
+        </label>
       </form>
 
       {showThanks ? (
