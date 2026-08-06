@@ -25,7 +25,8 @@
      vars into --animate-* and silently break motion. */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --duration-ui: 280ms;
-  --duration-ambient: 1.6s;
+  /* 3.2s = half the prior 1.6s speed (100% slower) for calm presence. */
+  --duration-ambient: 3.2s;
 }
 
 @theme inline {

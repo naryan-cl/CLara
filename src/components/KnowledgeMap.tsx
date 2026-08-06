@@ -214,7 +214,10 @@ export function KnowledgeMap({
                     fillOpacity={isSelected ? 1 : 0.85}
                     style={
                       isSelected && !reducedMotion
-                        ? { animation: "glow-pulse 800ms var(--ease) infinite" }
+                        ? {
+                            animation:
+                              "glow-pulse var(--duration-ambient) var(--ease) infinite",
+                          }
                         : isSelected
                           ? {
                               filter:
