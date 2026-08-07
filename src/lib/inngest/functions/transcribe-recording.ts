@@ -9,10 +9,34 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { transcribeAudio } from "@/lib/openai/transcribe";
 import { LISTENS_FAILURE_PLACEHOLDER } from "@/lib/listens/placeholders";
 
+type RecordingPayload = ClaraRecordingReceivedEvent["data"];
+
+function readRecordingPayload(event: unknown): RecordingPayload {
+  const data = (event as { data?: Partial<RecordingPayload> } | null)?.data;
+  if (!data?.documentId || !data?.streamId || !data?.recordingId) {
+    throw new Error(
+      `clara/recording.received missing fields: documentId=${data?.documentId ?? "?"}, streamId=${data?.streamId ?? "?"}, recordingId=${data?.recordingId ?? "?"}. Redeploy so client and Inngest function both use Module B payload.`,
+    );
+  }
+  const segmentCount = Number(data.segmentCount);
+  if (!Number.isInteger(segmentCount) || segmentCount < 1) {
+    throw new Error(
+      `clara/recording.received invalid segmentCount=${String(data.segmentCount)}`,
+    );
+  }
+  return {
+    documentId: data.documentId,
+    streamId: data.streamId,
+    recordingId: data.recordingId,
+    segmentCount,
+    mimeType: data.mimeType || "audio/webm",
+    fileExtension: data.fileExtension === "m4a" ? "m4a" : "webm",
+  };
+}
+
 /**
  * Listens v2 Module B: Whisper each staged segment in order, join text,
  * write Transcript, delete staging objects, fan out clara/document.created.
- * No audio stitch — same text-join model as Old Clara, async via Inngest.
  */
 export const transcribeRecordingFn = inngest.createFunction(
   {
@@ -21,8 +45,14 @@ export const transcribeRecordingFn = inngest.createFunction(
     triggers: [{ event: CLARA_RECORDING_RECEIVED }],
   },
   async ({ event, step }) => {
-    const { documentId, streamId, recordingId, segmentCount, mimeType, fileExtension } =
-      (event as unknown as ClaraRecordingReceivedEvent).data;
+    const {
+      documentId,
+      streamId,
+      recordingId,
+      segmentCount,
+      mimeType,
+      fileExtension,
+    } = readRecordingPayload(event);
     const ext = fileExtension === "m4a" ? "m4a" : "webm";
 
     const parts: string[] = [];
@@ -30,25 +60,42 @@ export const transcribeRecordingFn = inngest.createFunction(
     for (let i = 0; i < segmentCount; i++) {
       const storagePath = `${streamId}/${recordingId}/${i}.${ext}`;
       const text = await step.run(`transcribe-segment-${i}`, async () => {
+        // Surface env gaps clearly in the Inngest run UI.
+        if (!process.env.SUPABASE_SECRET_KEY?.trim()) {
+          throw new Error(
+            "SUPABASE_SECRET_KEY missing in Vercel runtime (needed to download listens-staging).",
+          );
+        }
+        if (!process.env.OPENAI_API_KEY?.trim()) {
+          throw new Error(
+            "OPENAI_API_KEY missing in Vercel runtime (needed for Whisper).",
+          );
+        }
+
         const admin = createAdminClient();
         const { data, error } = await admin.storage
           .from("listens-staging")
           .download(storagePath);
 
-        if (error) throw new Error(`download ${storagePath}: ${error.message}`);
+        if (error) {
+          throw new Error(
+            `download ${storagePath}: ${error.message} (confirm the browser uploaded this object and migration 0014 created bucket listens-staging)`,
+          );
+        }
 
         const buffer = Buffer.from(await data.arrayBuffer());
+        if (buffer.byteLength === 0) {
+          throw new Error(`download ${storagePath}: empty object`);
+        }
+
         const file = await toFile(buffer, `recording-${i}.${ext}`, {
           type: mimeType || "audio/webm",
         });
 
         const result = await transcribeAudio(file);
         if (!result.ok) {
-          console.error(
-            `transcribe-recording: segment ${i} failed`,
-            result.error,
-          );
-          return null;
+          // Fail the step so Inngest shows the Whisper error (not a silent empty doc).
+          throw new Error(`Whisper segment ${i}: ${result.error}`);
         }
         return result.text;
       });

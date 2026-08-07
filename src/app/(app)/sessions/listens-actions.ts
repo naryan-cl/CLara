@@ -11,6 +11,40 @@ import {
 import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 
+const INNGEST_SEND_TIMEOUT_MS = 12_000;
+
+async function sendRecordingEvent(
+  data: {
+    documentId: string;
+    streamId: string;
+    recordingId: string;
+    segmentCount: number;
+    mimeType: string;
+    fileExtension: string;
+  },
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      inngest.send({
+        name: CLARA_RECORDING_RECEIVED,
+        data,
+      }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              "Inngest did not respond in time. Locally run `npm run inngest:dev` (with INNGEST_DEV=1). On Vercel, check INNGEST_EVENT_KEY.",
+            ),
+          );
+        }, INNGEST_SEND_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export type ListensResult =
   | { ok: true; documentId: string; needsReview: boolean }
   | { ok: false; error: string };
@@ -107,27 +141,21 @@ export async function finalizeListensUpload(input: {
       uploadedPaths.push(`${prefix}/${i}.${ext}`);
     }
 
-    const { data: listed, error: listError } = await supabase.storage
-      .from("listens-staging")
-      .list(`${stream.id}/${recordingId}`, { limit: MAX_LISTENS_SEGMENTS });
-
-    if (listError) {
-      return {
-        ok: false,
-        error:
-          listError.message.includes("not found") ||
-          listError.message.includes("Bucket")
-            ? "Listens storage isn’t set up yet. Ask an admin to run migration 0014_listens_staging_storage.sql in Supabase."
-            : `Could not verify uploads: ${listError.message}`,
-      };
-    }
-
-    const names = new Set((listed ?? []).map((obj) => obj.name));
-    for (let i = 0; i < segmentCount; i++) {
-      if (!names.has(`${i}.${ext}`)) {
+    // Trust client upload; a quick signed-URL check on segment 0 catches
+    // obvious missing files without a flaky folder list.
+    {
+      const { error: probeError } = await supabase.storage
+        .from("listens-staging")
+        .createSignedUrl(`${prefix}/0.${ext}`, 60);
+      if (probeError) {
         return {
           ok: false,
-          error: `Missing segment ${i}. Try recording again.`,
+          error:
+            probeError.message.includes("not found") ||
+            probeError.message.includes("Object") ||
+            probeError.message.includes("Bucket")
+              ? "Could not find the uploaded recording in Storage. Try recording again (and confirm migration 0014 is applied)."
+              : `Could not verify upload: ${probeError.message}`,
         };
       }
     }
@@ -162,24 +190,25 @@ export async function finalizeListensUpload(input: {
     }
 
     try {
-      await inngest.send({
-        name: CLARA_RECORDING_RECEIVED,
-        data: {
-          documentId: document.id,
-          streamId: stream.id,
-          recordingId,
-          segmentCount,
-          mimeType: input.mimeType || "audio/webm",
-          fileExtension: ext,
-        },
+      await sendRecordingEvent({
+        documentId: document.id,
+        streamId: stream.id,
+        recordingId,
+        segmentCount,
+        mimeType: input.mimeType || "audio/webm",
+        fileExtension: ext,
       });
     } catch (err) {
       console.error("Failed to enqueue Listens transcription:", err);
       await supabase.storage.from("listens-staging").remove(uploadedPaths);
       await supabase.from("documents").delete().eq("id", document.id);
+      const message =
+        err instanceof Error ? err.message : "Couldn't start transcription.";
       return {
         ok: false,
-        error: "Couldn't start transcription. Try again.",
+        error: message.includes("Inngest")
+          ? message
+          : "Couldn't start transcription. Locally run `npm run inngest:dev`. On Vercel, check INNGEST_EVENT_KEY.",
       };
     }
 

@@ -399,27 +399,49 @@ export function ListensRecorder({
 
         // Submit: finalize with all uploaded segments (0..index inclusive).
         const segmentCount = index + 1;
-        startTransition(async () => {
-          const result = await finalizeListensUpload({
-            recordingId: recordingIdRef.current!,
-            segmentCount,
-            mimeType: mimeTypeRef.current || "audio/webm",
-            fileExtension: (mimeTypeRef.current || "").includes("mp4")
-              ? "m4a"
-              : "webm",
-            title: titleRef.current,
-            sessionIds: sessionIdsRef.current,
-          });
-          teardownCapture();
-          if (!result.ok) {
-            setError(result.error);
-            setIsRecording(false);
-            return;
-          }
-          setTitle("");
+        const recordingId = recordingIdRef.current;
+        const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
+        const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
+        const titleForUpload = titleRef.current;
+        const sessionsForUpload = sessionIdsRef.current;
+
+        if (!recordingId) {
+          setError("Recording session was lost. Try again.");
           setIsRecording(false);
-          router.push(`/sessions/documents/${result.documentId}`);
-          router.refresh();
+          teardownCapture();
+          return;
+        }
+
+        startTransition(async () => {
+          try {
+            const result = await finalizeListensUpload({
+              recordingId,
+              segmentCount,
+              mimeType: mimeTypeForUpload,
+              fileExtension,
+              title: titleForUpload,
+              sessionIds: sessionsForUpload,
+            });
+            teardownCapture();
+            if (!result.ok) {
+              setError(result.error);
+              setIsRecording(false);
+              return;
+            }
+            setTitle("");
+            setIsRecording(false);
+            router.push(`/sessions/documents/${result.documentId}`);
+            router.refresh();
+          } catch (err) {
+            console.error("finalizeListensUpload client error:", err);
+            teardownCapture();
+            setIsRecording(false);
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Could not finish saving the recording. Try again.",
+            );
+          }
         });
       })();
     };
