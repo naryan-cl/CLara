@@ -67,7 +67,7 @@ function filterByScope(
  * Embed a question and find the most relevant Commons chunks in one stream,
  * via the `match_document_chunks` SECURITY DEFINER function.
  * Optional `scope` limits retrieval to one document or one session (0016).
- * If 0016 isn't applied yet, falls back to a wider unscoped fetch + client filter.
+ * If 0016 isn't applied yet, falls back to the 3-arg RPC + client filter.
  */
 export async function searchCommons(
   streamId: string,
@@ -80,7 +80,10 @@ export async function searchCommons(
   const supabase = await createClient();
   const scoped = askScopeIsActive(scope);
 
-  const { data, error } = await supabase.rpc("match_document_chunks", {
+  // Always try the scoped signature first. Even with null scope args, PostgREST
+  // looks up by named params — if 0016 isn't applied, that 5-arg lookup fails
+  // and we fall back to the original 3-arg function.
+  const scopedRpc = await supabase.rpc("match_document_chunks", {
     p_stream_id: streamId,
     p_query_embedding: queryEmbedding,
     p_match_count: matchCount,
@@ -88,23 +91,29 @@ export async function searchCommons(
     p_session_id: scope?.sessionId ?? null,
   });
 
-  if (!error) {
-    const rows = (data ?? []) as MatchDocumentChunksRow[];
+  if (!scopedRpc.error) {
+    const rows = (scopedRpc.data ?? []) as MatchDocumentChunksRow[];
     const matches = rows
       .map(rowToMatch)
       .filter((match) => match.similarity >= minSimilarity);
     return { matches, error: null };
   }
 
-  // Before 0016: RPC rejects unknown args. Retry unscoped, then filter.
-  if (!scoped) {
-    return { matches: [], error: error.message };
+  const missingScopedFn =
+    /schema cache|Could not find the function|PGRST202/i.test(
+      scopedRpc.error.message,
+    );
+
+  if (!missingScopedFn) {
+    return { matches: [], error: scopedRpc.error.message };
   }
 
+  // Pre-0016 database: only the 3-arg overload exists.
+  const fallbackCount = scoped ? Math.max(matchCount * 6, 40) : matchCount;
   const fallback = await supabase.rpc("match_document_chunks", {
     p_stream_id: streamId,
     p_query_embedding: queryEmbedding,
-    p_match_count: Math.max(matchCount * 6, 40),
+    p_match_count: fallbackCount,
   });
 
   if (fallback.error) {
@@ -112,12 +121,13 @@ export async function searchCommons(
   }
 
   const rows = (fallback.data ?? []) as MatchDocumentChunksRow[];
-  const matches = filterByScope(
-    rows
-      .map(rowToMatch)
-      .filter((match) => match.similarity >= minSimilarity),
-    scope,
-  ).slice(0, matchCount);
+  let matches = rows
+    .map(rowToMatch)
+    .filter((match) => match.similarity >= minSimilarity);
+
+  if (scoped) {
+    matches = filterByScope(matches, scope).slice(0, matchCount);
+  }
 
   return { matches, error: null };
 }

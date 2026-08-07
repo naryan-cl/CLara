@@ -16,6 +16,7 @@ import {
   seedSimNodes,
   type SimNode,
 } from "@/lib/graph/layout";
+import { nodeSpriteUrl, spriteSizeFor } from "@/lib/graph/node-sprite";
 import {
   directionFromKey,
   findNearestInDirection,
@@ -347,13 +348,15 @@ export function KnowledgeMap({
                 const source = nodeById.get(edge.sourceNodeId);
                 const target = nodeById.get(edge.targetNodeId);
                 if (!source || !target) return null;
+                // Radius 0 → line through icon centers; nodes paint above
+                // edges so connectors look like they grow from the plant.
                 const { x1, y1, x2, y2 } = edgeEndpoints(
                   source.x,
                   source.y,
-                  radiusFor(source.type),
+                  0,
                   target.x,
                   target.y,
-                  radiusFor(target.type),
+                  0,
                 );
                 const d = curvedPath(x1, y1, x2, y2, edge.id);
                 return (
@@ -381,6 +384,8 @@ export function KnowledgeMap({
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
                 const r = radiusFor(node.type);
+                const spriteHref = nodeSpriteUrl(node.type, node.id);
+                const spriteSize = spriteSizeFor(r);
                 return (
                   <g
                     key={node.id}
@@ -478,30 +483,53 @@ export function KnowledgeMap({
                     className="cursor-grab outline-none focus-visible:opacity-90 active:cursor-grabbing"
                     transform={`translate(${node.x}, ${node.y})`}
                   >
-                    <circle
-                      r={r}
-                      fill={colorFor(node.type)}
-                      fillOpacity={isLit ? 1 : 0.85}
-                      stroke={isPinned ? "var(--paper)" : "transparent"}
-                      strokeWidth={isPinned ? 2 : 0}
-                      style={
-                        isLit && !reducedMotion
-                          ? {
-                              animation:
-                                "glow-pulse var(--duration-ambient) var(--ease) infinite",
-                            }
-                          : isLit
+                    {spriteHref ? (
+                      <image
+                        href={spriteHref}
+                        x={-spriteSize / 2}
+                        y={-spriteSize / 2}
+                        width={spriteSize}
+                        height={spriteSize}
+                        style={
+                          isLit && !reducedMotion
                             ? {
+                                pointerEvents: "none",
+                                animation:
+                                  "glow-pulse var(--duration-ambient) var(--ease) infinite",
                                 filter:
-                                  "drop-shadow(0 0 12px rgba(143,214,196,.6))",
+                                  "drop-shadow(0 0 10px rgba(143,214,196,.55))",
                               }
-                            : undefined
-                      }
-                    />
+                            : isLit
+                              ? {
+                                  pointerEvents: "none",
+                                  filter:
+                                    "drop-shadow(0 0 10px rgba(143,214,196,.55))",
+                                }
+                              : { pointerEvents: "none" }
+                        }
+                      />
+                    ) : (
+                      <circle
+                        r={r}
+                        fill={colorFor(node.type)}
+                        fillOpacity={isLit ? 1 : 0.85}
+                      />
+                    )}
+                    {/* Invisible hit target — sprites are irregular shapes. */}
+                    <circle r={r} fill="transparent" />
+                    {isPinned ? (
+                      <circle
+                        r={r + 4}
+                        fill="none"
+                        stroke="var(--paper)"
+                        strokeWidth={2}
+                        style={{ pointerEvents: "none" }}
+                      />
+                    ) : null}
                     <text
                       y={r + 16}
                       textAnchor="middle"
-                      className="fill-paper font-mono text-[10px] select-none"
+                      className="fill-paper font-display text-[11px] font-medium select-none"
                       style={{ pointerEvents: "none" }}
                     >
                       {node.label.length > 22

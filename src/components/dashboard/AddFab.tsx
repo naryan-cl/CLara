@@ -6,8 +6,13 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Organic + FAB that slides out Record / Reflect / Upload (Add lens).
  * Collapses on outside click or Escape.
+ * `menuAlign="end"` opens the menu toward the left (top-right placement).
  */
-export function AddFab() {
+export function AddFab({
+  menuAlign = "start",
+}: {
+  menuAlign?: "start" | "end";
+} = {}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -29,8 +34,9 @@ export function AddFab() {
     };
   }, [open]);
 
+  // Solid sand hover — forest/5 looked like the button went transparent on the map.
   const actionClass =
-    "flex items-center gap-2 border border-forest/30 bg-paper px-4 py-2.5 text-sm font-medium text-forest shadow-soft transition-[transform,background-color] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px organic-ask-btn";
+    "flex items-center gap-2 border border-forest/30 bg-paper px-4 py-2.5 text-sm font-medium text-forest shadow-soft transition-[transform,background-color] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-sand hover:-translate-y-px organic-ask-btn";
 
   return (
     <div ref={rootRef} className="relative flex items-center gap-2">
@@ -46,7 +52,9 @@ export function AddFab() {
 
       {open ? (
         <div
-          className="absolute bottom-0 left-16 flex flex-col gap-2 animate-panel-slide-in motion-reduce:animate-none sm:flex-row sm:items-center"
+          className={`absolute top-16 flex flex-col gap-2 animate-panel-slide-in motion-reduce:animate-none sm:flex-row sm:items-center ${
+            menuAlign === "end" ? "right-0" : "left-0"
+          }`}
           role="menu"
           aria-label="Add to Commons"
         >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AskForm } from "@/components/AskForm";
 import { ElementDetailBody } from "@/components/dashboard/ElementDetailBody";
@@ -17,6 +17,9 @@ type AskHostMode = "minimized" | "conversation" | "detail";
  * - minimized: title + entry only
  * - conversation: expanded thread (auto after ask / handoff)
  * - detail: element opens inside the host; title changes; entry stays at bottom
+ *
+ * Clicking away re-minimizes when there is no active conversation (and no
+ * open element detail).
  */
 export function AskClaraPanel({
   formKey = "default",
@@ -45,9 +48,11 @@ export function AskClaraPanel({
   /** Parent sets true after a handoff so we open in conversation mode. */
   forceConversation?: boolean;
 } = {}) {
+  const rootRef = useRef<HTMLElement>(null);
   const [conversationOpen, setConversationOpen] = useState(
     Boolean(forceConversation || autoSubmitInitial),
   );
+  const [hasConversation, setHasConversation] = useState(false);
   const [editing, setEditing] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [detailKind, setDetailKind] = useState<"document" | "session" | null>(
@@ -76,6 +81,27 @@ export function AskClaraPanel({
     : conversationOpen
       ? "conversation"
       : "minimized";
+
+  // Click away → minimize when there's no live thread and no detail open.
+  useEffect(() => {
+    if (inDetail || hasConversation || !conversationOpen) return;
+
+    function onPointer(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setConversationOpen(false);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setConversationOpen(false);
+    }
+
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [inDetail, hasConversation, conversationOpen]);
 
   const detailTitle =
     selectedItem?.title ?? selectedNode?.label ?? "Details";
@@ -112,6 +138,7 @@ export function AskClaraPanel({
 
   return (
     <section
+      ref={rootRef}
       className={`organic-ask flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm transition-[width,height,max-height] duration-[var(--duration-ui)] ease-[var(--ease)] ${
         mode === "minimized"
           ? "w-[min(100vw-2rem,22rem)]"
@@ -238,6 +265,7 @@ export function AskClaraPanel({
             minimized={mode === "minimized"}
             streamName={streamName}
             onConversationActive={() => setConversationOpen(true)}
+            onHasConversationChange={setHasConversation}
           />
         </div>
       ) : null}
