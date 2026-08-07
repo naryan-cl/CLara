@@ -9,6 +9,8 @@ import { updateMemberRole } from "@/lib/streams/update-member-role";
 import { updateStreamIsolation } from "@/lib/streams/update-isolation";
 import { updateStreamPrompt } from "@/lib/prompts/update-stream-prompt";
 import type { PromptKind } from "@/lib/prompts/defaults";
+import { updateStreamThemeSettings } from "@/lib/map-theme/theme-state";
+import { isMapThemeId, type MapThemeId } from "@/lib/map-theme";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -137,5 +139,42 @@ export async function resetStreamPrompt(
   }
 
   revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Admin: stream default map theme + Ocean/Desert unlock thresholds. */
+export async function saveMapThemeSettings(input: {
+  defaultMapTheme: MapThemeId;
+  oceanUnlockAt: number;
+  desertUnlockAt: number;
+}): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (!isMapThemeId(input.defaultMapTheme)) {
+    return { ok: false, error: "Unknown default theme." };
+  }
+  if (
+    !Number.isFinite(input.oceanUnlockAt) ||
+    input.oceanUnlockAt < 0 ||
+    !Number.isInteger(input.oceanUnlockAt) ||
+    !Number.isFinite(input.desertUnlockAt) ||
+    input.desertUnlockAt < 0 ||
+    !Number.isInteger(input.desertUnlockAt)
+  ) {
+    return { ok: false, error: "Thresholds must be whole numbers ≥ 0." };
+  }
+
+  const { error } = await updateStreamThemeSettings(auth.streamId, {
+    defaultMapTheme: input.defaultMapTheme,
+    oceanUnlockAt: input.oceanUnlockAt,
+    desertUnlockAt: input.desertUnlockAt,
+  });
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
   return { ok: true };
 }

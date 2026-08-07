@@ -7,13 +7,15 @@ import {
   CommonsListPanel,
   ListFab,
 } from "@/components/dashboard/CommonsListPanel";
+import { ThemePicker } from "@/components/dashboard/ThemePicker";
+import { ThemeUnlockPopup } from "@/components/dashboard/ThemeUnlockPopup";
 import { KnowledgeMap } from "@/components/KnowledgeMap";
 import type { AskScope } from "@/lib/ask/scope";
 import { findCommonsItemForGraphNode } from "@/lib/commons/graph-node";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphNode } from "@/lib/graph/types";
-import { PLANT_PALETTE } from "@/lib/map-theme";
+import { paletteFor, type MapThemeId } from "@/lib/map-theme";
 
 type AskHandoff = {
   key: string;
@@ -23,20 +25,26 @@ type AskHandoff = {
 
 /**
  * Dashboard shell: full-bleed Knowledge Map under the nav, with floating
- * Add / List FABs (top-left) and Ask host (top-right). Element detail
- * opens inside Ask (title changes, entry stays at the bottom).
+ * Add / List FABs (top-left), theme picker, and Ask host (top-right).
+ * Wallpaper + sprites follow the member's unlocked map theme.
  */
 export function DashboardGrid({
   items,
   streamId,
   streamName,
   error,
+  mapTheme = "plant",
+  unlockedThemes = ["plant"],
+  pendingUnlock = null,
 }: {
   items: CommonsListItem[];
   streamId: string;
   streamName: string;
   currentUserId: string;
   error?: string | null;
+  mapTheme?: MapThemeId;
+  unlockedThemes?: MapThemeId[];
+  pendingUnlock?: "ocean" | "desert" | null;
 }) {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [selectedListItem, setSelectedListItem] =
@@ -45,6 +53,8 @@ export function DashboardGrid({
   const [askHandoff, setAskHandoff] = useState<AskHandoff | null>(null);
   const [askScope, setAskScope] = useState<AskScope | null>(null);
   const listChromeRef = useRef<HTMLDivElement>(null);
+
+  const themePalette = paletteFor(mapTheme);
 
   const { nodes, edges } = useMemo(
     () => commonsItemsToGraph(items, streamId),
@@ -112,7 +122,7 @@ export function DashboardGrid({
   return (
     <div
       className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-0"
-      style={{ background: PLANT_PALETTE.base }}
+      style={{ background: themePalette.base }}
       aria-label="Stream dashboard"
     >
       {/* Map canvas */}
@@ -122,11 +132,10 @@ export function DashboardGrid({
             <div className="organic-ask max-w-md border border-danger/30 bg-paper/95 p-5 shadow-soft">
               <p className="font-mono text-sm text-danger">{error}</p>
               <p className="mt-2 text-sm text-ink/60">
-                If this mentions missing tables or infinite recursion, check
-                Commons migrations (
-                <span className="font-mono text-xs">0011</span>–
-                <span className="font-mono text-xs">0013</span>) in Supabase,
-                then refresh.
+                If this mentions missing tables or columns, apply Commons
+                migrations through{" "}
+                <span className="font-mono text-xs">0017_map_themes</span> in
+                Supabase, then refresh.
               </p>
             </div>
           </div>
@@ -154,8 +163,9 @@ export function DashboardGrid({
             onSelect={onMapNodeSelect}
             hideDetailPanel
             hideChrome
-            wallpaperTheme="plant"
+            wallpaperTheme={mapTheme}
             wallpaperSeed={`stream:${streamId}`}
+            useSprites
             className="h-full w-full rounded-none border-0"
           />
         )}
@@ -190,6 +200,11 @@ export function DashboardGrid({
         </div>
       </div>
 
+      {/* Theme picker — bottom-left so it stays clear of Ask */}
+      <div className="pointer-events-none absolute bottom-4 left-4 z-20 sm:bottom-6 sm:left-6">
+        <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
+      </div>
+
       {/* Ask host — top right */}
       <div className="pointer-events-none absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
         <div className="pointer-events-auto">
@@ -211,6 +226,8 @@ export function DashboardGrid({
           />
         </div>
       </div>
+
+      {pendingUnlock ? <ThemeUnlockPopup theme={pendingUnlock} /> : null}
     </div>
   );
 }

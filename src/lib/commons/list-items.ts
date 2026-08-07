@@ -25,6 +25,7 @@ export async function listCommonsItems(
         "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
       )
       .eq("stream_id", streamId)
+      .eq("is_draft", false)
       .order("created_at", { ascending: false }),
     listSessions(streamId),
     listAttendedSessionIds(userId, streamId),

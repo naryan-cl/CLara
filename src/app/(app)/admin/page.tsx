@@ -2,10 +2,12 @@ import { DocumentList } from "@/components/DocumentList";
 import { MembersPanel } from "@/components/MembersPanel";
 import { IsolationToggle } from "@/components/IsolationToggle";
 import { PromptsPanel } from "@/components/PromptsPanel";
+import { MapThemesPanel } from "@/components/MapThemesPanel";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listNeedsReviewDocuments } from "@/lib/documents/list-needs-review";
 import { listStreamMembers } from "@/lib/streams/list-members";
 import { getStreamPrompts } from "@/lib/prompts/get-stream-prompts";
+import { getStreamThemeSettings } from "@/lib/map-theme/theme-state";
 import { defaultPromptFor } from "@/lib/prompts/defaults";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,6 +37,8 @@ export default async function AdminPage() {
   const { documents, error } = await listNeedsReviewDocuments(stream.id);
   const { members, error: membersError } = await listStreamMembers(stream.id);
   const { prompts, error: promptsError } = await getStreamPrompts(stream.id);
+  const { settings: themeSettings, error: themeError } =
+    await getStreamThemeSettings(stream.id);
 
   const supabase = await createClient();
   const {
@@ -52,8 +56,8 @@ export default async function AdminPage() {
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Admin</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Membership, isolation, CLara prompts, and the metadata review queue
-          for {stream.name}.
+          Membership, isolation, map themes, CLara prompts, and the metadata
+          review queue for {stream.name}.
         </p>
       </div>
 
@@ -63,6 +67,27 @@ export default async function AdminPage() {
         </h2>
         <div className="mt-4">
           <IsolationToggle initialEnabled={stream.isolation_enabled} />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+        <h2 className="font-display text-lg font-medium text-ink">
+          Map themes
+        </h2>
+        <div className="mt-4">
+          {themeError || !themeSettings ? (
+            <p className="font-mono text-sm text-danger">
+              {themeError ??
+                "Theme settings unavailable — apply migration 0017_map_themes."}
+            </p>
+          ) : (
+            <MapThemesPanel
+              key={`${themeSettings.defaultMapTheme}-${themeSettings.oceanUnlockAt}-${themeSettings.desertUnlockAt}`}
+              initialDefaultTheme={themeSettings.defaultMapTheme}
+              initialOceanUnlockAt={themeSettings.oceanUnlockAt}
+              initialDesertUnlockAt={themeSettings.desertUnlockAt}
+            />
+          )}
         </div>
       </section>
 

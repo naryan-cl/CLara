@@ -25,6 +25,8 @@ export type CommonsDocument = {
   tags: unknown;
   privacy_status: DocumentPrivacy;
   needs_review: boolean;
+  /** Reflect autosave until Submit. Absent/false for older rows. */
+  is_draft?: boolean;
   created_at: string;
   updated_at: string;
 };

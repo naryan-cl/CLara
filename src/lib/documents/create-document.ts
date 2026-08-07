@@ -15,6 +15,8 @@ export type CreateDocumentInput = {
   privacyStatus?: DocumentPrivacy;
   tags?: string[];
   needsReview?: boolean;
+  /** Reflect autosave = true until Submit. Default false. */
+  isDraft?: boolean;
 };
 
 /**
@@ -44,9 +46,10 @@ export async function createDocument(
       tags: input.tags ?? [],
       participants: [],
       needs_review: needsReview,
+      is_draft: input.isDraft ?? false,
     })
     .select(
-      "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
+      "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, is_draft, created_at, updated_at",
     )
     .single();
 

@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-07 (Closed superseded draft PRs #1/#2)  
+**Last updated:** 2026-08-07 (Phase 7 map themes B–D shipped in code)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Apply newer Supabase migrations if missing (`0011`–`0014`, **`0015_stream_system_prompts.sql`** for admin-editable Reflect/Ask prompts).
+5. Apply newer Supabase migrations if missing (`0011`–`0016`, **`0015_stream_system_prompts.sql`**, **`0017_map_themes.sql`** for dashboard themes/unlocks).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -74,6 +74,7 @@
 *   **`0013_fix_document_sessions_rls.sql`** — breaks documents ↔ document_sessions RLS recursion (Commons “infinite recursion” error). **Run after 0012.**
 *   **`0014_listens_staging_storage.sql`** — private `listens-staging` Storage bucket (25MB, path `{stream_id}/{uuid}.{ext}`) for Listens v2 async Whisper. **Required for Record after v2 Module A.**
 *   **`0015_stream_system_prompts.sql`** — `streams.reflect_system_prompt` + `streams.ask_system_prompt` (nullable text). NULL = product default in code. Admin UI on `/admin`. **Required for editable CLara prompts.**
+*   **`0017_map_themes.sql`** — stream default theme + unlock thresholds; member selected theme + unlock-seen; `documents.is_draft`; RPCs `set_my_map_theme` / `ack_map_theme_unlock`. **Required for dashboard Plant/Ocean/Desert themes.**
 
 ### Not yet migrated
 *   (ensure **0012**–**0015** are applied on the shared Supabase project as needed)
@@ -193,6 +194,25 @@
 
 *   **Phase 7 Module A polish (2026-08-07 evening):** Wallpaper is now **procedural SVG** (soft radial washes + contour paths) — no bitmap, so zoom stays sharp and generation is faster. Plant greens lightened (`#D5E6D2` base). Add/List FABs restored to **top-left**; Ask stays top-right. Record/Reflect/Upload hover uses solid **sand** (not transparent forest/5). **Why prior polish was “lost”:** those fixes lived on parallel agent branches that never merged into `main` / this PR branch — cloud agents each branch from `main`, so unmerged PRs do not appear in later agents. Fix: merge (or cherry-pick) finished PRs into `main` before starting the next agent, not only deploy to Vercel.
 
+*   **Phase 7 Modules B–D shipped in code (2026-08-07):** Full Plant / Ocean / Desert theme feature.
+    *   **Surfaces:** Dashboard = wallpaper + theme sprites together. **`/map` = dark circles only** (no wallpaper, `useSprites` false).
+    *   **Sprites:** `Sprites/split_sprites2.py` (theme folders, morph close + proximity merge, swallow-fallback for soft sheets) → `Sprites/extracted/{theme}/{sheet}/`. `npm run sprites:prepare` copies into `public/map-sprites/{plant|ocean|desert}/{atom|concept|framework|theme}/` + `manifest.json`. `nodeSpriteUrl(theme, type, id)`.
+    *   **Wallpapers:** Ocean stays deep blue with light label/edge tokens; Desert tan; generator unchanged (palette-driven).
+    *   **Schema `0017_map_themes.sql`:** `streams.default_map_theme` / `ocean_unlock_at` / `desert_unlock_at`; `stream_members.selected_map_theme` + unlock-seen timestamps; `documents.is_draft`; RPCs `set_my_map_theme` + `ack_map_theme_unlock` (members cannot UPDATE `stream_members` under admin-only RLS).
+    *   **Admin:** `/admin` Map themes panel. **Dashboard:** theme picker (unlocked only) + unlock congratulations popup.
+    *   **Reflect:** autosave sets `is_draft=true`; Submit clears it. Commons list excludes drafts. Unlock count = Public + non-draft authored docs.
+    *   **Manual test:** (1) run `0017` in Supabase; (2) dashboard Plant sprites + wallpaper; (3) `/map` circles/dark; (4) Admin set Ocean unlock to 0 → refresh → Ocean in picker + optional popup; (5) switch Ocean/Desert wallpapers+sprites; (6) Reflect autosave stays draft / does not unlock; Submit public counts.
+    *   **Cull note:** after extract, manually delete bad icon splits under `Sprites/extracted/` then re-run `npm run sprites:prepare`.
+
+*   **Map theme wallpapers — product decisions (updated 2026-08-07):** Supersedes the earlier “nodes stay circles / wallpaper only” lock for the **dashboard**. Confirmed:
+    1. Wallpaper **moves with the graph** on the dashboard.
+    2. Contrast tokens per theme (Ocean = light labels on deep blue).
+    3. Large unique generative region + subtle contour drift (`prefers-reduced-motion` → static).
+    4. Admin default theme + unlock thresholds; per-user unlocked pick; unlock popup copy unchanged.
+    5. Generative wallpaper remains the background source of truth; **sprites are curated packs** per theme (not generative).
+    6. **Dashboard** uses themed sprites; **`/map` stays circles**.
+    **Defaults:** Plant free, Ocean @ 5, Desert @ 10.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
@@ -258,7 +278,7 @@
 *   Inngest for **this** app ≠ Old Clara Inngest (different serve URL).
 *   Reference: Festival + Old Clara folders (see below).
 *   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
-*   **Map themes (2026-08-07):** Plant / Ocean / Desert generative topo wallpapers; pan/zoom with graph; contrast per theme; stream admin default + contribution unlocks; per-user theme pick. **Nodes use nature sprites** (restored; circles fallback). **Unlock unit:** authored Commons docs that are finalized and **Public** (drafts + private excluded). **Default thresholds:** Plant free; Ocean @ 5; Desert @ 10. Wallpaper wash is one smooth cached raster (not blocky cells). See Progress log.
+*   **Map themes (2026-08-07):** Plant / Ocean / Desert generative topo wallpapers on the **dashboard** (pan/zoom with graph; contrast per theme; themed sprites). **`/map` stays circles on dark canvas.** Stream admin default + contribution unlocks; per-user theme pick. **Unlock unit:** authored Public non-draft Commons docs (`is_draft`). **Default thresholds:** Plant free; Ocean @ 5; Desert @ 10. Apply `0017_map_themes.sql`. See Progress log.
 
 ### Reference projects
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
@@ -278,13 +298,12 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Verify Phase 7 Module A** on a real dashboard (pan/zoom/contrast), then tune Plant palette if needed.
-2.  **Phase 7 Module B:** wire Ocean + Desert palettes (already stubbed) + optional theme switcher for testing before unlocks.
-3.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
-4.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
-5.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
-6.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
-7.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later. Optional: whether theme wallpapers also apply on `/map`.
+1.  **Apply `0017_map_themes.sql`** in Supabase, then verify dashboard themes + Admin thresholds end-to-end.
+2.  **Cull bad sprite extracts** under `Sprites/extracted/`, re-run `npm run sprites:prepare`, commit curated `public/map-sprites`.
+3.  **Prod migrations check** — confirm `0011`–`0017` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+4.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+6.  Next product priority outside Phase 7 (ask owner).
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
@@ -337,12 +356,12 @@ Build one module at a time; verify; update this Progress section; then continue.
 *   [x] **Module E — Comments + audit log** — `0011_comments_and_attendee_edit.sql` + CommentThread; author edit/delete; "edited" marker; admin audit — shipped 2026-08-05 (**run migration in Supabase**)
 *   [x] **Module F — Docs & landing copy** — landing triad Add/Commons/Synthesis; dashboard jump-in updated — shipped 2026-08-05
 
-### Phase 7 — Map theme wallpapers *(Module A shipped 2026-08-07)*
+### Phase 7 — Map theme wallpapers *(Modules A–D shipped in code 2026-08-07 — apply `0017`)*
 
-*   [x] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast; nodes stay plain circles
-*   [ ] **Module B — Ocean + Desert palettes** — same renderer, theme tokens; optional subtle contour drift (`prefers-reduced-motion` → static)
-*   [ ] **Module C — Admin defaults + thresholds** — stream default theme + contribution counts to unlock themes (seed defaults: Plant free, Ocean @ 5, Desert @ 10)
-*   [ ] **Module D — Unlocks + user pick** — count authored **Public non-draft** Commons docs; unlock popup (“Apply it now?”); per-member theme selection
+*   [x] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast
+*   [x] **Module B — Ocean + Desert palettes + theme sprites** — same renderer; deep Ocean + light labels; Desert tan; theme-scoped sprite library; dashboard `useSprites`
+*   [x] **Module C — Admin defaults + thresholds** — stream default theme + contribution counts (`0017`; Admin Map themes panel)
+*   [x] **Module D — Unlocks + user pick** — `is_draft` + contribution count; unlock popup; per-member theme selection (RPCs)
 
 ---
 

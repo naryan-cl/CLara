@@ -72,8 +72,8 @@ function getMountedServerSnapshot() {
  *
  * Optional `wallpaperTheme` (Phase 7): generative topo under the graph that
  * pans/zooms with nodes. Contrast tokens come from the theme palette.
- * Nodes render as nature sprites when `/public/map-sprites` is present
- * (circles are the fallback). Omit wallpaper theme for classic dark canvas.
+ * Dashboard passes `useSprites` so nodes use theme nature icons; `/map`
+ * leaves both off for classic dark circles.
  *
  * `hideDetailPanel` + `onSelect` let the dashboard open detail inside Ask
  * without resizing the map. `hideChrome` drops the hint row for full-bleed.
@@ -87,6 +87,7 @@ export function KnowledgeMap({
   hideChrome = false,
   wallpaperTheme = null,
   wallpaperSeed,
+  useSprites = false,
   className = "",
 }: {
   nodes: GraphNode[];
@@ -100,6 +101,8 @@ export function KnowledgeMap({
   wallpaperTheme?: MapThemeId | null;
   /** Seed for generative terrain (stable per stream is ideal). */
   wallpaperSeed?: string;
+  /** Theme sprite icons (dashboard). False = type-colored circles (`/map`). */
+  useSprites?: boolean;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -421,7 +424,10 @@ export function KnowledgeMap({
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
                 const r = radiusFor(node.type);
-                const spriteHref = nodeSpriteUrl(node.type, node.id);
+                const spriteHref =
+                  useSprites && wallpaperTheme
+                    ? nodeSpriteUrl(wallpaperTheme, node.type, node.id)
+                    : null;
                 const spriteSize = spriteSizeFor(r);
                 return (
                   <g

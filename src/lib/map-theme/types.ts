@@ -1,6 +1,7 @@
 /**
  * Map wallpaper themes (Phase 7).
- * Wallpaper is generative topo (procedural SVG); nodes use nature sprites.
+ * Dashboard: generative topo wallpaper + theme-scoped nature sprites.
+ * `/map`: dark canvas with type-colored circles (no theme).
  */
 
 export type MapThemeId = "plant" | "ocean" | "desert";

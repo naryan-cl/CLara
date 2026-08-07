@@ -17,17 +17,18 @@ export const PLANT_PALETTE: MapThemePalette = {
   pinnedStroke: "#1C2A2E",
 };
 
-/** Placeholders for Module B — same structure, blue / sand hues. */
+/** Placeholders retired — Ocean is the deep-blue dashboard biome. */
 export const OCEAN_PALETTE: MapThemePalette = {
   id: "ocean",
   base: "#7A9EB5",
   bands: ["#C5D9E6", "#A8C4D6", "#7A9EB5", "#5B849C", "#3E6E8E", "#2F5570"],
   contour: "#1C2A2E",
   contourOpacity: 0.26,
+  /** Light ink so labels stay readable on deep blue washes. */
   labelFill: "#FBF9F5",
-  edgeStroke: "#1C2A2E",
-  edgeOpacity: 0.4,
-  nodeStroke: "rgba(28, 42, 46, 0.35)",
+  edgeStroke: "#E8F0F5",
+  edgeOpacity: 0.45,
+  nodeStroke: "rgba(251, 249, 245, 0.35)",
   pinnedStroke: "#FBF9F5",
 };
 

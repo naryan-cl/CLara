@@ -1,6 +1,7 @@
 import { listCommonsItems } from "@/lib/commons/list-items";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { getThemeUnlockState } from "@/lib/map-theme/theme-state";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 
 export default async function DashboardPage() {
@@ -14,6 +15,11 @@ export default async function DashboardPage() {
     stream && user
       ? await listCommonsItems(stream.id, user.id)
       : { items: [], error: null };
+
+  const themeResult =
+    stream && user
+      ? await getThemeUnlockState(stream.id, user.id)
+      : { state: null, error: null };
 
   if (!stream || !user) {
     return (
@@ -30,6 +36,21 @@ export default async function DashboardPage() {
     );
   }
 
+  const themeError = themeResult.error;
+  const state = themeResult.state;
+  const mapTheme = state?.activeTheme ?? "plant";
+  const unlockedThemes = state?.unlocked ?? ["plant"];
+  const pendingUnlock =
+    state?.pendingUnlockPopup === "ocean" ||
+    state?.pendingUnlockPopup === "desert"
+      ? state.pendingUnlockPopup
+      : null;
+
+  // Theme settings require 0017 — fail soft to Plant so Commons still loads.
+  if (themeError) {
+    console.warn("[dashboard] theme state unavailable:", themeError);
+  }
+
   return (
     <DashboardGrid
       items={items}
@@ -37,6 +58,9 @@ export default async function DashboardPage() {
       streamName={stream.name}
       currentUserId={user.id}
       error={commonsError}
+      mapTheme={mapTheme}
+      unlockedThemes={unlockedThemes}
+      pendingUnlock={pendingUnlock}
     />
   );
 }

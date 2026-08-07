@@ -1,18 +1,22 @@
 import manifest from "../../../public/map-sprites/manifest.json";
+import type { MapThemeId } from "@/lib/map-theme";
 
 /**
- * Sprite pools for Knowledge Map nodes.
+ * Theme-scoped sprite pools for the dashboard Knowledge Map.
  *
- * Atom → mushrooms, Concept → flowering plants, Framework → cacti,
- * Theme → leafy plants. Each node picks a stable icon from its type's
- * pool via hash(node.id) so refresh / re-layout keeps the same look.
+ * Plant / Ocean / Desert each map Atom → Concept → Framework → Theme
+ * to a nature icon pool. Stable hash(node.id) picks within the pool so
+ * refresh / re-layout keeps the same look for a given theme.
+ *
+ * `/map` uses circles (no sprites) — only the dashboard passes a theme.
  */
 
-type SpriteManifest = Record<string, string[]>;
+type ThemeSpriteManifest = Record<string, Record<string, string[]>>;
 
-const SPRITE_MANIFEST = manifest as SpriteManifest;
+const SPRITE_MANIFEST = manifest as ThemeSpriteManifest;
 
 const FALLBACK_TYPE = "Atom";
+const FALLBACK_THEME: MapThemeId = "plant";
 
 /** FNV-1a 32-bit — deterministic, no Math.random, SSR-safe. */
 export function stableIndex(id: string, n: number): number {
@@ -25,15 +29,24 @@ export function stableIndex(id: string, n: number): number {
   return (hash >>> 0) % n;
 }
 
-function poolFor(type: string): string[] {
-  const direct = SPRITE_MANIFEST[type];
+function poolFor(theme: MapThemeId, type: string): string[] {
+  const themePools = SPRITE_MANIFEST[theme] ?? SPRITE_MANIFEST[FALLBACK_THEME];
+  if (!themePools) return [];
+  const direct = themePools[type];
   if (direct && direct.length > 0) return direct;
-  return SPRITE_MANIFEST[FALLBACK_TYPE] ?? [];
+  return themePools[FALLBACK_TYPE] ?? [];
 }
 
-/** Public URL for a node's map sprite, e.g. `/map-sprites/atom/icon_03.png`. */
-export function nodeSpriteUrl(type: string, id: string): string | null {
-  const pool = poolFor(type);
+/**
+ * Public URL for a node's map sprite, e.g.
+ * `/map-sprites/ocean/atom/icon_03.png`.
+ */
+export function nodeSpriteUrl(
+  theme: MapThemeId,
+  type: string,
+  id: string,
+): string | null {
+  const pool = poolFor(theme, type);
   if (pool.length === 0) return null;
   const path = pool[stableIndex(id, pool.length)];
   return path ? `/map-sprites/${path}` : null;

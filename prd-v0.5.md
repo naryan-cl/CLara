@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-07 (Phase 7 Module A — Plant wallpaper)  
+**Last updated:** 2026-08-07 (Phase 7 themes B–D — Plant/Ocean/Desert)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -35,7 +35,7 @@
 *   **Add · Reflect + Session Composer (2026-08-06):** Nav label **Chat → Reflect**. Reflect page (`/add/chat`) uses shared **Session Composer** (connect 1–3 sessions, create group reflection = create a **session** with optional seed question/description, share link `/join/[token]` + QR, participant autocomplete from stream peers). Each Reflect conversation remains its **own** `documents` Reflection row linked via `document_sessions` (never merged into one session body). **Private** reflections stay off the public Commons list and Knowledge Map, but **session attendees + stream admins can read** them. Autosave drafts + Submit (after ~2 exchanges) with thank-you / flower placeholder (map flowers = later). Same Session Composer on Record and Upload. Apply migration **`0012_session_composer.sql`**.
 *   **Record Session details (2026-08-06):** Record no longer uses Connect/Create buttons. Below the recorder, an always-open **Session details** form has Title (session name), Inquiry/Description, Participants, and Connections. Filling Title creates the session on Submit. Reflect/Upload keep the button composer. Page eyebrows (`Add · …`) removed from Add pages. Capture strip: mic/pause/stop/trash; Stop saves staging; Trash deletes; Submit under Connections with in-progress confirmation.
 *   **Admin-editable CLara prompts (2026-08-06):** Stream admins can view/edit the Reflect and Ask CLara system prompts on `/admin` (per-stream overrides on `streams`; NULL = product default in code). Reflect ≠ Ask stay separate. Apply migration **`0015_stream_system_prompts.sql`**. Participant-facing prompt transparency is later.
-*   **Map theme wallpapers (2026-08-07, decided — Module A shipped in code):** Dashboard canvas backgrounds support **Plant / Ocean / Desert** topographic themes (generative contour + elevation bands). Wallpaper **pans/zooms with the graph**. Node glyphs stay basic circles (no theme sprites); label/edge contrast adjusts per theme. **Plant** is live on the dashboard map (seeded per stream). Ocean/Desert palettes stubbed; Admin unlocks + per-user pick not built yet. **Unlock unit:** Commons documents the member authored that are finalized and **Public** — drafts and Private items do not count. **Default thresholds:** Plant available immediately; Ocean at **5** contributions; Desert at **10** (admin-overridable). See `dev-plan-v0.3.md` §4.
+*   **Map themes (2026-08-07, Phase 7 Modules A–D shipped in code):** Dashboard canvas supports **Plant / Ocean / Desert** generative topo wallpapers (pan/zoom with the graph) **and** matching theme sprite pools for nodes. **`/map` Knowledge Map stays dark with type-colored circles** (no wallpaper, no sprites). **Ocean** keeps deep blues with light labels/edges. Unlock unit = authored **Public** + **non-draft** Commons docs (`documents.is_draft`; Reflect autosave = draft until Submit). Defaults: Plant free, Ocean @ 5, Desert @ 10 (admin-overridable on `/admin`). Per-member theme pick + unlock congratulations popup. Apply migration **`0017_map_themes.sql`**. Sprite pipeline: `Sprites/split_sprites2.py` → `npm run sprites:prepare` → `public/map-sprites/{theme}/{type}/`. See `dev-plan-v0.3.md` §4.
 
 ---
 
@@ -187,7 +187,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 7.4 Synthesis — Ask CLara / Knowledge Map
 *   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav. **Follow-up thread** *(2026-08-05):* same-session conversation history in the Ask UI (client-held; still a separate pipeline from Chatbot). **Scoped Ask from dashboard map** *(2026-08-06):* map node detail shows summary/transcript + participants; asking about that element closes the overlay and continues in Ask grounded only in that document or session (`0016` RPC filters).
-*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav. Dashboard Map uses Commons items (docs/sessions) with the same interactive canvas. **Theme wallpapers** *(decided 2026-08-07, not built):* Plant / Ocean / Desert generative topo backgrounds on the dashboard canvas; pan/zoom with the graph; nodes remain plain circles (no themed sprites).
+*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav. **Dashboard** map uses Commons items with the same interactive canvas plus **theme wallpapers + theme sprites** (Plant / Ocean / Desert). **`/map` keeps circles on a dark canvas** (no wallpaper / no sprites).
 *   Pipelines stay separate from Chatbot — no shared prompt/state.
 
 ### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has these sections:
@@ -195,7 +195,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Membership** — add an *existing* account to the stream by email, promote/demote member ↔ admin, remove a member. Deliberately does not create accounts or send invite email — the person must have signed in at least once already; a UI guard prevents an admin from removing/demoting themselves.
 *   **Isolation** — toggle for `streams.isolation_enabled` (§4.2), previously database-only.
 *   **CLara prompts** *(2026-08-06):* view and edit the Reflect (Chatbot) and Ask CLara system prompts for the active stream. Overrides live on `streams.reflect_system_prompt` / `streams.ask_system_prompt` (NULL = product default in `src/lib/prompts/defaults.ts`). Reset clears the override. Admin-only for v1; pipelines stay separate.
-*   **Map themes** *(decided 2026-08-07, not built):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only).
+*   **Map themes** *(shipped 2026-08-07):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only). Apply **`0017_map_themes.sql`**.
 *   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---

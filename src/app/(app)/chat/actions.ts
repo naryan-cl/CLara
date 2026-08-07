@@ -161,6 +161,7 @@ export async function saveChatConversation(
         privacy_status: privacy,
         session_id: primarySessionId,
         needs_review: false,
+        is_draft: false,
       })
       .eq("id", options.documentId)
       .eq("created_by", user.id)
@@ -199,6 +200,7 @@ export async function saveChatConversation(
     privacyStatus: privacy,
     sessionId: primarySessionId,
     needsReview: false,
+    isDraft: false,
   });
 
   if (error || !document) {
@@ -262,6 +264,7 @@ export async function autosaveReflectDraft(
         content,
         privacy_status: privacy,
         session_id: primarySessionId,
+        is_draft: true,
       })
       .eq("id", documentId)
       .eq("created_by", user.id)
@@ -295,6 +298,7 @@ export async function autosaveReflectDraft(
     privacyStatus: privacy,
     sessionId: primarySessionId,
     needsReview: false,
+    isDraft: true,
   });
 
   if (error || !document) {
