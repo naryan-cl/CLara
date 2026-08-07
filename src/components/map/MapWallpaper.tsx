@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import {
   generateTopoWorld,
   paletteFor,
   worldBoundsForViewport,
   type MapThemeId,
-  type TopoWorld,
 } from "@/lib/map-theme";
 
-type Drift = { x: number; y: number };
+function subscribeMounted(callback: () => void) {
+  queueMicrotask(callback);
+  return () => {};
+}
+
+function getMountedSnapshot() {
+  return true;
+}
+
+function getMountedServerSnapshot() {
+  return false;
+}
 
 /**
  * Generative topo wallpaper for the Knowledge Map (Phase 7 Module A).
@@ -29,8 +39,12 @@ export function MapWallpaper({
   seed?: string;
   reducedMotion?: boolean;
 }) {
-  const [world, setWorld] = useState<TopoWorld | null>(null);
-  const [drift, setDrift] = useState<Drift>({ x: 0, y: 0 });
+  const driftRef = useRef<SVGGElement>(null);
+  const hasMounted = useSyncExternalStore(
+    subscribeMounted,
+    getMountedSnapshot,
+    getMountedServerSnapshot,
+  );
 
   const bounds = useMemo(
     () => worldBoundsForViewport(viewportWidth, viewportHeight),
@@ -39,9 +53,10 @@ export function MapWallpaper({
 
   const palette = paletteFor(theme);
 
-  useEffect(() => {
-    // Canvas wash must run in the browser after mount.
-    const next = generateTopoWorld({
+  // Client-only: canvas wash needs `document`. Derive during render after mount.
+  const world = useMemo(() => {
+    if (!hasMounted) return null;
+    return generateTopoWorld({
       ...bounds,
       seed: `${seed}:${theme}:${Math.round(bounds.width)}x${Math.round(bounds.height)}`,
       palette,
@@ -49,39 +64,38 @@ export function MapWallpaper({
       cols: 96,
       rows: 72,
     });
-    setWorld(next);
-  }, [bounds, palette, seed, theme]);
+  }, [bounds, hasMounted, palette, seed, theme]);
 
+  // Drift via DOM attribute — avoids React re-renders every frame.
   useEffect(() => {
+    const node = driftRef.current;
+    if (!node) return;
+
     if (reducedMotion) {
-      setDrift({ x: 0, y: 0 });
+      node.setAttribute("transform", "translate(0 0)");
       return;
     }
+
     let raf = 0;
     let lastPublish = 0;
     const tick = (now: number) => {
       if (now - lastPublish >= 80) {
         lastPublish = now;
         const t = now / 1000;
-        setDrift({
-          x: Math.sin(t * 0.07) * 10 + Math.sin(t * 0.031) * 4,
-          y: Math.cos(t * 0.055) * 8 + Math.sin(t * 0.023) * 3,
-        });
+        const x = Math.sin(t * 0.07) * 10 + Math.sin(t * 0.031) * 4;
+        const y = Math.cos(t * 0.055) * 8 + Math.sin(t * 0.023) * 3;
+        node.setAttribute("transform", `translate(${x} ${y})`);
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [reducedMotion]);
+  }, [reducedMotion, world]);
 
   if (!world || !world.washHref) return null;
 
   return (
-    <g
-      aria-hidden="true"
-      pointerEvents="none"
-      transform={`translate(${drift.x} ${drift.y})`}
-    >
+    <g ref={driftRef} aria-hidden="true" pointerEvents="none">
       <image
         href={world.washHref}
         x={world.originX}
