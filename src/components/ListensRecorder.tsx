@@ -2,18 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { receiveListensRecording } from "@/app/(app)/sessions/listens-actions";
-import { MAX_AUDIO_BYTES } from "@/lib/openai/transcribe";
+import {
+  finalizeListensUpload,
+  prepareListensRecording,
+  MAX_LISTENS_SEGMENTS,
+} from "@/app/(app)/sessions/listens-actions";
+import { createClient } from "@/lib/supabase/client";
+import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
 
-/** Soft warning so a long recording doesn't silently blow past the size cap. */
-const WARN_AT_SECONDS = 12 * 60;
-/** Hard stop — we can't know encoded byte size until the recorder stops. */
-const AUTO_STOP_SECONDS = 15 * 60;
+/**
+ * Rotate MediaRecorder this often so each uploaded .webm stays well under
+ * Whisper's 25MB cap (~12 min at 32kbps ≈ 2.9MB).
+ */
+const SEGMENT_SECONDS = 12 * 60;
+/** Soft warning before the hard auto-stop. */
+const WARN_AT_SECONDS = 150 * 60;
+/** Hard stop — ~3 hours of 12-min segments fits under MAX_LISTENS_SEGMENTS. */
+const AUTO_STOP_SECONDS = 180 * 60;
 
-/** How many vertical bars to draw in the live waveform. */
+const BITRATE = 32_000;
 const WAVEFORM_BARS = 40;
+
+type StopReason = "rotate" | "submit";
 
 function pickMimeType(): string | null {
   if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
@@ -60,11 +72,6 @@ function barsFromFrequency(data: Uint8Array): number[] {
   return nextBars;
 }
 
-/**
- * Browser share picker for tab/window/system audio.
- * Video is requested only because Chromium needs it to show the picker;
- * we discard video tracks immediately and keep audio.
- */
 async function requestSystemTabAudio(): Promise<
   { ok: true; stream: MediaStream } | { ok: false; error: string }
 > {
@@ -72,17 +79,41 @@ async function requestSystemTabAudio(): Promise<
     return {
       ok: false,
       error:
-        "System/tab audio isn’t supported in this browser. Try Chrome or Edge.",
+        "System audio isn’t supported in this browser. Try Chrome or Edge.",
+    };
+  }
+
+  const ua = navigator.userAgent;
+  if (/firefox/i.test(ua)) {
+    return {
+      ok: false,
+      error:
+        "Firefox’s share dialog can’t include tab or system audio (you’ll only get a screen picker). Open CLara in Chrome or Edge, then choose Entire screen (or a Chrome tab) and enable Share audio.",
+    };
+  }
+  if (/safari/i.test(ua) && !/chrome|chromium|edg/i.test(ua)) {
+    return {
+      ok: false,
+      error:
+        "Safari can’t capture system/tab audio for web apps. Open CLara in Chrome or Edge for this option.",
     };
   }
 
   try {
     const display = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
+      video: {
+        displaySurface: "monitor",
+        frameRate: 1,
+        width: 16,
+        height: 16,
+      },
       audio: true,
-    });
+      systemAudio: "include",
+      preferCurrentTab: false,
+      selfBrowserSurface: "exclude",
+      monitorTypeSurfaces: "include",
+    } as DisplayMediaStreamOptions);
 
-    // We only need sound — stop the screen/tab video track right away.
     for (const track of display.getVideoTracks()) {
       track.stop();
     }
@@ -93,7 +124,7 @@ async function requestSystemTabAudio(): Promise<
       return {
         ok: false,
         error:
-          "No audio was shared. In the browser picker, choose a tab or screen and turn on “Share audio” / “Share system audio”.",
+          "No audio track came back. In Chrome/Edge: pick Entire screen and check “Share system audio”, or pick a Chrome tab playing YouTube/Zoom and check “Share tab audio”. (Window share often has no audio.)",
       };
     }
 
@@ -101,14 +132,16 @@ async function requestSystemTabAudio(): Promise<
   } catch {
     return {
       ok: false,
-      error: "System/tab share was cancelled or blocked.",
+      error: "System audio share was cancelled or blocked.",
     };
   }
 }
 
 /**
- * Listens recorder: mic (+ optional system/tab audio mixed via Web Audio),
- * separate level meters, live waveform, pause/resume, Submit → Commons doc.
+ * Listens v2 Module B: mic (+ system) mix, meters, pause/resume.
+ * Every ~12 minutes the MediaRecorder restarts and uploads an independent
+ * .webm segment (under Whisper's 25MB/file). Submit finalizes → Inngest
+ * Whispers each segment and joins the text.
  */
 export function ListensRecorder({
   sessionIds = [],
@@ -120,25 +153,37 @@ export function ListensRecorder({
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [segmentLabel, setSegmentLabel] = useState(1);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [includeSystemAudio, setIncludeSystemAudio] = useState(false);
-  /** True once a system/tab stream is actually attached this take. */
+  const [includeSystemAudio, setIncludeSystemAudio] = useState(true);
   const [systemAudioActive, setSystemAudioActive] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [systemLevel, setSystemLevel] = useState(0);
   const [bars, setBars] = useState<number[]>(quietBars);
+  const [segmentUploading, setSegmentUploading] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const systemStreamRef = useRef<MediaStream | null>(null);
+  const recordStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
   const systemAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
+
+  const mimeTypeRef = useRef("audio/webm");
+  const streamIdRef = useRef<string | null>(null);
+  const recordingIdRef = useRef<string | null>(null);
+  const segmentIndexRef = useRef(0);
+  const segmentElapsedRef = useRef(0);
+  const stopReasonRef = useRef<StopReason | null>(null);
+  const rotatingRef = useRef(false);
   const titleRef = useRef(title);
   titleRef.current = title;
+  const sessionIdsRef = useRef(sessionIds);
+  sessionIdsRef.current = sessionIds;
 
   const stopMeterLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -149,7 +194,6 @@ export function ListensRecorder({
 
   const runMeterLoop = useCallback(() => {
     stopMeterLoop();
-
     const micAnalyser = micAnalyserRef.current;
     if (!micAnalyser) return;
 
@@ -172,7 +216,6 @@ export function ListensRecorder({
         systemNode.getByteTimeDomainData(sysTimeBuf);
         systemNode.getByteFrequencyData(sysFreqBuf);
         setSystemLevel(peakFromTimeDomain(sysTimeBuf));
-        // Waveform = louder of mic vs system per bin so both sources show up.
         const combined = new Uint8Array(micFreq.length);
         for (let i = 0; i < micFreq.length; i++) {
           combined[i] = Math.max(micFreq[i]!, sysFreqBuf[i]!);
@@ -194,6 +237,7 @@ export function ListensRecorder({
     systemStreamRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
     systemStreamRef.current = null;
+    recordStreamRef.current = null;
   }, []);
 
   const disposeGraph = useCallback(() => {
@@ -212,16 +256,16 @@ export function ListensRecorder({
     disposeGraph();
     stopAllTracks();
     mediaRecorderRef.current = null;
+    streamIdRef.current = null;
+    recordingIdRef.current = null;
+    segmentIndexRef.current = 0;
+    segmentElapsedRef.current = 0;
+    stopReasonRef.current = null;
+    rotatingRef.current = false;
   }, [disposeGraph, stopAllTracks]);
 
   useEffect(() => () => teardownCapture(), [teardownCapture]);
 
-  /**
-   * Build Web Audio graph: mic (+ optional system) → per-source analysers + mix destination.
-   * MediaRecorder records the mixed destination stream (one file for Whisper).
-   * Waveform meters read each source analyser — we never loop destination.stream
-   * back into the graph (that can feedback or stay silent in some browsers).
-   */
   const buildCaptureGraph = useCallback(
     (micStream: MediaStream, systemStream: MediaStream | null) => {
       const AudioCtx =
@@ -259,51 +303,149 @@ export function ListensRecorder({
     [runMeterLoop],
   );
 
-  const submitRecording = useCallback(
-    (blob: Blob, mimeType: string) => {
-      if (blob.size === 0) {
-        setError("No audio captured. Try again.");
-        return;
-      }
-      if (blob.size > MAX_AUDIO_BYTES) {
-        setError(
-          `Recording is too large (${Math.round(blob.size / 1024 / 1024)}MB, max ${Math.round(MAX_AUDIO_BYTES / 1024 / 1024)}MB for this first Listens path). Try a shorter clip.`,
-        );
-        return;
-      }
+  const uploadSegment = useCallback(async (blob: Blob, index: number) => {
+    const streamId = streamIdRef.current;
+    const recordingId = recordingIdRef.current;
+    if (!streamId || !recordingId) {
+      setError("Recording session was lost. Try again.");
+      return false;
+    }
+    if (blob.size === 0) {
+      setError("Empty audio segment. Try again.");
+      return false;
+    }
+    if (blob.size > MAX_LISTENS_STAGING_BYTES) {
+      setError(
+        `Segment ${index + 1} is too large for Whisper (${Math.round(blob.size / 1024 / 1024)}MB). Try again.`,
+      );
+      return false;
+    }
 
-      const extension = mimeType.includes("mp4") ? "m4a" : "webm";
-      const formData = new FormData();
-      formData.append("audio", blob, `listens-recording.${extension}`);
-      formData.append("title", titleRef.current);
-      if (sessionIds.length > 0) {
-        formData.append("sessionIds", sessionIds.join(","));
-      }
+    setSegmentUploading(true);
+    const supabase = createClient();
+    const ext = (mimeTypeRef.current || "").includes("mp4") ? "m4a" : "webm";
+    const path = `${streamId}/${recordingId}/${index}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("listens-staging")
+      .upload(path, blob, {
+        contentType: mimeTypeRef.current || "audio/webm",
+        upsert: false,
+      });
+    setSegmentUploading(false);
 
-      startTransition(async () => {
-        const result = await receiveListensRecording(formData);
-        if (!result.ok) {
-          setError(result.error);
+    if (uploadError) {
+      setError(
+        uploadError.message.includes("not found") ||
+          uploadError.message.includes("Bucket")
+          ? "Listens storage isn’t set up yet. Ask an admin to run migration 0014_listens_staging_storage.sql in Supabase."
+          : `Segment upload failed: ${uploadError.message}`,
+      );
+      return false;
+    }
+    return true;
+  }, []);
+
+  const startSegmentRecorder = useCallback(() => {
+    const recordStream = recordStreamRef.current;
+    const mimeType = mimeTypeRef.current;
+    if (!recordStream) {
+      setError("Capture stream was lost. Try again.");
+      return;
+    }
+    if (segmentIndexRef.current >= MAX_LISTENS_SEGMENTS) {
+      setError("Reached the maximum number of segments for one recording.");
+      stopReasonRef.current = "submit";
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    chunksRef.current = [];
+    segmentElapsedRef.current = 0;
+    setSegmentLabel(segmentIndexRef.current + 1);
+
+    const recorder = new MediaRecorder(recordStream, {
+      mimeType,
+      audioBitsPerSecond: BITRATE,
+    });
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunksRef.current.push(event.data);
+    };
+
+    recorder.onstop = () => {
+      const reason = stopReasonRef.current;
+      stopReasonRef.current = null;
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      const index = segmentIndexRef.current;
+      chunksRef.current = [];
+
+      void (async () => {
+        if (!reason) return;
+
+        const uploaded = await uploadSegment(blob, index);
+        if (!uploaded) {
+          setIsRecording(false);
+          setIsPaused(false);
+          teardownCapture();
           return;
         }
-        setTitle("");
-        router.push(`/sessions/documents/${result.documentId}`);
-        router.refresh();
-      });
-    },
-    [router, sessionIds],
-  );
 
-  const submitRecordingRef = useRef(submitRecording);
-  submitRecordingRef.current = submitRecording;
+        if (reason === "rotate") {
+          segmentIndexRef.current = index + 1;
+          rotatingRef.current = false;
+          startSegmentRecorder();
+          return;
+        }
 
-  const stopAndSubmit = useCallback(() => {
+        // Submit: finalize with all uploaded segments (0..index inclusive).
+        const segmentCount = index + 1;
+        startTransition(async () => {
+          const result = await finalizeListensUpload({
+            recordingId: recordingIdRef.current!,
+            segmentCount,
+            mimeType: mimeTypeRef.current || "audio/webm",
+            fileExtension: (mimeTypeRef.current || "").includes("mp4")
+              ? "m4a"
+              : "webm",
+            title: titleRef.current,
+            sessionIds: sessionIdsRef.current,
+          });
+          teardownCapture();
+          if (!result.ok) {
+            setError(result.error);
+            setIsRecording(false);
+            return;
+          }
+          setTitle("");
+          setIsRecording(false);
+          router.push(`/sessions/documents/${result.documentId}`);
+          router.refresh();
+        });
+      })();
+    };
+
+    recorder.start(250);
+    mediaRecorderRef.current = recorder;
+  }, [router, teardownCapture, uploadSegment]);
+
+  const requestStop = useCallback((reason: StopReason) => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
+    if (reason === "rotate" && rotatingRef.current) return;
+    if (reason === "rotate") rotatingRef.current = true;
+    stopReasonRef.current = reason;
+    if (recorder.state === "paused") {
+      recorder.resume();
+    }
     recorder.stop();
-    setIsRecording(false);
-    setIsPaused(false);
+    if (reason === "submit") {
+      setIsPaused(false);
+    }
   }, []);
+
+  const stopAndSubmit = useCallback(() => {
+    requestStop("submit");
+  }, [requestStop]);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -330,20 +472,29 @@ export function ListensRecorder({
   }, [runMeterLoop]);
 
   useEffect(() => {
-    if (!isRecording || isPaused) return;
+    if (!isRecording || isPaused || pending) return;
 
     const interval = setInterval(() => {
       setElapsedSeconds((seconds) => {
         const next = seconds + 1;
         if (next >= AUTO_STOP_SECONDS) {
-          stopAndSubmit();
+          requestStop("submit");
+          return next;
         }
         return next;
       });
+
+      segmentElapsedRef.current += 1;
+      if (
+        segmentElapsedRef.current >= SEGMENT_SECONDS &&
+        !rotatingRef.current
+      ) {
+        requestStop("rotate");
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRecording, isPaused, stopAndSubmit]);
+  }, [isRecording, isPaused, pending, requestStop]);
 
   async function startRecording() {
     setError(null);
@@ -351,6 +502,12 @@ export function ListensRecorder({
     const mimeType = pickMimeType();
     if (!mimeType) {
       setError("Recording isn't supported in this browser yet.");
+      return;
+    }
+
+    const prepared = await prepareListensRecording();
+    if (!prepared.ok) {
+      setError(prepared.error);
       return;
     }
 
@@ -375,7 +532,6 @@ export function ListensRecorder({
         return;
       }
       systemStream = systemResult.stream;
-      // If the user stops sharing mid-take, drop the system meter but keep mic.
       systemStream.getAudioTracks().forEach((track) => {
         track.addEventListener("ended", () => {
           systemAnalyserRef.current = null;
@@ -387,33 +543,24 @@ export function ListensRecorder({
 
     micStreamRef.current = micStream;
     systemStreamRef.current = systemStream;
-    chunksRef.current = [];
+    mimeTypeRef.current = mimeType;
+    streamIdRef.current = prepared.streamId;
+    recordingIdRef.current = prepared.recordingId;
+    segmentIndexRef.current = 0;
+    segmentElapsedRef.current = 0;
 
     const recordStream = buildCaptureGraph(micStream, systemStream);
+    recordStreamRef.current = recordStream;
 
-    const recorder = new MediaRecorder(recordStream, {
-      mimeType,
-      audioBitsPerSecond: 32_000,
-    });
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunksRef.current.push(event.data);
-    };
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mimeType });
-      teardownCapture();
-      submitRecordingRef.current(blob, mimeType);
-    };
-
-    recorder.start(250);
-    mediaRecorderRef.current = recorder;
     setSystemAudioActive(Boolean(systemStream));
     setElapsedSeconds(0);
     setIsPaused(false);
     setIsRecording(true);
+    startSegmentRecorder();
   }
 
   const busy = pending;
-  const showViz = isRecording || busy;
+  const showViz = isRecording || busy || segmentUploading;
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
@@ -422,9 +569,10 @@ export function ListensRecorder({
           CLara Listens
         </h2>
         <p className="mt-1 text-sm text-ink/60">
-          Record with your mic, optionally plus tab/system audio (Zoom, a
-          browser tab, etc.). CLara mixes them, transcribes, and saves a
-          Commons Transcript (~15 min cap).
+          Record mic + optional system audio for meetings up to ~3 hours.
+          Audio uploads in ~12-minute chunks to private staging; Whisper
+          transcribes each chunk in the background. Use Chrome or Edge for
+          system audio.
         </p>
       </div>
 
@@ -449,11 +597,12 @@ export function ListensRecorder({
           onChange={(event) => setIncludeSystemAudio(event.target.checked)}
         />
         <span>
-          <span className="font-medium text-ink">Include system/tab audio</span>
+          <span className="font-medium text-ink">Include system audio</span>
           <span className="mt-0.5 block text-ink/55">
-            After Start, your browser asks what to share. Pick a Zoom window or
-            browser tab and enable <em>Share audio</em>. Mic and system each get
-            their own volume meter.
+            On by default. Browsers always show a screen/window picker — we
+            discard the video and keep sound. In <strong>Chrome or Edge</strong>
+            , choose <em>Entire screen</em> + <em>Share system audio</em>, or a{" "}
+            <em>Chrome tab</em> with <em>Share tab audio</em>.
           </span>
         </span>
       </label>
@@ -464,7 +613,7 @@ export function ListensRecorder({
           aria-live="polite"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm text-ink/70">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
               <span
                 className={`h-2 w-2 rounded-pill ${
                   isPaused
@@ -474,7 +623,16 @@ export function ListensRecorder({
               />
               <span className="font-mono">{formatElapsed(elapsedSeconds)}</span>
               <span className="text-ink/45">
-                {busy ? "Transcribing…" : isPaused ? "Paused" : "Recording"}
+                {busy
+                  ? "Finalizing…"
+                  : segmentUploading
+                    ? "Saving chunk…"
+                    : isPaused
+                      ? "Paused"
+                      : "Recording"}
+              </span>
+              <span className="font-mono text-[11px] text-ink/40">
+                chunk {segmentLabel}
               </span>
             </div>
             <div className="flex flex-col gap-1.5 sm:items-end">
@@ -519,14 +677,16 @@ export function ListensRecorder({
             <button
               type="button"
               onClick={isPaused ? resumeRecording : pauseRecording}
-              className="rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5"
+              disabled={segmentUploading}
+              className="rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5 disabled:opacity-60"
             >
               {isPaused ? "Resume" : "Pause"}
             </button>
             <button
               type="button"
               onClick={stopAndSubmit}
-              className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
+              disabled={segmentUploading}
+              className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
             >
               Submit
             </button>
@@ -536,7 +696,7 @@ export function ListensRecorder({
         {busy ? (
           <div className="flex items-center gap-2 text-sm text-ink/70">
             <span className="h-2 w-2 animate-pulse rounded-pill bg-glow shadow-glow motion-reduce:animate-none" />
-            <span>Transcribing and opening in Commons…</span>
+            <span>Starting transcription…</span>
           </div>
         ) : null}
       </div>
@@ -556,8 +716,7 @@ function VolumeMeter({
   tone?: "forest" | "horizon";
 }) {
   const pct = Math.round(Math.min(1, level * 1.8) * 100);
-  const fill =
-    tone === "horizon" ? "bg-horizon" : "bg-forest";
+  const fill = tone === "horizon" ? "bg-horizon" : "bg-forest";
   return (
     <div
       className="flex items-center gap-2"

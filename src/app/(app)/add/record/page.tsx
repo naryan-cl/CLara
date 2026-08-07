@@ -14,10 +14,9 @@ export default async function AddRecordPage() {
           Record
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Capture a short reflection with your mic — optionally mix in
-          system/tab audio (Zoom, a browser tab). CLara transcribes it into a
-          Commons transcript (Listens v1 — about 15 minutes max). Connect to a
-          session or create one so others can join.
+          Capture with your mic — optionally mix in system/tab audio. Long
+          meetings upload in ~12-minute chunks (Listens v2 Module B, up to ~3
+          hours). Connect to a session or create one so others can join.
         </p>
       </div>
 

@@ -29,3 +29,23 @@ export type ClaraUploadReceivedEvent = {
     fileType: "pdf" | "docx";
   };
 };
+
+/**
+ * Sent after Listens segments land in Storage (Module B: one or more
+ * `{streamId}/{recordingId}/{i}.webm` files).
+ */
+export const CLARA_RECORDING_RECEIVED = "clara/recording.received";
+
+export type ClaraRecordingReceivedEvent = {
+  name: typeof CLARA_RECORDING_RECEIVED;
+  data: {
+    documentId: string;
+    streamId: string;
+    recordingId: string;
+    segmentCount: number;
+    /** MIME type from MediaRecorder (e.g. audio/webm). */
+    mimeType: string;
+    /** webm or m4a — matches uploaded object names. */
+    fileExtension: string;
+  };
+};

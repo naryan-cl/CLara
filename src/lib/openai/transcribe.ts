@@ -2,11 +2,17 @@ import OpenAI from "openai";
 import { getOpenAiApiKey, getOpenAiTranscriptionModel } from "@/lib/openai/env";
 
 /**
- * Keeps a recorded clip under Vercel's ~4.5MB serverless request body cap.
- * At the 32kbps mono bitrate CLara Listens records at, this is roughly
- * 15-17 minutes of speech.
+ * Sync Receives / legacy Listens body-size cap (Vercel ~4.5MB request limit).
+ * Listens v2 uploads via Storage and uses MAX_LISTENS_STAGING_BYTES instead.
  */
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+
+/**
+ * OpenAI Whisper file upload limit. Listens v2 stages audio in Storage, so
+ * this — not Vercel's request body — is the hard size ceiling for one take.
+ * At 32kbps mono that is roughly 90–100 minutes.
+ */
+export const MAX_LISTENS_STAGING_BYTES = 25 * 1024 * 1024;
 
 export type TranscribeResult =
   | { ok: true; text: string }

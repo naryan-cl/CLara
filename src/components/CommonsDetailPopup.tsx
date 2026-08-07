@@ -12,7 +12,7 @@ import { DocumentEditor } from "@/components/DocumentEditor";
 import type { CommonsListItem } from "@/lib/commons/types";
 
 /**
- * Minimizable Commons detail popup.
+ * Commons detail popup (close via ✕ or backdrop).
  * Parent remounts via key when selection changes so load state resets cleanly.
  */
 export function CommonsDetailPopup({
@@ -24,7 +24,6 @@ export function CommonsDetailPopup({
   currentUserId: string;
   onClose: () => void;
 }) {
-  const [minimized, setMinimized] = useState(false);
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,31 +45,6 @@ export function CommonsDetailPopup({
     };
   }, [item.kind, item.id]);
 
-  if (minimized) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-cloud bg-paper px-3 py-2 shadow-soft animate-fade-rise motion-reduce:animate-none">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-          {item.title}
-        </p>
-        <button
-          type="button"
-          className="rounded-md border border-cloud px-2 py-1 text-xs text-ink/70 hover:text-ink"
-          onClick={() => setMinimized(false)}
-        >
-          Restore
-        </button>
-        <button
-          type="button"
-          className="rounded-md px-2 py-1 text-xs text-ink/50 hover:text-danger"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <button
@@ -89,24 +63,14 @@ export function CommonsDetailPopup({
           <p className="truncate font-mono text-[11px] uppercase tracking-wide text-ink/40">
             {item.kind === "session" ? "Session" : item.elementType}
           </p>
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              className="rounded-md border border-cloud px-2.5 py-1.5 text-xs font-medium text-ink/70 hover:text-ink"
-              onClick={() => setMinimized(true)}
-              title="Minimize"
-            >
-              Minimize
-            </button>
-            <button
-              type="button"
-              className="rounded-md px-2.5 py-1.5 text-sm text-ink/50 hover:text-danger"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            type="button"
+            className="rounded-md px-2.5 py-1.5 text-sm text-ink/50 hover:text-danger"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="overflow-y-auto px-4 py-5 sm:px-6">

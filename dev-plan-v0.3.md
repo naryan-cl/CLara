@@ -72,6 +72,7 @@
 *   `0011_comments_and_attendee_edit.sql` — attendee document UPDATE, `comments` + `comment_edit_log`, `get_user_public_profiles`
 *   `0012_session_composer.sql` — sessions `seed_question` / `description` / `share_token`; `document_sessions`; `session_relations`; private-doc read for attendees/admins; creator attendee insert; `list_stream_peers` RPC.
 *   **`0013_fix_document_sessions_rls.sql`** — breaks documents ↔ document_sessions RLS recursion (Commons “infinite recursion” error). **Run after 0012.**
+*   **`0014_listens_staging_storage.sql`** — private `listens-staging` Storage bucket (25MB, path `{stream_id}/{uuid}.{ext}`) for Listens v2 async Whisper. **Required for Record after v2 Module A.**
 
 ### Not yet migrated
 *   (none outstanding — ensure **0012** and **0013** are applied on the shared Supabase project)
@@ -147,6 +148,12 @@
 *   **Listens Record UX (2026-08-06):** Title label without “(optional)”; live mic level + frequency-bar waveform via Web Audio `AnalyserNode`; Pause/Resume (`MediaRecorder.pause`); Stop relabeled **Submit**; on success navigates to `/sessions/documents/[id]`.
 *   **Listens system/tab audio (2026-08-06):** Optional “Include system/tab audio” uses `getDisplayMedia` (video discarded; audio kept), mixed with mic via `AudioContext` → `MediaStreamDestination` for one Whisper blob. Separate **Mic** and **System** volume meters. Browser must share audio in the picker (tab audio or Windows system audio). If share ends mid-take, mic continues.
 
+*   **Commons detail popup (2026-08-06):** removed Minimize/Restore — popup closes via ✕ or backdrop only; PRD/dev-plan Detail UX updated.
+
+*   **Listens v2 Module A (2026-08-06, code shipped — apply migration):** `0014_listens_staging_storage.sql` private bucket `listens-staging` (25MB, path `{stream_id}/{uuid}.{ext}`, member RLS insert/select/delete). Browser uploads audio via Supabase client → `prepareListensUpload` / `finalizeListensUpload` create placeholder Transcript → Inngest `clara/recording.received` → `clara-transcribe-recording` (Whisper → write content → delete object → `clara/document.created`). Soft UI cap ~60 min; hard size = Whisper 25MB. **Not yet Module B:** no MediaRecorder chunked upload / multi-segment stitch. **Manual test:** (1) run `0014` in Supabase; (2) `npm run inngest:dev` + `npm run dev`; (3) Record short clip → doc opens with pending placeholder → refresh shows transcript; (4) confirm Storage object deleted after job.
+
+*   **Listens v2 Module B — chunked upload (2026-08-06):** MediaRecorder restarts every ~12 min; each segment uploads to `listens-staging/{streamId}/{recordingId}/{i}.webm` during the take. `finalizeListensUpload({ recordingId, segmentCount })` enqueues Inngest `clara-transcribe-recording`, which Whispers segments in order, joins text with blank lines, deletes objects, then `clara/document.created`. Soft cap ~3 hours (20 segments). Same text-join model as Old Clara; no audio stitch; no permanent `save_audio`. **Manual test:** (1) short take = 1 segment still works; (2) temporarily set `SEGMENT_SECONDS` to 20 to force multi-chunk; (3) pause/resume mid-take; (4) after job, staging folder empty and transcript ordered.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
@@ -209,7 +216,7 @@
 *   Repo **public while building**; secrets only in Vercel / `.env.local`.
 *   Inngest for **this** app ≠ Old Clara Inngest (different serve URL).
 *   Reference: Festival + Old Clara folders (see below).
-*   Listens v1 is intentionally short-recording-only (sync, no Storage, no Inngest); long/chunked meeting recordings are a separate later phase, not a bug in v1.
+*   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
 
 ### Reference projects
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
@@ -223,17 +230,17 @@
 *   **Mobile:** hamburger; Add/Synthesis expand in-menu (not separate hub pages).
 *   **Commons absorbs archive + attendance:** session list is part of Commons; open session → "I Attended" + comments. Old `/sessions` as the add-hub is retired once Add routes exist.
 *   **Commons list content:** all chats/recordings/uploads unless Private (owner still sees own private + eye icon). Filters: element type, date, attended, my artifacts.
-*   **Detail UX:** minimizable popup (minimize control top-right), not only full-page navigation.
+*   **Detail UX:** detail popup (close via ✕ or backdrop); full-page links still available. Minimize removed (2026-08-06).
 *   **Edit who:** author, session attendees, stream admins.
 *   **Comments:** on documents and sessions; name + avatar/initials + timestamp; author edit/delete; "edited" marker; admin-visible edit audit log (who/when).
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Verify motion / aliveness** — Ask/Chat thinking glow, map node pulse + panel slide, Map↔List crossfade, Commons popup enter; toggle OS reduced-motion and confirm loops freeze while text/status remain.
-2.  **Verify dashboard redesign against real Supabase data** — logged out this session, so only component-level (dummy-fixture) verification happened; needs a real signed-in pass on `/dashboard` (Map/List toggle with real stream nodes, a real Ask CLara round-trip).
-3.  **Listens v2** (Storage + async Inngest) — only if long/full-meeting recordings become a real need.
-4.  **Deploy** embeddings / graph migrations to Vercel prod Supabase if not already live.
-5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+1.  **Commit + deploy this session’s work** — Record/Upload fix, dashboard Commons map/list, Listens pause/waveform/system audio, Commons popup without minimize — if not already on `main`/Vercel.
+2.  **Prod migrations check** — confirm `0011`–`0013` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+3.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+4.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+5.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
@@ -250,7 +257,7 @@
 *   [x] Text Receives + documents CRUD UI  
 *   [x] OKF LLM enrich (Inngest)  
 *   [x] PDF/DOCX convert  
-*   [x] Listens + Whisper (v1 — short recordings, sync; long/chunked is a later phase)  
+*   [x] Listens + Whisper (v1 sync; **v2 Module A** Storage + async 2026-08-06 — apply `0014`; chunked Module B later)  
 *   [x] Audio file via Receives (optional share Whisper) — shipped 2026-08-05 (sync Whisper, same cap as Listens v1)
 
 ### Phase 3 — Ask + Chatbot (separate)

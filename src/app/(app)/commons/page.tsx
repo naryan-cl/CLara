@@ -23,8 +23,8 @@ export default async function CommonsPage() {
           <h1 className="font-display text-2xl font-medium text-ink">Commons</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink/60">
             Everything contributed to {stream?.name ?? "this stream"} — chats,
-            recordings, uploads, and sessions. Click an item to open a
-            minimizable detail popup (edit, attend, comment).
+            recordings, uploads, and sessions. Click an item to open a detail
+            popup (edit, attend, comment).
           </p>
         </div>
         <Link
