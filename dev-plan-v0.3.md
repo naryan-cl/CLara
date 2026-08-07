@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-06 (Admin CLara prompts; run migration 0015)  
+**Last updated:** 2026-08-07 (Map theme wallpapers — product decisions locked)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -171,6 +171,17 @@
 
 *   **Dashboard map-as-background redesign (2026-08-07):** `/dashboard` is no longer a two-column Explore + Ask grid. The Knowledge Map fills the viewport under the nav (`--clara-header-height`); floating organic chrome sits on top: **Ask CLara** (top-right, minimized title+entry, expands on ask/handoff), **Add +** FAB (slides Record/Reflect/Upload), **List** FAB (organic Commons card panel). Element select (map or list) opens **inside** the Ask host — title changes, detail body scrolls, Ask entry stays at the bottom; circular X closes; document pencil uses `DocumentEditor` when `canEdit`. Scoped Ask handoff unchanged. Retired `ExploreCommonsPanel` / overlay `MapElementDetailPanel`. Organic radius tokens + utilities in `globals.css`; DESIGN_GUIDE updated. **Manual test:** (1) map pans/zooms full bleed, no “Explore Commons”; (2) + expands Add links; (3) List → card → same detail host as map; (4) Ask placeholder includes stream name; (5) ask expands thread; (6) select node → detail + X/edit; (7) ask from detail → scoped conversation; (8) Chatbot ≠ Ask still separate.
 
+*   **Map theme wallpapers — product decisions locked (2026-08-07, not built):** Future dashboard/map **background themes** Plant / Ocean / Desert (topographic contour style, generative). Confirmed with product owner:
+    1. Wallpaper **moves with the graph** (same pan/zoom `view` as nodes) — not a fixed viewport fill.
+    2. **Revisit node/label contrast** per theme (lighter Plant field needs darker labels/edges; today’s dark-only contract will change).
+    3. Prefer a **large unique region** (bounded generative world), not a small seamless tile.
+    4. **Subtle contour drift** if cheap to add; respect `prefers-reduced-motion` (static frame).
+    5. **Stream-level themes + unlocks:** Admin sets the **default theme** and the **contribution thresholds** that unlock additional themes. Each user picks their own unlocked theme. On unlock: popup *“Congratulations, your contributions have unlocked a new theme! Apply it now?”*
+    6. **Generative** art (noise → contours / elevation bands), not hand-drawn asset packs as the source of truth.
+    7. **Nodes stay clean/basic** (circles, current type colors) — **no themed node sprites**; only the background wallpaper changes. Wallpaper focus is primarily the **dashboard canvas**; `/map` can stay simpler until we decide to share the same wallpaper.
+    **Technical approach (planned):** procedural large world under the pan/zoom `<g>` (canvas/WebGL or SVG paths from seeded noise), theme = palette + seed params; optional subtle drift. Schema sketch (later migration): stream defaults + unlock thresholds; per-member selected theme + unlock state; contribution count helper. **Contribution definition still open** — see Next up.
+    **Build as small modules (when started):** A wallpaper renderer + Plant palette; B Ocean/Desert + contrast tokens; C Admin default + thresholds; D unlock count + popup + user theme pick. Do not mix into Chatbot/Ask pipelines.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
@@ -234,6 +245,7 @@
 *   Inngest for **this** app ≠ Old Clara Inngest (different serve URL).
 *   Reference: Festival + Old Clara folders (see below).
 *   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
+*   **Map themes (2026-08-07, decided, not built):** Plant / Ocean / Desert generative topo wallpapers; pan/zoom with graph; contrast per theme; stream admin default + contribution unlocks; per-user theme pick; nodes stay plain circles (no theme sprites). See Progress log entry above.
 
 ### Reference projects
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
@@ -253,12 +265,13 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
-2.  **Commit + deploy this session’s work** — if not already on `main`/Vercel.
-3.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
-4.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
-5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
-6.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
+1.  **Map theme Module A (when product says go):** generative Plant wallpaper inside pan/zoom group + contrast pass for lighter field; nodes remain plain circles.
+2.  **Clarify contribution = unlock unit** before Modules C–D (proposal: count finalized Commons contributions by the user in that stream — Reflect Submit, Record transcript, Upload doc — excluding drafts/private-only if product prefers public-only).
+3.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
+4.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+5.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+6.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+7.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
