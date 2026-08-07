@@ -39,6 +39,7 @@ export function AskForm({
   minimized = false,
   streamName,
   onConversationActive,
+  onHasConversationChange,
 }: {
   embedded?: boolean;
   scope?: AskScope | null;
@@ -47,8 +48,10 @@ export function AskForm({
   onClearScope?: () => void;
   minimized?: boolean;
   streamName?: string;
-  /** Fires when the thread has content or a request is in flight. */
+  /** Fires once when the first ask starts (expands the dashboard host). */
   onConversationActive?: () => void;
+  /** Reports whether a real thread (turns) is present — used to re-minimize. */
+  onHasConversationChange?: (hasConversation: boolean) => void;
 } = {}) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
@@ -62,6 +65,10 @@ export function AskForm({
     notifiedActive.current = true;
     onConversationActive?.();
   }
+
+  useEffect(() => {
+    onHasConversationChange?.(turns.length > 0);
+  }, [turns.length, onHasConversationChange]);
 
   function runAsk(
     question: string,
@@ -126,6 +133,7 @@ export function AskForm({
     setError(null);
     setDraft("");
     notifiedActive.current = false;
+    onHasConversationChange?.(false);
   }
 
   const scoped = askScopeIsActive(scope);

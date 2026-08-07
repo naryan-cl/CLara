@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FadeRise } from "@/components/motion/FadeRise";
+import { useResizablePanel } from "@/components/dashboard/useResizablePanel";
 import type { CommonsListItem } from "@/lib/commons/types";
 
 function elementLabel(item: CommonsListItem) {
@@ -12,9 +13,20 @@ function elementLabel(item: CommonsListItem) {
   return item.type ?? "Document";
 }
 
+/** Card min width used for auto-fill columns as the pane grows. */
+const CARD_MIN = 220;
+
+const LIST_MIN_WIDTH = 280;
+const LIST_MAX_WIDTH = 900;
+const LIST_MIN_HEIGHT = 240;
+const LIST_MAX_HEIGHT = 900;
+const LIST_DEFAULT_WIDTH = 352;
+const LIST_DEFAULT_HEIGHT = 520;
+
 /**
  * Organic slide panel of Commons cards. Selection opens the same Ask-hosted
  * detail as map node select (parent owns that).
+ * Resizable; when wide enough, cards flow into extra columns.
  */
 export function CommonsListPanel({
   items,
@@ -29,11 +41,54 @@ export function CommonsListPanel({
   onSelect: (item: CommonsListItem) => void;
   onClose: () => void;
 }) {
+  const { size, dragging, startDrag } = useResizablePanel({
+    storageKey: "clara.dashboard.listPanel",
+    defaultWidth: LIST_DEFAULT_WIDTH,
+    defaultHeight: LIST_DEFAULT_HEIGHT,
+    minWidth: LIST_MIN_WIDTH,
+    maxWidth: LIST_MAX_WIDTH,
+    minHeight: LIST_MIN_HEIGHT,
+    maxHeight: LIST_MAX_HEIGHT,
+  });
+
+  const panelWidth = Math.min(
+    size.width,
+    typeof window !== "undefined" ? window.innerWidth - 32 : size.width,
+  );
+  const panelHeight = Math.min(
+    size.height,
+    typeof window !== "undefined" ? window.innerHeight - 120 : size.height,
+  );
+
   return (
     <aside
-      className="organic-list flex max-h-[min(70vh,36rem)] w-[min(100vw-2rem,22rem)] flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none"
+      className={`organic-list relative flex flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none ${
+        dragging ? "" : ""
+      }`}
+      style={{
+        width: panelWidth,
+        height: panelHeight,
+        maxWidth: "min(100vw - 2rem, 56rem)",
+        maxHeight: "min(85vh, 56rem)",
+      }}
       aria-label="Commons list"
     >
+      {/* Right edge — grow width rightward (top-left panel). */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize Commons list width"
+        onPointerDown={startDrag("width", 1)}
+        className="absolute inset-y-3 -right-1 z-10 w-2 cursor-ew-resize rounded-full hover:bg-horizon/25"
+      />
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize Commons list height"
+        onPointerDown={startDrag("height", 1)}
+        className="absolute inset-x-3 -bottom-1 z-10 h-2 cursor-ns-resize rounded-full hover:bg-horizon/25"
+      />
+
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-cloud/70 px-4 py-3">
         <h2 className="font-display text-base font-medium text-ink">Commons</h2>
         <button
@@ -65,46 +120,53 @@ export function CommonsListPanel({
             </p>
           </div>
         ) : (
-          <FadeRise className="flex flex-col gap-2">
-            {items.map((item, index) => {
-              const isPrivate =
-                item.kind === "document" && item.privacy_status === "private";
-              const id = `${item.kind}-${item.id}`;
-              const selected = selectedId === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => onSelect(item)}
-                  className={`card-press rounded-lg border p-3 text-left shadow-soft transition-[box-shadow,transform,border-color] duration-[var(--duration-ui)] ease-[var(--ease)] animate-fade-rise motion-reduce:animate-none ${
-                    selected
-                      ? "border-horizon/50 bg-horizon/5"
-                      : "border-cloud bg-sand/40 hover:border-sage/50 hover:bg-sand hover:shadow-glow"
-                  }`}
-                  style={{
-                    animationDelay: `${Math.min(index, 5) * 40}ms`,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-display text-sm text-ink">{item.title}</p>
-                    <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
-                      {elementLabel(item)}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 font-mono text-[11px] tracking-wide text-ink/45">
-                    {isPrivate ? "Private · " : ""}
-                    {item.kind === "document" && item.needs_review
-                      ? "Needs review · "
-                      : ""}
-                    {new Date(
-                      item.kind === "session" && item.occurred_at
-                        ? item.occurred_at
-                        : item.created_at,
-                    ).toLocaleDateString()}
-                  </p>
-                </button>
-              );
-            })}
+          <FadeRise>
+            <div
+              className="grid gap-2"
+              style={{
+                gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_MIN}px, 1fr))`,
+              }}
+            >
+              {items.map((item, index) => {
+                const isPrivate =
+                  item.kind === "document" && item.privacy_status === "private";
+                const id = `${item.kind}-${item.id}`;
+                const selected = selectedId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onSelect(item)}
+                    className={`card-press rounded-lg border p-3 text-left shadow-soft transition-[box-shadow,transform,border-color] duration-[var(--duration-ui)] ease-[var(--ease)] animate-fade-rise motion-reduce:animate-none ${
+                      selected
+                        ? "border-horizon/50 bg-horizon/5"
+                        : "border-cloud bg-sand/40 hover:border-sage/50 hover:bg-sand hover:shadow-glow"
+                    }`}
+                    style={{
+                      animationDelay: `${Math.min(index, 5) * 40}ms`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-display text-sm text-ink">{item.title}</p>
+                      <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
+                        {elementLabel(item)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 font-mono text-[11px] tracking-wide text-ink/45">
+                      {isPrivate ? "Private · " : ""}
+                      {item.kind === "document" && item.needs_review
+                        ? "Needs review · "
+                        : ""}
+                      {new Date(
+                        item.kind === "session" && item.occurred_at
+                          ? item.occurred_at
+                          : item.created_at,
+                      ).toLocaleDateString()}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </FadeRise>
         )}
       </div>

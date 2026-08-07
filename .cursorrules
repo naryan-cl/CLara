@@ -4,6 +4,13 @@
 - Architecture lens: Add → Commons → Synthesis (formerly Input → Commons → Output). Chatbot (Add) and Ask CLara (Synthesis) stay **separate**.
 - Always scope Commons data with `stream_id`. Respect stream **isolation** when enabled.
 
+# Git — always land on `main`
+- **Durable work must end on `main`.** The next Cursor / cloud agent starts from `main`. Fixes left only on a feature branch are invisible to the next session — that is how plant icons, FAB position, and hover polish were “lost.”
+- **Always push (or merge) finished work to `main` before ending a task.** Prefer: commit → push to `main` (or merge the PR into `main` + confirm `main` is updated). Do not consider a session done while the only copy of the change lives on `cursor/…` or another side branch.
+- If a platform workflow forces a feature branch + PR first, **merge that PR into `main` (or fast-forward `main`) before finishing** — opening a PR alone is not enough.
+- Deploying a preview branch to Vercel is **not** the same as landing on `main`. Production/preview URLs do not update what the next agent checks out.
+- Never force-push `main`. Never commit secrets (see Secrets below).
+
 # Developer Profile & Mentorship
 - USER PROFILE: Beginner developers.
 - TEACHING STYLE: Mentor/teacher, not just a code generator.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddFab } from "@/components/dashboard/AddFab";
 import { AskClaraPanel } from "@/components/dashboard/AskClaraPanel";
 import {
@@ -13,6 +13,7 @@ import { findCommonsItemForGraphNode } from "@/lib/commons/graph-node";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphNode } from "@/lib/graph/types";
+import { PLANT_PALETTE } from "@/lib/map-theme";
 
 type AskHandoff = {
   key: string;
@@ -22,8 +23,8 @@ type AskHandoff = {
 
 /**
  * Dashboard shell: full-bleed Knowledge Map under the nav, with floating
- * Add / List FABs and a top-right Ask host. Element detail opens inside Ask
- * (title changes, entry stays at the bottom).
+ * Add / List FABs (top-left) and Ask host (top-right). Element detail
+ * opens inside Ask (title changes, entry stays at the bottom).
  */
 export function DashboardGrid({
   items,
@@ -43,6 +44,7 @@ export function DashboardGrid({
   const [listOpen, setListOpen] = useState(false);
   const [askHandoff, setAskHandoff] = useState<AskHandoff | null>(null);
   const [askScope, setAskScope] = useState<AskScope | null>(null);
+  const listChromeRef = useRef<HTMLDivElement>(null);
 
   const { nodes, edges } = useMemo(
     () => commonsItemsToGraph(items, streamId),
@@ -58,6 +60,24 @@ export function DashboardGrid({
   );
 
   const selectedItem = selectedListItem ?? selectedItemFromMap;
+
+  useEffect(() => {
+    if (!listOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setListOpen(false);
+    }
+    function onPointer(event: MouseEvent) {
+      if (!listChromeRef.current?.contains(event.target as Node)) {
+        setListOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [listOpen]);
 
   function clearSelection() {
     setSelectedNode(null);
@@ -91,7 +111,8 @@ export function DashboardGrid({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-0 bg-forest-deep"
+      className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-0"
+      style={{ background: PLANT_PALETTE.base }}
       aria-label="Stream dashboard"
     >
       {/* Map canvas */}
@@ -133,9 +154,40 @@ export function DashboardGrid({
             onSelect={onMapNodeSelect}
             hideDetailPanel
             hideChrome
+            wallpaperTheme="plant"
+            wallpaperSeed={`stream:${streamId}`}
             className="h-full w-full rounded-none border-0"
           />
         )}
+      </div>
+
+      {/* Top-left chrome: Add / List */}
+      <div
+        ref={listChromeRef}
+        className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5"
+      >
+        <div className="pointer-events-auto flex flex-col items-start gap-3">
+          <div className="flex items-center gap-3">
+            <AddFab menuAlign="start" />
+            <ListFab
+              open={listOpen}
+              onToggle={() => setListOpen((value) => !value)}
+            />
+          </div>
+          {listOpen ? (
+            <CommonsListPanel
+              items={items}
+              error={error}
+              selectedId={
+                selectedItem
+                  ? `${selectedItem.kind}-${selectedItem.id}`
+                  : null
+              }
+              onSelect={onListSelect}
+              onClose={() => setListOpen(false)}
+            />
+          ) : null}
+        </div>
       </div>
 
       {/* Ask host — top right */}
@@ -153,35 +205,10 @@ export function DashboardGrid({
             }}
             streamName={streamName}
             selectedItem={selectedItem}
-            selectedNode={
-              selectedItem ? null : selectedNode
-            }
+            selectedNode={selectedItem ? null : selectedNode}
             onCloseDetail={clearSelection}
             onAskAbout={onAskAbout}
           />
-        </div>
-      </div>
-
-      {/* Add + List — bottom left */}
-      <div className="pointer-events-none absolute bottom-5 left-4 z-20 flex flex-col items-start gap-3 sm:bottom-6 sm:left-6">
-        {listOpen ? (
-          <div className="pointer-events-auto mb-1">
-            <CommonsListPanel
-              items={items}
-              error={error}
-              selectedId={
-                selectedItem
-                  ? `${selectedItem.kind}-${selectedItem.id}`
-                  : null
-              }
-              onSelect={onListSelect}
-              onClose={() => setListOpen(false)}
-            />
-          </div>
-        ) : null}
-        <div className="pointer-events-auto flex items-end gap-3">
-          <AddFab />
-          <ListFab open={listOpen} onToggle={() => setListOpen((v) => !v)} />
         </div>
       </div>
     </div>

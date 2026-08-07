@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AskForm } from "@/components/AskForm";
 import { ElementDetailBody } from "@/components/dashboard/ElementDetailBody";
+import { useResizablePanel } from "@/components/dashboard/useResizablePanel";
 import type { AskScope } from "@/lib/ask/scope";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphNode } from "@/lib/graph/types";
 
 type AskHostMode = "minimized" | "conversation" | "detail";
+
+const ASK_MIN_WIDTH = 280;
+const ASK_MAX_WIDTH = 720;
+const ASK_MIN_HEIGHT = 280;
+const ASK_MAX_HEIGHT = 900;
+const ASK_DEFAULT_WIDTH = 416;
+const ASK_DEFAULT_HEIGHT = 640;
+const ASK_MINIMIZED_HEIGHT = 148;
 
 /**
  * Floating Ask CLara host (top-right over the map).
@@ -17,6 +26,9 @@ type AskHostMode = "minimized" | "conversation" | "detail";
  * - minimized: title + entry only
  * - conversation: expanded thread (auto after ask / handoff)
  * - detail: element opens inside the host; title changes; entry stays at bottom
+ *
+ * Clicking away re-minimizes when there is no active conversation (and no
+ * open element detail). Expanded panes are resizable (left + bottom grips).
  */
 export function AskClaraPanel({
   formKey = "default",
@@ -45,9 +57,11 @@ export function AskClaraPanel({
   /** Parent sets true after a handoff so we open in conversation mode. */
   forceConversation?: boolean;
 } = {}) {
+  const rootRef = useRef<HTMLElement>(null);
   const [conversationOpen, setConversationOpen] = useState(
     Boolean(forceConversation || autoSubmitInitial),
   );
+  const [hasConversation, setHasConversation] = useState(false);
   const [editing, setEditing] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [detailKind, setDetailKind] = useState<"document" | "session" | null>(
@@ -56,18 +70,29 @@ export function AskClaraPanel({
   const [detailDraft, setDetailDraft] = useState("");
   const [detailAskError, setDetailAskError] = useState<string | null>(null);
 
+  const { size, dragging, startDrag } = useResizablePanel({
+    storageKey: "clara.dashboard.askPanel",
+    defaultWidth: ASK_DEFAULT_WIDTH,
+    defaultHeight: ASK_DEFAULT_HEIGHT,
+    minWidth: ASK_MIN_WIDTH,
+    maxWidth: ASK_MAX_WIDTH,
+    minHeight: ASK_MIN_HEIGHT,
+    maxHeight: ASK_MAX_HEIGHT,
+  });
+
   useEffect(() => {
-    if (forceConversation || autoSubmitInitial) {
-      setConversationOpen(true);
-    }
+    if (!(forceConversation || autoSubmitInitial)) return;
+    queueMicrotask(() => setConversationOpen(true));
   }, [forceConversation, autoSubmitInitial, formKey]);
 
   useEffect(() => {
-    setEditing(false);
-    setCanEdit(false);
-    setDetailKind(null);
-    setDetailDraft("");
-    setDetailAskError(null);
+    queueMicrotask(() => {
+      setEditing(false);
+      setCanEdit(false);
+      setDetailKind(null);
+      setDetailDraft("");
+      setDetailAskError(null);
+    });
   }, [selectedItem?.id, selectedItem?.kind, selectedNode?.id]);
 
   const inDetail = Boolean(selectedItem || selectedNode);
@@ -76,6 +101,27 @@ export function AskClaraPanel({
     : conversationOpen
       ? "conversation"
       : "minimized";
+
+  // Click away → minimize when there's no live thread and no detail open.
+  useEffect(() => {
+    if (inDetail || hasConversation || !conversationOpen) return;
+
+    function onPointer(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setConversationOpen(false);
+      }
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setConversationOpen(false);
+    }
+
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [inDetail, hasConversation, conversationOpen]);
 
   const detailTitle =
     selectedItem?.title ?? selectedNode?.label ?? "Details";
@@ -110,15 +156,49 @@ export function AskClaraPanel({
     canEdit &&
     detailKind === "document";
 
+  const panelWidth = Math.min(size.width, typeof window !== "undefined" ? window.innerWidth - 32 : size.width);
+  const panelHeight =
+    mode === "minimized"
+      ? ASK_MINIMIZED_HEIGHT
+      : Math.min(
+          size.height,
+          typeof window !== "undefined" ? window.innerHeight - 96 : size.height,
+        );
+
   return (
     <section
-      className={`organic-ask flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm transition-[width,height,max-height] duration-[var(--duration-ui)] ease-[var(--ease)] ${
-        mode === "minimized"
-          ? "w-[min(100vw-2rem,22rem)]"
-          : "h-[min(78vh,40rem)] w-[min(100vw-2rem,26rem)]"
+      ref={rootRef}
+      className={`organic-ask relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
+        dragging
+          ? ""
+          : "transition-[width,height,max-height] duration-[var(--duration-ui)] ease-[var(--ease)]"
       }`}
+      style={{
+        width: panelWidth,
+        height: panelHeight,
+        maxWidth: "min(100vw - 2rem, 45rem)",
+        maxHeight: mode === "minimized" ? undefined : "min(85vh, 56rem)",
+      }}
       aria-label={mode === "detail" ? detailTitle : "Ask CLara"}
     >
+      {/* Left edge — grow width leftward (top-right panel). */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize Ask panel width"
+        onPointerDown={startDrag("width", -1)}
+        className="absolute inset-y-3 -left-1 z-10 w-2 cursor-ew-resize rounded-full hover:bg-horizon/25"
+      />
+      {mode !== "minimized" ? (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize Ask panel height"
+          onPointerDown={startDrag("height", 1)}
+          className="absolute inset-x-3 -bottom-1 z-10 h-2 cursor-ns-resize rounded-full hover:bg-horizon/25"
+        />
+      ) : null}
+
       <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-2 pt-4">
         <h2 className="min-w-0 font-display text-lg font-medium text-ink">
           {mode === "detail" ? (
@@ -238,6 +318,7 @@ export function AskClaraPanel({
             minimized={mode === "minimized"}
             streamName={streamName}
             onConversationActive={() => setConversationOpen(true)}
+            onHasConversationChange={setHasConversation}
           />
         </div>
       ) : null}

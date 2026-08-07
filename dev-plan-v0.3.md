@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-06 (Admin CLara prompts; run migration 0015)  
+**Last updated:** 2026-08-07 (Closed superseded draft PRs #1/#2)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -171,6 +171,28 @@
 
 *   **Dashboard map-as-background redesign (2026-08-07):** `/dashboard` is no longer a two-column Explore + Ask grid. The Knowledge Map fills the viewport under the nav (`--clara-header-height`); floating organic chrome sits on top: **Ask CLara** (top-right, minimized title+entry, expands on ask/handoff), **Add +** FAB (slides Record/Reflect/Upload), **List** FAB (organic Commons card panel). Element select (map or list) opens **inside** the Ask host — title changes, detail body scrolls, Ask entry stays at the bottom; circular X closes; document pencil uses `DocumentEditor` when `canEdit`. Scoped Ask handoff unchanged. Retired `ExploreCommonsPanel` / overlay `MapElementDetailPanel`. Organic radius tokens + utilities in `globals.css`; DESIGN_GUIDE updated. **Manual test:** (1) map pans/zooms full bleed, no “Explore Commons”; (2) + expands Add links; (3) List → card → same detail host as map; (4) Ask placeholder includes stream name; (5) ask expands thread; (6) select node → detail + X/edit; (7) ask from detail → scoped conversation; (8) Chatbot ≠ Ask still separate.
 
+*   **Map theme wallpapers — product decisions locked (2026-08-07, not built):** Future dashboard/map **background themes** Plant / Ocean / Desert (topographic contour style, generative). Confirmed with product owner:
+    1. Wallpaper **moves with the graph** (same pan/zoom `view` as nodes) — not a fixed viewport fill.
+    2. **Revisit node/label contrast** per theme (lighter Plant field needs darker labels/edges; today’s dark-only contract will change).
+    3. Prefer a **large unique region** (bounded generative world), not a small seamless tile.
+    4. **Subtle contour drift** if cheap to add; respect `prefers-reduced-motion` (static frame).
+    5. **Stream-level themes + unlocks:** Admin sets the **default theme** and the **contribution thresholds** that unlock additional themes. Each user picks their own unlocked theme. On unlock: popup *“Congratulations, your contributions have unlocked a new theme! Apply it now?”*
+    6. **Generative** art (noise → contours / elevation bands), not hand-drawn asset packs as the source of truth.
+    7. **Nodes stay clean/basic** (circles, current type colors) — **no themed node sprites**; only the background wallpaper changes. Wallpaper focus is primarily the **dashboard canvas**; `/map` can stay simpler until we decide to share the same wallpaper.
+    **Unlock counting (locked 2026-08-07):** A contribution = a **Commons document the member authored** in that stream that is **not a draft** and **not Private**. Drafts and private items never count toward unlocks.
+    **Default Camp CLAI thresholds (locked 2026-08-07; admin-overridable later):** **Plant** available from the start (stream default). **Ocean** unlocks at **5** counting contributions. **Desert** unlocks at **10**.
+    **Technical approach (planned):** procedural large world under the pan/zoom `<g>` (canvas/WebGL or SVG paths from seeded noise), theme = palette + seed params; optional subtle drift. Schema sketch (later migration): stream defaults + unlock thresholds; per-member selected theme + unlock state; contribution count helper (`author_id` + stream + not draft + not private).
+    **Impl note for Module D:** Reflect **autosave** already writes real `documents` rows today with no `is_draft` / `submitted_at` column — counting “non-draft” will need a small schema or status flag so autosaved reflections are excluded until Submit. Record/Upload count on successful finalize (public only).
+    **Build as small modules (when started):** A wallpaper renderer + Plant palette; B Ocean/Desert + contrast tokens; C Admin default + thresholds; D unlock count + popup + user theme pick. Do not mix into Chatbot/Ask pipelines.
+
+*   **Git handoff rule (2026-08-07):** Agents must **land finished work on `main`** (push or merge) before ending a session. Feature-branch-only / unmerged PRs are how prior polish (sprites, FAB position, hover) was lost — next agents checkout `main`, not orphaned branches. Deploying a preview ≠ updating `main`. See `.cursorrules` “Git — always land on main.”
+
+*   **Dashboard panes: resize + Ask click-away + SSO docs (2026-08-07):** Cherry-picked leftover polish from draft PRs #1/#2 (not whole-merge — those branches would wipe wallpaper). **SSO:** `.env.example` + Dev Plan note for Vercel preview Redirect URL wildcard. **Ask:** click-away re-minimizes when there is no live thread / detail (`onHasConversationChange`). **Resize:** Ask/Details and Commons List panes drag-resize (sizes in `localStorage`); List uses `auto-fill` grid so extra columns appear when the pane is wide enough (~220px card min). **Manual test:** (1) widen List → 2+ columns; (2) drag Ask left/bottom edges; (3) open Ask empty then click map → collapses; (4) with a thread open, click-away keeps it open.
+
+*   **Closed superseded draft PRs (2026-08-07):** [#1](https://github.com/naryan-cl/CLara/pull/1) (`cursor/map-node-sprites-06aa`) and [#2](https://github.com/naryan-cl/CLara/pull/2) (`cursor/dashboard-polish-4b14`) closed without merge. Useful bits already on `main` via cherry-pick / wallpaper work (sprites, FAB top-left, sand hover, SSO docs, Ask click-away). Remaining optional leftovers **not** ported: `scripts/prepare-map-sprites.py` + `sprites:prepare` npm script, collide padding `+18`, scoped Ask RPC fallback polish in `search-commons.ts`. Do not reopen/merge those branches wholesale — they predate fullscreen map + Plant wallpaper.
+
+*   **Phase 7 Module A polish (2026-08-07 evening):** Wallpaper is now **procedural SVG** (soft radial washes + contour paths) — no bitmap, so zoom stays sharp and generation is faster. Plant greens lightened (`#D5E6D2` base). Add/List FABs restored to **top-left**; Ask stays top-right. Record/Reflect/Upload hover uses solid **sand** (not transparent forest/5). **Why prior polish was “lost”:** those fixes lived on parallel agent branches that never merged into `main` / this PR branch — cloud agents each branch from `main`, so unmerged PRs do not appear in later agents. Fix: merge (or cherry-pick) finished PRs into `main` before starting the next agent, not only deploy to Vercel.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
@@ -188,6 +210,7 @@
 *   Receives Upload / Add text; TipTap toolbar; Markdown storage; view/edit.
 *   Public repo secrets policy (`.cursorrules` / `claude.md` / README / `.gitignore`).
 *   Production Auth URL config (Site URL + `/auth/callback` redirect for `clara-cl.vercel.app`) — Magic Link confirmed working in prod.
+*   **Vercel preview SSO (2026-08-07):** Preview deploys need a Redirect URL wildcard in Supabase Auth → URL Configuration, or Google SSO after login drops users on production (Site URL fallback). Allowlist: `http://localhost:3000/**`, `https://clara-cl.vercel.app/**`, and `https://*-cultivatingleadership.vercel.app/**` (Vercel team slug). Documented in `.env.example`. Login already uses `window.location.origin` — no app code change required once the allowlist is set.
 *   **OKF LLM enrichment (Inngest):** on `clara/document.created`, `clara-okf-enrich` fetches the doc via the new admin (service) client, asks OpenAI (`gpt-4o-mini`, structured JSON output) to propose tags / participants / session id, writes them back only if not already set (never clobbers manual edits), and sets `needs_review = !confident`. Fails gracefully (skips, doesn't retry-loop) if `OPENAI_API_KEY` isn't configured. Verified end-to-end locally via a direct admin-client + `inngest.send` test (magic-link email was rate-limited at test time) — tags/participants/session_id all extracted correctly from a sample reflection.
 *   **CLara Listens v1 (2026-07-30):** browser mic recording (`MediaRecorder`, mono, 32kbps opus/mp4) → `receiveListensRecording` Server Action → OpenAI Whisper (`transcribeAudio`) → `createDocument({ type: "Transcript" })`, same table/RLS Receives uses. **Deliberately synchronous, no Storage bucket, no Inngest job** — the audio blob never persists, only the transcript text. This caps usable recordings at roughly 15 minutes (~4MB at the recorded bitrate, staying under Vercel's ~4.5MB serverless request-body limit) — fine for a reflection, not a full meeting. Required raising `next.config.ts`'s `experimental.serverActions.bodySizeLimit` from Next's 1MB default to `"5mb"`. Verified end-to-end by the user locally (real mic recording → transcript → document appeared correctly).
 *   **Admin Queue (2026-07-30):** `/admin` gated on `stream.role === "admin"` (from `getActiveStream()`); lists documents where `needs_review = true` via new `listNeedsReviewDocuments()` helper (`src/lib/documents/list-needs-review.ts`), reusing the existing `DocumentList` component. No new "approve" action needed — opening a flagged doc through the existing editor and saving with Title + Type filled already clears `needs_review` (`saveDocumentEdits`), so the queue is just a filtered view into that flow. Verified end-to-end locally: flagged a real doc via the admin Supabase client, confirmed it appeared in `/admin`, edited + saved it, confirmed it dropped out of the queue. (Local auth was magic-link-rate-limited during testing, so sign-in was done via `supabase.auth.admin.generateLink()` + `verifyOtp()` instead of an emailed link — a temporary `/dev-login` test page was added and deleted for this, never committed.)
@@ -231,9 +254,11 @@
 *   Rich text ↔ Markdown storage (TipTap + marked/turndown; underline may be `<u>` in MD).
 *   Receives: Upload XOR Add text.
 *   Repo **public while building**; secrets only in Vercel / `.env.local`.
+*   **Land finished agent work on `main`** (2026-08-07) — merge/push before session end; unmerged feature branches are invisible to the next agent.
 *   Inngest for **this** app ≠ Old Clara Inngest (different serve URL).
 *   Reference: Festival + Old Clara folders (see below).
 *   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
+*   **Map themes (2026-08-07):** Plant / Ocean / Desert generative topo wallpapers; pan/zoom with graph; contrast per theme; stream admin default + contribution unlocks; per-user theme pick. **Nodes use nature sprites** (restored; circles fallback). **Unlock unit:** authored Commons docs that are finalized and **Public** (drafts + private excluded). **Default thresholds:** Plant free; Ocean @ 5; Desert @ 10. Wallpaper wash is one smooth cached raster (not blocky cells). See Progress log.
 
 ### Reference projects
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
@@ -253,12 +278,13 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
-2.  **Commit + deploy this session’s work** — if not already on `main`/Vercel.
-3.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
-4.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
-5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
-6.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
+1.  **Verify Phase 7 Module A** on a real dashboard (pan/zoom/contrast), then tune Plant palette if needed.
+2.  **Phase 7 Module B:** wire Ocean + Desert palettes (already stubbed) + optional theme switcher for testing before unlocks.
+3.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
+4.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+5.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+6.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+7.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later. Optional: whether theme wallpapers also apply on `/map`.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
@@ -310,6 +336,13 @@ Build one module at a time; verify; update this Progress section; then continue.
 *   [x] **Module D — Minimizable detail popup** — click → popup with minimize; edit when author/attendee/admin (attendee RLS in `0011`); session popup includes "I Attended" — shipped 2026-08-05
 *   [x] **Module E — Comments + audit log** — `0011_comments_and_attendee_edit.sql` + CommentThread; author edit/delete; "edited" marker; admin audit — shipped 2026-08-05 (**run migration in Supabase**)
 *   [x] **Module F — Docs & landing copy** — landing triad Add/Commons/Synthesis; dashboard jump-in updated — shipped 2026-08-05
+
+### Phase 7 — Map theme wallpapers *(Module A shipped 2026-08-07)*
+
+*   [x] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast; nodes stay plain circles
+*   [ ] **Module B — Ocean + Desert palettes** — same renderer, theme tokens; optional subtle contour drift (`prefers-reduced-motion` → static)
+*   [ ] **Module C — Admin defaults + thresholds** — stream default theme + contribution counts to unlock themes (seed defaults: Plant free, Ocean @ 5, Desert @ 10)
+*   [ ] **Module D — Unlocks + user pick** — count authored **Public non-draft** Commons docs; unlock popup (“Apply it now?”); per-member theme selection
 
 ---
 
