@@ -1,4 +1,9 @@
-export type { MapThemeId, MapThemePalette, TopoWorld } from "./types";
+export type {
+  MapThemeId,
+  MapThemePalette,
+  TopoWashBlob,
+  TopoWorld,
+} from "./types";
 export {
   DESERT_PALETTE,
   OCEAN_PALETTE,
@@ -9,6 +14,7 @@ export {
   clearTopoWorldCache,
   contourPathForLevel,
   generateTopoWorld,
+  generateWashBlobs,
   paintElevationWash,
   paintSmoothTopo,
   quantizedViewport,

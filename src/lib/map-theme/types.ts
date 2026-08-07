@@ -1,6 +1,6 @@
 /**
  * Map wallpaper themes (Phase 7).
- * Wallpaper is generative topo; dashboard nodes use nature sprites separately.
+ * Wallpaper is generative topo (procedural SVG); nodes use nature sprites.
  */
 
 export type MapThemeId = "plant" | "ocean" | "desert";
@@ -10,7 +10,7 @@ export type MapThemePalette = {
   id: MapThemeId;
   /** Shell / hit-target fill behind the generative world. */
   base: string;
-  /** Elevation washes, low → high. */
+  /** Soft wash accents (radial / ellipse fills), light → deep. */
   bands: readonly string[];
   /** Contour stroke. */
   contour: string;
@@ -25,33 +25,36 @@ export type MapThemePalette = {
   pinnedStroke: string;
 };
 
+export type TopoWashBlob = {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  fill: string;
+  opacity: number;
+};
+
 export type TopoGenerateOptions = {
-  /** World width in graph (SVG) units. */
   width: number;
-  /** World height in graph (SVG) units. */
   height: number;
-  /** Top-left of the world in graph space. */
   originX: number;
   originY: number;
   seed: string;
   palette: MapThemePalette;
-  /** Contour isolevel count (soft detail). */
   levels?: number;
-  /** Height-field columns (higher = smoother, more work once). */
   cols?: number;
-  /** Height-field rows. */
   rows?: number;
 };
 
+/** Procedural SVG topo — vectors stay sharp when the map zooms. */
 export type TopoWorld = {
   originX: number;
   originY: number;
   width: number;
   height: number;
-  /**
-   * Single raster: smooth elevation gradient + baked contour lines.
-   * One image keeps DOM light and avoids a huge SVG path.
-   */
-  washHref: string;
+  /** Soft atmospheric blobs (no bitmap). */
+  washes: TopoWashBlob[];
+  /** Contour polylines as one SVG path `d`. */
+  contourPath: string;
   palette: MapThemePalette;
 };

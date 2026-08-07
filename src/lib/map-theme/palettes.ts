@@ -1,18 +1,18 @@
 import type { MapThemeId, MapThemePalette } from "./types";
 
 /**
- * Plant — lighter green topo field (Module A).
+ * Plant — soft light-green topo field.
  * Labels/edges use ink/forest so they stay readable on the wash.
  */
 export const PLANT_PALETTE: MapThemePalette = {
   id: "plant",
-  base: "#9BB89A",
-  bands: ["#C8DCC4", "#B3CDB0", "#9BB89A", "#7FA087", "#648A6C", "#4F7358"],
-  contour: "#2E4B45",
-  contourOpacity: 0.28,
+  base: "#D5E6D2",
+  bands: ["#EAF3E7", "#DCEAD8", "#C8DCC4", "#B5CFB2", "#9FBF9C", "#8AAF88"],
+  contour: "#4A6B52",
+  contourOpacity: 0.22,
   labelFill: "#1C2A2E",
   edgeStroke: "#2E4B45",
-  edgeOpacity: 0.5,
+  edgeOpacity: 0.45,
   nodeStroke: "rgba(28, 42, 46, 0.28)",
   pinnedStroke: "#1C2A2E",
 };
