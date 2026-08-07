@@ -144,6 +144,9 @@
 *   **Reflect UX polish (2026-08-06):** Session Composer is button-driven (Connect picker with search; Create opens a modal). Single **Inquiry** field (stored as `seed_question`; description field removed from create UI). Reflect privacy checkbox moved under Send and **defaults unchecked** (public unless opted private).
 *   **Dashboard Commons wiring + Add fix (2026-08-06):** Explore Map/List now use `listCommonsItems` (same Commons docs/sessions as `/commons`), not only Knowledge Map extraction nodes. Map builds a lightweight graph via `commonsItemsToGraph` (docs linked to their session when present). List opens `CommonsDetailPopup`. Dashboard columns stretch to equal height and fill the desktop viewport (`min-h` + `items-stretch`). Record/Reflect/Upload quick actions share the same outline style. Removed Commons page “Add something” button (Add lives in nav + dashboard). **Bugfix:** Record/Upload crashed because Server pages passed a children render-function into Client `AddWithSessionComposer` (non-serializable RSC boundary); now uses a `mode: "record" | "upload"` prop like Reflect’s dedicated client page.
 
+*   **Listens Record UX (2026-08-06):** Title label without “(optional)”; live mic level + frequency-bar waveform via Web Audio `AnalyserNode`; Pause/Resume (`MediaRecorder.pause`); Stop relabeled **Submit**; on success navigates to `/sessions/documents/[id]`.
+*   **Listens system/tab audio (2026-08-06):** Optional “Include system/tab audio” uses `getDisplayMedia` (video discarded; audio kept), mixed with mic via `AudioContext` → `MediaStreamDestination` for one Whisper blob. Separate **Mic** and **System** volume meters. Browser must share audio in the picker (tab audio or Windows system audio). If share ends mid-take, mic continues.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
