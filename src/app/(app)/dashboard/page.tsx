@@ -17,16 +17,16 @@ export default async function DashboardPage() {
 
   if (!stream || !user) {
     return (
-      <section className="grid min-h-[calc(100vh-9.5rem)] flex-1 gap-5 lg:grid-cols-[1.55fr_1fr] lg:items-stretch">
-        <div className="flex h-full items-start rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+      <div className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] flex items-center justify-center bg-forest-deep p-8">
+        <div className="organic-ask max-w-md border border-cloud/80 bg-paper/95 p-6 shadow-soft">
           <p className="text-sm text-ink/70">
             Join a stream to explore its Commons and add contributions.
           </p>
+          <p className="mt-3 text-sm text-ink/55">
+            Ask CLara needs an active stream.
+          </p>
         </div>
-        <div className="rounded-lg border border-horizon/30 bg-paper p-6 shadow-soft ring-1 ring-horizon/15">
-          <p className="text-sm text-ink/60">Ask CLara needs an active stream.</p>
-        </div>
-      </section>
+      </div>
     );
   }
 
@@ -34,6 +34,7 @@ export default async function DashboardPage() {
     <DashboardGrid
       items={items}
       streamId={stream.id}
+      streamName={stream.name}
       currentUserId={user.id}
       error={commonsError}
     />

@@ -67,8 +67,8 @@ function getMountedServerSnapshot() {
  * patterns): dark forest-deep surface, curved sage edges, scroll-zoom /
  * drag-pan, drag-to-pin nodes with live force adjust for unpinned peers.
  *
- * `hideDetailPanel` + `onSelect` let the dashboard slide detail over Ask CLara
- * without resizing the map column.
+ * `hideDetailPanel` + `onSelect` let the dashboard open detail inside Ask
+ * without resizing the map. `hideChrome` drops the hint row for full-bleed.
  */
 export function KnowledgeMap({
   nodes,
@@ -76,6 +76,7 @@ export function KnowledgeMap({
   selectedId: controlledSelectedId,
   onSelect,
   hideDetailPanel = false,
+  hideChrome = false,
   className = "",
 }: {
   nodes: GraphNode[];
@@ -83,6 +84,8 @@ export function KnowledgeMap({
   selectedId?: string | null;
   onSelect?: (node: GraphNode | null) => void;
   hideDetailPanel?: boolean;
+  /** Dashboard full-bleed: no hint row, square canvas edge. */
+  hideChrome?: boolean;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -263,16 +266,18 @@ export function KnowledgeMap({
 
   return (
     <div
-      className={`relative flex h-full min-h-[220px] w-full flex-col gap-2 ${className}`.trim()}
+      className={`relative flex h-full min-h-[220px] w-full flex-col ${hideChrome ? "gap-0" : "gap-2"} ${className}`.trim()}
     >
-      <p className="shrink-0 font-mono text-[11px] text-ink/45">
-        Scroll to zoom · drag background to pan · drag a node to pin it ·
-        double-click a pin to release · Tab/arrows for keyboard
-      </p>
+      {hideChrome ? null : (
+        <p className="shrink-0 font-mono text-[11px] text-ink/45">
+          Scroll to zoom · drag background to pan · drag a node to pin it ·
+          double-click a pin to release · Tab/arrows for keyboard
+        </p>
+      )}
 
       <div
         ref={containerRef}
-        className="relative min-h-0 flex-1 overflow-hidden rounded-lg touch-none"
+        className={`relative min-h-0 flex-1 overflow-hidden touch-none ${hideChrome ? "" : "rounded-lg"}`}
         style={{ background: "var(--forest-deep)" }}
       >
         {!ready ? (

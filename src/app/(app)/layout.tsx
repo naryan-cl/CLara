@@ -24,8 +24,8 @@ export default async function AppLayout({
 
   return (
     <div className="flex flex-1 flex-col bg-sand">
-      <header className="relative z-50 border-b border-cloud bg-paper">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+      <header className="relative z-50 h-[var(--clara-header-height)] border-b border-cloud bg-paper">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-6">
           <div className="flex min-w-0 items-center gap-4">
             <Link
               href="/dashboard"

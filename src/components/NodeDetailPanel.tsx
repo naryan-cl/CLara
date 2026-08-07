@@ -3,7 +3,7 @@ import type { GraphNode } from "@/lib/graph/types";
 
 /**
  * Shared node detail chrome for Knowledge Map — used as an overlay on `/map`
- * and as the panel that slides over Ask CLara on the dashboard.
+ * and as a fallback inside the dashboard Ask host when a node has no Commons item.
  */
 export function NodeDetailPanel({
   node,

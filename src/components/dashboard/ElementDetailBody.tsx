@@ -6,8 +6,8 @@ import {
   loadCommonsDetail,
   type DetailPayload,
 } from "@/app/(app)/commons/actions";
+import { DocumentEditor } from "@/components/DocumentEditor";
 import { MarkdownView } from "@/components/MarkdownView";
-import type { AskScope } from "@/lib/ask/scope";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { CommonsDocument } from "@/lib/documents/types";
 
@@ -55,7 +55,13 @@ function ParticipantList({ people }: { people: string[] }) {
   );
 }
 
-function DocumentBody({ document }: { document: CommonsDocument }) {
+function DocumentBody({
+  document,
+  hideTitle = false,
+}: {
+  document: CommonsDocument;
+  hideTitle?: boolean;
+}) {
   const participants = asStringList(document.participants);
   const tags = asStringList(document.tags);
   const date = formatDate(document.created_at);
@@ -70,9 +76,11 @@ function DocumentBody({ document }: { document: CommonsDocument }) {
           ) : null}
           {document.needs_review ? <MetaPill>Needs review</MetaPill> : null}
         </div>
-        <h2 className="font-display text-xl font-medium text-ink">
-          {document.title?.trim() || "Untitled"}
-        </h2>
+        {!hideTitle ? (
+          <h2 className="font-display text-xl font-medium text-ink">
+            {document.title?.trim() || "Untitled"}
+          </h2>
+        ) : null}
         {date ? (
           <p className="font-mono text-[11px] tracking-wide text-ink/45">
             {date}
@@ -122,7 +130,13 @@ function DocumentBody({ document }: { document: CommonsDocument }) {
   );
 }
 
-function SessionBody({ detail }: { detail: Extract<DetailPayload, { kind: "session" }> }) {
+function SessionBody({
+  detail,
+  hideTitle = false,
+}: {
+  detail: Extract<DetailPayload, { kind: "session" }>;
+  hideTitle?: boolean;
+}) {
   const date = formatDate(
     detail.session.occurred_at ?? detail.session.created_at,
   );
@@ -145,9 +159,11 @@ function SessionBody({ detail }: { detail: Extract<DetailPayload, { kind: "sessi
           <MetaPill>Session</MetaPill>
           {detail.attending ? <MetaPill>Attending</MetaPill> : null}
         </div>
-        <h2 className="font-display text-xl font-medium text-ink">
-          {detail.session.name}
-        </h2>
+        {!hideTitle ? (
+          <h2 className="font-display text-xl font-medium text-ink">
+            {detail.session.name}
+          </h2>
+        ) : null}
         {date ? (
           <p className="font-mono text-[11px] tracking-wide text-ink/45">
             {date}
@@ -236,133 +252,97 @@ function SessionBody({ detail }: { detail: Extract<DetailPayload, { kind: "sessi
 }
 
 /**
- * Dashboard map overlay: Commons summary/transcript + metadata, with an
- * Ask CLara entry that hands the question to the Ask panel (scoped).
+ * Shared Commons element body for the dashboard Ask host (map + list select).
+ * Loads detail once; parent owns chrome (title, edit, close) and Ask footer.
  */
-export function MapElementDetailPanel({
+export function ElementDetailBody({
   item,
-  onClose,
-  onAskAbout,
-  className = "",
+  editing = false,
+  onEditingChange,
+  onCanEditChange,
+  onDetailKindChange,
 }: {
   item: CommonsListItem;
-  onClose: () => void;
-  onAskAbout: (payload: { question: string; scope: AskScope }) => void;
-  className?: string;
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
+  onCanEditChange?: (canEdit: boolean) => void;
+  onDetailKindChange?: (kind: "document" | "session" | null) => void;
 }) {
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState("");
-  const [askError, setAskError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setDetail(null);
+    onCanEditChange?.(false);
+    onDetailKindChange?.(null);
     loadCommonsDetail(item.kind, item.id).then((result) => {
       if (cancelled) return;
       if (result.error || !result.detail) {
         setError(result.error ?? "Could not load.");
         setLoading(false);
+        onCanEditChange?.(false);
+        onDetailKindChange?.(null);
         return;
       }
       setDetail(result.detail);
       setLoading(false);
+      onCanEditChange?.(
+        result.detail.kind === "document" ? result.detail.canEdit : false,
+      );
+      onDetailKindChange?.(result.detail.kind);
     });
     return () => {
       cancelled = true;
     };
+    // Intentionally omit callbacks — parent setters are stable enough; avoid reload loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.kind, item.id]);
-
-  function buildScope(): AskScope {
-    if (item.kind === "session") {
-      return { sessionId: item.id, label: item.title };
-    }
-    return { documentId: item.id, label: item.title };
-  }
-
-  function onSubmitAsk(event: React.FormEvent) {
-    event.preventDefault();
-    const question = draft.trim();
-    if (!question) {
-      setAskError("Ask something about this element first.");
-      return;
-    }
-    setAskError(null);
-    onAskAbout({ question, scope: buildScope() });
-  }
 
   const openHref =
     item.kind === "session"
       ? `/sessions/archive/${item.id}`
       : `/sessions/documents/${item.id}`;
 
+  if (loading) {
+    return <p className="text-sm text-ink/50">Loading…</p>;
+  }
+  if (error) {
+    return <p className="font-mono text-sm text-danger">{error}</p>;
+  }
+  if (!detail) return null;
+
+  if (editing && detail.kind === "document") {
+    return (
+      <DocumentEditor
+        key={`edit-${detail.document.id}-${detail.document.updated_at}`}
+        document={detail.document}
+        sessions={detail.sessions}
+        canEdit={detail.canEdit}
+        compact
+        hideEditButton
+        forceEditing
+        onCancelEditing={() => onEditingChange?.(false)}
+      />
+    );
+  }
+
   return (
-    <aside
-      className={`flex min-h-0 flex-col rounded-lg border border-cloud bg-paper shadow-soft animate-panel-slide-in motion-reduce:animate-none ${className}`.trim()}
-      aria-label={`${item.kind}: ${item.title}`}
-    >
-      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-cloud px-5 py-4">
-        <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-          {item.kind === "session" ? "Session" : item.elementType}
-        </p>
-        <button
-          type="button"
-          className="text-xs text-ink/50 hover:text-ink"
-          onClick={onClose}
-        >
-          Close
-        </button>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        {loading ? <p className="text-sm text-ink/50">Loading…</p> : null}
-        {error ? (
-          <p className="font-mono text-sm text-danger">{error}</p>
-        ) : null}
-        {detail?.kind === "document" ? (
-          <DocumentBody document={detail.document} />
-        ) : null}
-        {detail?.kind === "session" ? <SessionBody detail={detail} /> : null}
-        {!loading && !error && detail ? (
-          <p className="mt-6 text-xs text-ink/40">
-            Prefer a full page?{" "}
-            <Link href={openHref} className="text-horizon hover:underline">
-              Open →
-            </Link>
-          </p>
-        ) : null}
-      </div>
-
-      <form
-        onSubmit={onSubmitAsk}
-        className="flex shrink-0 flex-col gap-2 border-t border-horizon/25 bg-sand/30 px-5 py-4"
-      >
-        <label
-          htmlFor="map-ask-about"
-          className="font-mono text-[11px] uppercase tracking-wide text-horizon"
-        >
-          Ask CLara about this
-        </label>
-        <textarea
-          id="map-ask-about"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          rows={2}
-          placeholder={
-            item.kind === "session"
-              ? "What themes showed up in this session?"
-              : "What stands out in this piece?"
-          }
-          className="rounded-md border border-cloud bg-paper p-3 text-sm text-ink outline-none focus:border-horizon"
-        />
-        {askError ? <p className="text-sm text-danger">{askError}</p> : null}
-        <button
-          type="submit"
-          className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
-        >
-          Ask CLara
-        </button>
-      </form>
-    </aside>
+    <div className="flex flex-col gap-5">
+      {detail.kind === "document" ? (
+        <DocumentBody document={detail.document} hideTitle />
+      ) : (
+        <SessionBody detail={detail} hideTitle />
+      )}
+      <p className="text-xs text-ink/40">
+        Prefer a full page?{" "}
+        <Link href={openHref} className="text-horizon hover:underline">
+          Open →
+        </Link>
+      </p>
+    </div>
   );
 }

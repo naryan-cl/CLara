@@ -1,6 +1,6 @@
 # CLara Platform — Visual Design Guide
 
-**Version:** 0.2 (draft) · Motion §6 closed out 2026-08-06 (`--duration-ambient: 3.2s`)  
+**Version:** 0.2 (draft) · Motion §6 closed out 2026-08-06 (`--duration-ambient: 3.2s`) · Dashboard map-as-background + organic radii 2026-08-07  
 **Direction:** Cultivating Leadership's warmth and depth, pushed toward a calm, futuristic feel.  
 **Applies to:** The **CLara** product UI, including the **Camp CLAI** stream and future streams.
 
@@ -45,8 +45,9 @@ Semantic tokens first; swap the hex values for CL brand colors when available.
 
 ### Surfaces
 
-- **Light mode (default for dashboard, sessions, reading):** `--sand` background, `--paper` cards, `--ink` text. Calm and editorial.  
-- **Dark "map" mode (Knowledge Map & immersive chat):** `--forest-deep` canvas, `--glow`/`--sage` nodes and lines, luminous focus states. This is where "futuristic" lives.
+- **Light mode (default for sessions, reading, most app chrome):** `--sand` background, `--paper` cards, `--ink` text. Calm and editorial.  
+- **Dark "map" mode (Knowledge Map, immersive chat, and the dashboard canvas):** `--forest-deep` canvas, `--glow`/`--sage` nodes and lines, luminous focus states. This is where "futuristic" lives.  
+- **Dashboard floating chrome:** light `--paper` panels float on the dark map (Ask host, Add/List FABs, Commons list) so synthesis UI stays readable without leaving the map field.
 
 ### Gradients & glow (use sparingly)
 
@@ -90,6 +91,7 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 - **Spacing scale (px):** 4, 8, 12, 16, 24, 32, 48, 64, 96. Prefer roomy — this app breathes.  
 - **Grid:** 12-column, max content width ~1200px; reading views ~720px.  
 - **Radius:** `--radius-sm 8px`, `--radius-md 14px`, `--radius-lg 22px`, `--radius-pill 999px`. Soft, rounded — friendly, not sharp.  
+- **Organic radii (dashboard floating chrome):** asymmetric multi-value radii so Ask / FABs / List / Ask button feel like soft field shapes, not identical cards. Prefer these over `clip-path` so `overflow: auto` still works. Tokens in `globals.css`: `--radius-organic-fab`, `--radius-organic-ask`, `--radius-organic-list`, `--radius-organic-btn`; utilities `.organic-fab`, `.organic-ask`, `.organic-list`, `.organic-ask-btn`.  
 - **Elevation:** soft, low-spread shadows (`0 4px 24px rgba(28,42,46,.08)`); on dark surfaces use glow instead of shadow.  
 - **Borders:** 1px `--cloud` hairlines in light; `rgba(127,160,147,.25)` in dark.
 
@@ -103,9 +105,11 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 - *Secondary:* transparent with `--forest` border/text.  
 - *AI action ("Ask CLara"):* aurora-gradient border or subtle `--glow` ring to signal intelligence.
 
-**Concept anchor cards (dashboard):** `--paper` card, serif concept name, one-line description, small related-count meta, tap → concept panel. Grid of these = the always-visible frame.
+**Concept anchor cards (dashboard):** legacy pattern — superseded by the map-as-background dashboard (Commons nodes on the canvas + floating Ask / Add / List). Keep card language for Commons list rows and repository views.
 
-**Knowledge Map:** dark `--forest-deep` canvas that **fills its panel** (no fixed 560px leftover blank). Nodes are soft circles labeled in sans; active/hover nodes glow `--glow`; pinned nodes get a light paper ring. Edges are thin `--sage` **quadratic curves** with a faint animated flow. **Interactions (Festival harvest pattern):** scroll to zoom, drag background to pan, drag a node to **pin** it (peers reheat around it), double-click to unpin. On the dashboard, node detail **slides over Ask CLara** with formatted summary/transcript + participants; an **Ask about this** box at the bottom hands the question to Ask CLara (scoped RAG) and closes the overlay so the user can keep chatting. On `/map`, detail overlays the canvas. Respect reduced-motion (freeze the flow).
+**Knowledge Map:** dark `--forest-deep` canvas. On `/dashboard` the map **fills the viewport under the top nav** (full-bleed); on `/map` it fills its page panel. Nodes are soft circles labeled in sans; active/hover nodes glow `--glow`; pinned nodes get a light paper ring. Edges are thin `--sage` **quadratic curves** with a faint animated flow. **Interactions (Festival harvest pattern):** scroll to zoom, drag background to pan, drag a node to **pin** it (peers reheat around it), double-click to unpin. **Dashboard detail:** selecting a Commons node (or a List card) opens **inside** the floating Ask host — title becomes the element title, summary/transcript fills the enlarged panel, Ask entry stays at the bottom; asking hands off to a scoped Ask thread and clears the selection. Circular **X** closes detail; documents with edit rights show a pencil that opens `DocumentEditor`. On `/map`, detail still overlays the canvas. Respect reduced-motion (freeze the flow).
+
+**Dashboard floating controls:** organic **+** FAB expands to Record / Reflect / Upload; sibling **List** FAB slides an organic Commons card panel. Ask CLara floats top-right, minimized (title + entry) until the first question or handoff.
 
 **CLara Chatbot (Add) & Ask CLara (Synthesis):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
 
@@ -157,6 +161,10 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
   --sand:#F3EEE6; --paper:#FBF9F5; --cloud:#E7E1D6;
   --success:#4E7C67; --warning:#C7902F; --danger:#B04A3C;
   --radius-sm:8px; --radius-md:14px; --radius-lg:22px; --radius-pill:999px;
+  --radius-organic-fab: 42% 58% 55% 45% / 48% 42% 58% 52%;
+  --radius-organic-ask: 28px 48px 36px 52px / 40px 32px 48px 36px;
+  --radius-organic-list: 36px 24px 44px 28px / 32px 40px 28px 44px;
+  --radius-organic-btn: 18px 28px 22px 30px / 24px 18px 28px 20px;
   --shadow-soft:0 4px 24px rgba(28,42,46,.08);
   --ease:cubic-bezier(.22,.61,.36,1);
   --duration-ui:280ms;

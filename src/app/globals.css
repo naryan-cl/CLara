@@ -27,6 +27,16 @@
   --duration-ui: 280ms;
   /* 3.2s = half the prior 1.6s speed (100% slower) for calm presence. */
   --duration-ambient: 3.2s;
+
+  /* Organic asymmetric radii — floating dashboard chrome on the map.
+     Prefer these over clip-path so overflow:auto still works. */
+  --radius-organic-fab: 42% 58% 55% 45% / 48% 42% 58% 52%;
+  --radius-organic-ask: 28px 48px 36px 52px / 40px 32px 48px 36px;
+  --radius-organic-list: 36px 24px 44px 28px / 32px 40px 28px 44px;
+  --radius-organic-btn: 18px 28px 22px 30px / 24px 18px 28px 20px;
+
+  /* App chrome — dashboard map sits below the sticky header. */
+  --clara-header-height: 4.75rem;
 }
 
 @theme inline {
@@ -175,6 +185,23 @@ body {
 
   .animate-success-glow {
     animation: success-glow 700ms var(--ease) both;
+  }
+
+  /* Floating map chrome — soft paper on dark forest-deep. */
+  .organic-fab {
+    border-radius: var(--radius-organic-fab);
+  }
+
+  .organic-ask {
+    border-radius: var(--radius-organic-ask);
+  }
+
+  .organic-list {
+    border-radius: var(--radius-organic-list);
+  }
+
+  .organic-ask-btn {
+    border-radius: var(--radius-organic-btn);
   }
 }
 

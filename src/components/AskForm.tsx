@@ -27,6 +27,8 @@ type AskTurn = {
  * `scope` limits grounding to one document or session (map overlay handoff).
  * `initialQuestion` + `autoSubmitInitial` seed a first turn when remounting
  * after "Ask about this" from the map detail panel.
+ * `minimized` hides empty-state copy (dashboard floating host).
+ * `streamName` customizes the unscoped empty placeholder.
  */
 export function AskForm({
   embedded = false,
@@ -34,18 +36,32 @@ export function AskForm({
   initialQuestion = null,
   autoSubmitInitial = false,
   onClearScope,
+  minimized = false,
+  streamName,
+  onConversationActive,
 }: {
   embedded?: boolean;
   scope?: AskScope | null;
   initialQuestion?: string | null;
   autoSubmitInitial?: boolean;
   onClearScope?: () => void;
+  minimized?: boolean;
+  streamName?: string;
+  /** Fires when the thread has content or a request is in flight. */
+  onConversationActive?: () => void;
 } = {}) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const didAutoSubmit = useRef(false);
+  const notifiedActive = useRef(false);
+
+  function notifyActive() {
+    if (notifiedActive.current) return;
+    notifiedActive.current = true;
+    onConversationActive?.();
+  }
 
   function runAsk(
     question: string,
@@ -53,6 +69,7 @@ export function AskForm({
     scopeForAsk: AskScope | null = scope,
   ) {
     setError(null);
+    notifyActive();
     startTransition(async () => {
       const result = await askClara(question, history, scopeForAsk);
       if (!result.ok) {
@@ -82,6 +99,13 @@ export function AskForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot seed
   }, [autoSubmitInitial, initialQuestion]);
 
+  useEffect(() => {
+    if (turns.length > 0 || pending) {
+      notifyActive();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- notify once when activity appears
+  }, [turns.length, pending]);
+
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = draft.trim();
@@ -101,20 +125,25 @@ export function AskForm({
     setTurns([]);
     setError(null);
     setDraft("");
+    notifiedActive.current = false;
   }
 
   const scoped = askScopeIsActive(scope);
+  const showThread = !minimized || turns.length > 0 || pending;
+  const unscopedPlaceholder = streamName
+    ? `Ask a question about anything in the ${streamName} Commons`
+    : "What came up around psychological safety this week?";
 
   return (
     <form
       onSubmit={onSubmit}
       className={
         embedded
-          ? "flex min-h-0 flex-1 flex-col gap-4"
+          ? "flex min-h-0 flex-1 flex-col gap-3"
           : "flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
       }
     >
-      {scoped ? (
+      {scoped && showThread ? (
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-horizon/30 bg-horizon/5 px-3 py-2">
           <p className="text-xs text-ink/70">
             Grounded in{" "}
@@ -130,68 +159,82 @@ export function AskForm({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
-        {turns.length === 0 && !pending ? (
-          <p className="relative text-sm text-ink/50">
-            <span
-              className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            <span className="relative">
-              {scoped
-                ? `Ask about “${scope!.label}” — answers stay grounded in that element.`
-                : "Ask anything about this stream's Commons. You can follow up in this thread — answers stay grounded in sources, separate from Chat."}
-            </span>
-          </p>
-        ) : (
-          turns.map((turn, index) => (
-            <FadeRise
-              key={`${turn.role}-${index}`}
-              className={
-                turn.role === "user"
-                  ? "ml-8 rounded-md bg-sand/60 px-3 py-2 text-sm text-ink"
-                  : "mr-4 flex flex-col gap-3"
-              }
-            >
-              {turn.role === "assistant" ? (
-                <p className="font-mono text-[10px] uppercase tracking-wide text-ink/40">
-                  CLARA
-                </p>
-              ) : null}
-              <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
-                {turn.content}
+      {showThread ? (
+        <div
+          className={`flex min-h-0 flex-col gap-4 overflow-auto ${
+            minimized && turns.length === 0 && !pending ? "hidden" : "flex-1"
+          }`}
+        >
+          {turns.length === 0 && !pending ? (
+            minimized ? null : (
+              <p className="relative text-sm text-ink/50">
+                <span
+                  className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+                <span className="relative">
+                  {scoped
+                    ? `Ask about “${scope!.label}” — answers stay grounded in that element.`
+                    : "Ask anything about this stream's Commons. You can follow up in this thread — answers stay grounded in sources, separate from Chat."}
+                </span>
               </p>
-              {turn.role === "assistant" &&
-              turn.sources &&
-              turn.sources.length > 0 ? (
-                <div className="flex flex-wrap gap-2 border-t border-cloud pt-3">
-                  {turn.sources.map((source, sourceIndex) => (
-                    <FadeRise
-                      key={`${source.documentId}-${sourceIndex}`}
-                      as="span"
-                      staggerDelayMs={Math.min(sourceIndex, 3) * 50}
-                      className="inline-flex"
-                    >
-                      <Link
-                        href={`/sessions/documents/${source.documentId}`}
-                        className="rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon transition-[border-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-horizon hover:-translate-y-px"
+            )
+          ) : (
+            turns.map((turn, index) => (
+              <FadeRise
+                key={`${turn.role}-${index}`}
+                className={
+                  turn.role === "user"
+                    ? "ml-8 rounded-md bg-sand/60 px-3 py-2 text-sm text-ink"
+                    : "mr-4 flex flex-col gap-3"
+                }
+              >
+                {turn.role === "assistant" ? (
+                  <p className="font-mono text-[10px] uppercase tracking-wide text-ink/40">
+                    CLARA
+                  </p>
+                ) : null}
+                <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
+                  {turn.content}
+                </p>
+                {turn.role === "assistant" &&
+                turn.sources &&
+                turn.sources.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 border-t border-cloud pt-3">
+                    {turn.sources.map((source, sourceIndex) => (
+                      <FadeRise
+                        key={`${source.documentId}-${sourceIndex}`}
+                        as="span"
+                        staggerDelayMs={Math.min(sourceIndex, 3) * 50}
+                        className="inline-flex"
                       >
-                        [{sourceIndex + 1}] {source.title}
-                        {source.sessionName
-                          ? ` · ${source.sessionName}`
-                          : ""}
-                      </Link>
-                    </FadeRise>
-                  ))}
-                </div>
-              ) : null}
-            </FadeRise>
-          ))
-        )}
-        {pending ? <ThinkingPresence /> : null}
-      </div>
+                        <Link
+                          href={`/sessions/documents/${source.documentId}`}
+                          className="rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon transition-[border-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-horizon hover:-translate-y-px"
+                        >
+                          [{sourceIndex + 1}] {source.title}
+                          {source.sessionName
+                            ? ` · ${source.sessionName}`
+                            : ""}
+                        </Link>
+                      </FadeRise>
+                    ))}
+                  </div>
+                ) : null}
+              </FadeRise>
+            ))
+          )}
+          {pending ? <ThinkingPresence /> : null}
+        </div>
+      ) : null}
 
-      <div className="flex shrink-0 flex-col gap-3 border-t border-cloud pt-4">
+      <div
+        className={`flex shrink-0 flex-col gap-3 ${
+          showThread && (turns.length > 0 || pending || !minimized)
+            ? "border-t border-cloud pt-3"
+            : ""
+        }`}
+      >
         <label
           htmlFor="ask-question"
           className={
@@ -208,14 +251,14 @@ export function AskForm({
           id="ask-question"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          rows={3}
+          rows={minimized && turns.length === 0 ? 2 : 3}
           placeholder={
             scoped
               ? turns.length === 0
                 ? "What should we notice in this piece?"
                 : "Can you say more about that?"
               : turns.length === 0
-                ? "What came up around psychological safety this week?"
+                ? unscopedPlaceholder
                 : "Can you say more about that?"
           }
           className="rounded-md border border-cloud bg-sand/40 p-3 text-sm text-ink outline-none focus:border-horizon"
@@ -225,7 +268,7 @@ export function AskForm({
           <button
             type="submit"
             disabled={pending}
-            className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
+            className="btn-primary organic-ask-btn bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
           >
             {pending ? "Asking…" : turns.length === 0 ? "Ask" : "Ask follow-up"}
           </button>
@@ -234,7 +277,7 @@ export function AskForm({
               type="button"
               onClick={onClear}
               disabled={pending}
-              className="rounded-md border border-cloud px-4 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60"
+              className="organic-ask-btn border border-cloud px-4 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60"
             >
               Clear thread
             </button>
