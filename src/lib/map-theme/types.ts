@@ -1,5 +1,6 @@
 /**
- * Map wallpaper themes (Phase 7). Wallpaper only — nodes stay plain circles.
+ * Map wallpaper themes (Phase 7).
+ * Wallpaper is generative topo; dashboard nodes use nature sprites separately.
  */
 
 export type MapThemeId = "plant" | "ocean" | "desert";
@@ -47,9 +48,10 @@ export type TopoWorld = {
   originY: number;
   width: number;
   height: number;
-  /** Raster wash (data URL) — cheap to pan/zoom as one image. */
+  /**
+   * Single raster: smooth elevation gradient + baked contour lines.
+   * One image keeps DOM light and avoids a huge SVG path.
+   */
   washHref: string;
-  /** Crisp contour polylines as a single SVG path `d`. */
-  contourPath: string;
   palette: MapThemePalette;
 };

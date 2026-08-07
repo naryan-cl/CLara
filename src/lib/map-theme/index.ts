@@ -6,9 +6,12 @@ export {
   paletteFor,
 } from "./palettes";
 export {
+  clearTopoWorldCache,
   contourPathForLevel,
   generateTopoWorld,
   paintElevationWash,
+  paintSmoothTopo,
+  quantizedViewport,
   sampleHeightField,
   worldBoundsForViewport,
 } from "./generate-topo";

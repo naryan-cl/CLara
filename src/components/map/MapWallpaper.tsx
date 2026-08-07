@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import {
   generateTopoWorld,
   paletteFor,
+  quantizedViewport,
   worldBoundsForViewport,
   type MapThemeId,
 } from "@/lib/map-theme";
@@ -24,7 +25,7 @@ function getMountedServerSnapshot() {
 /**
  * Generative topo wallpaper for the Knowledge Map (Phase 7 Module A).
  * Lives inside the pan/zoom `<g>` so it moves with the graph.
- * Subtle contour drift pauses when prefers-reduced-motion is set.
+ * One smooth raster (gradient + baked contours) keeps load fast.
  */
 export function MapWallpaper({
   theme,
@@ -46,27 +47,31 @@ export function MapWallpaper({
     getMountedServerSnapshot,
   );
 
-  const bounds = useMemo(
-    () => worldBoundsForViewport(viewportWidth, viewportHeight),
+  // Quantize so 1px resize noise does not rebuild a multi-MB wash.
+  const q = useMemo(
+    () => quantizedViewport(viewportWidth, viewportHeight),
     [viewportWidth, viewportHeight],
+  );
+
+  const bounds = useMemo(
+    () => worldBoundsForViewport(q.width, q.height),
+    [q.width, q.height],
   );
 
   const palette = paletteFor(theme);
 
-  // Client-only: canvas wash needs `document`. Derive during render after mount.
   const world = useMemo(() => {
     if (!hasMounted) return null;
     return generateTopoWorld({
       ...bounds,
       seed: `${seed}:${theme}:${Math.round(bounds.width)}x${Math.round(bounds.height)}`,
       palette,
-      levels: 9,
-      cols: 96,
-      rows: 72,
+      levels: 8,
+      cols: 64,
+      rows: 48,
     });
   }, [bounds, hasMounted, palette, seed, theme]);
 
-  // Drift via DOM attribute — avoids React re-renders every frame.
   useEffect(() => {
     const node = driftRef.current;
     if (!node) return;
@@ -103,18 +108,8 @@ export function MapWallpaper({
         width={world.width}
         height={world.height}
         preserveAspectRatio="none"
-        opacity={0.95}
+        opacity={0.96}
       />
-      {world.contourPath ? (
-        <path
-          d={world.contourPath}
-          fill="none"
-          stroke={world.palette.contour}
-          strokeOpacity={world.palette.contourOpacity}
-          strokeWidth={1.15}
-          strokeLinecap="round"
-        />
-      ) : null}
     </g>
   );
 }

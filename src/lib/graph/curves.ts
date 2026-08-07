@@ -12,7 +12,10 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
-/** Trim line endpoints to sit on each node's circumference. */
+/** Trim line endpoints to sit on each node's circumference.
+ * Pass radius 0 to run the line through the node center (sprites sit on
+ * top of edges, so the connector appears to grow out of the plant).
+ */
 export function edgeEndpoints(
   sourceX: number,
   sourceY: number,

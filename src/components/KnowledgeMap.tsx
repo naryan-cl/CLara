@@ -17,6 +17,7 @@ import {
   seedSimNodes,
   type SimNode,
 } from "@/lib/graph/layout";
+import { nodeSpriteUrl, spriteSizeFor } from "@/lib/graph/node-sprite";
 import {
   directionFromKey,
   findNearestInDirection,
@@ -70,8 +71,9 @@ function getMountedServerSnapshot() {
  * live force adjust for unpinned peers.
  *
  * Optional `wallpaperTheme` (Phase 7): generative topo under the graph that
- * pans/zooms with nodes. Nodes stay plain circles; contrast tokens come from
- * the theme palette. Omit theme for the classic dark forest-deep canvas.
+ * pans/zooms with nodes. Contrast tokens come from the theme palette.
+ * Nodes render as nature sprites when `/public/map-sprites` is present
+ * (circles are the fallback). Omit wallpaper theme for classic dark canvas.
  *
  * `hideDetailPanel` + `onSelect` let the dashboard open detail inside Ask
  * without resizing the map. `hideChrome` drops the hint row for full-bleed.
@@ -384,13 +386,14 @@ export function KnowledgeMap({
                 const source = nodeById.get(edge.sourceNodeId);
                 const target = nodeById.get(edge.targetNodeId);
                 if (!source || !target) return null;
+                // Radius 0 → edges run through sprite centers (icons sit on top).
                 const { x1, y1, x2, y2 } = edgeEndpoints(
                   source.x,
                   source.y,
-                  radiusFor(source.type),
+                  0,
                   target.x,
                   target.y,
-                  radiusFor(target.type),
+                  0,
                 );
                 const d = curvedPath(x1, y1, x2, y2, edge.id);
                 return (
@@ -418,6 +421,8 @@ export function KnowledgeMap({
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
                 const r = radiusFor(node.type);
+                const spriteHref = nodeSpriteUrl(node.type, node.id);
+                const spriteSize = spriteSizeFor(r);
                 return (
                   <g
                     key={node.id}
@@ -515,30 +520,68 @@ export function KnowledgeMap({
                     className="cursor-grab outline-none focus-visible:opacity-90 active:cursor-grabbing"
                     transform={`translate(${node.x}, ${node.y})`}
                   >
-                    <circle
-                      r={r}
-                      fill={colorFor(node.type)}
-                      fillOpacity={isLit ? 1 : 0.85}
-                      stroke={isPinned ? pinnedStroke : nodeStrokeDefault}
-                      strokeWidth={isPinned ? 2 : themePalette ? 1 : 0}
-                      style={
-                        isLit && !reducedMotion
-                          ? {
-                              animation:
-                                "glow-pulse var(--duration-ambient) var(--ease) infinite",
-                            }
-                          : isLit
+                    {spriteHref ? (
+                      <image
+                        href={spriteHref}
+                        x={-spriteSize / 2}
+                        y={-spriteSize / 2}
+                        width={spriteSize}
+                        height={spriteSize}
+                        style={
+                          isLit && !reducedMotion
                             ? {
+                                pointerEvents: "none",
+                                animation:
+                                  "glow-pulse var(--duration-ambient) var(--ease) infinite",
                                 filter:
-                                  "drop-shadow(0 0 12px rgba(143,214,196,.6))",
+                                  "drop-shadow(0 0 10px rgba(143,214,196,.55))",
                               }
-                            : undefined
-                      }
-                    />
+                            : isLit
+                              ? {
+                                  pointerEvents: "none",
+                                  filter:
+                                    "drop-shadow(0 0 10px rgba(143,214,196,.55))",
+                                }
+                              : { pointerEvents: "none" }
+                        }
+                      />
+                    ) : (
+                      <circle
+                        r={r}
+                        fill={colorFor(node.type)}
+                        fillOpacity={isLit ? 1 : 0.85}
+                        stroke={isPinned ? pinnedStroke : nodeStrokeDefault}
+                        strokeWidth={isPinned ? 2 : themePalette ? 1 : 0}
+                        style={
+                          isLit && !reducedMotion
+                            ? {
+                                animation:
+                                  "glow-pulse var(--duration-ambient) var(--ease) infinite",
+                              }
+                            : isLit
+                              ? {
+                                  filter:
+                                    "drop-shadow(0 0 12px rgba(143,214,196,.6))",
+                                }
+                              : undefined
+                        }
+                      />
+                    )}
+                    {/* Invisible hit target — sprites are irregular shapes. */}
+                    <circle r={r} fill="transparent" />
+                    {isPinned ? (
+                      <circle
+                        r={r + 4}
+                        fill="none"
+                        stroke={pinnedStroke}
+                        strokeWidth={2}
+                        style={{ pointerEvents: "none" }}
+                      />
+                    ) : null}
                     <text
-                      y={r + 16}
+                      y={r + 18}
                       textAnchor="middle"
-                      className={`font-mono text-[10px] select-none ${themePalette ? "" : "fill-paper"}`}
+                      className={`font-display text-[11px] font-medium select-none ${themePalette ? "" : "fill-paper"}`}
                       fill={themePalette ? labelFill : undefined}
                       style={{ pointerEvents: "none" }}
                     >
