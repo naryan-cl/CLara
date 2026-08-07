@@ -40,6 +40,8 @@ export type CommonsFilterState = {
   attendedOnly: boolean;
   myArtifactsOnly: boolean;
   sort: "newest" | "oldest" | "title";
+  /** Case-insensitive match against title (and document type label). */
+  search: string;
 };
 
 export const DEFAULT_COMMONS_FILTERS: CommonsFilterState = {
@@ -49,6 +51,7 @@ export const DEFAULT_COMMONS_FILTERS: CommonsFilterState = {
   attendedOnly: false,
   myArtifactsOnly: false,
   sort: "newest",
+  search: "",
 };
 
 export function documentElementType(
@@ -133,6 +136,8 @@ export function filterCommonsItems(
   filters: CommonsFilterState,
   currentUserId: string | null,
 ): CommonsListItem[] {
+  const query = filters.search.trim().toLowerCase();
+
   const filtered = items.filter((item) => {
     if (filters.elementType !== "all" && item.elementType !== filters.elementType) {
       return false;
@@ -145,6 +150,16 @@ export function filterCommonsItems(
     }
     if (filters.myArtifactsOnly) {
       if (!currentUserId || item.created_by !== currentUserId) return false;
+    }
+    if (query) {
+      const haystack = [
+        item.title,
+        item.kind === "document" ? (item.type ?? "") : "session",
+        item.elementType,
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(query)) return false;
     }
     return true;
   });

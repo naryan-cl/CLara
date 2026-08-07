@@ -72,8 +72,8 @@ export function CommonsRepository({
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="rounded-md border border-cloud bg-paper px-3 py-2.5 shadow-soft">
+    <div>
+      <section className="rounded-lg border border-cloud bg-paper p-4 shadow-soft sm:p-5">
         <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
           <label className="flex flex-col gap-0.5 text-xs">
             <span className="font-medium text-ink/55">Type</span>
@@ -150,15 +150,19 @@ export function CommonsRepository({
             />
             Mine
           </label>
-        </div>
-      </section>
 
-      <section className="rounded-lg border border-cloud bg-paper p-4 shadow-soft sm:p-6">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="font-display text-lg font-medium text-ink">
-            Repository
-          </h2>
-          <p className="font-mono text-[11px] text-ink/40">
+          <label className="ml-auto flex min-w-[10rem] flex-1 flex-col gap-0.5 text-xs sm:max-w-xs">
+            <span className="font-medium text-ink/55">Search</span>
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(e) => patchFilter("search", e.target.value)}
+              placeholder="Title or type…"
+              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink placeholder:text-ink/35"
+            />
+          </label>
+
+          <p className="pb-1 font-mono text-[11px] text-ink/40 sm:pb-1.5">
             {visible.length} of {items.length}
           </p>
         </div>
