@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
+  discardListensStaging,
   finalizeListensUpload,
   prepareListensRecording,
 } from "@/app/(app)/sessions/listens-actions";
@@ -12,20 +21,43 @@ import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
 
-/**
- * Rotate MediaRecorder this often so each uploaded .webm stays well under
- * Whisper's 25MB cap (~12 min at 32kbps ≈ 2.9MB).
- */
+/** Rotate MediaRecorder so each .webm stays under Whisper's 25MB cap. */
 const SEGMENT_SECONDS = 12 * 60;
-/** Soft warning before the hard auto-stop. */
 const WARN_AT_SECONDS = 150 * 60;
-/** Hard stop — ~3 hours of 12-min segments fits under MAX_LISTENS_SEGMENTS. */
 const AUTO_STOP_SECONDS = 180 * 60;
-
 const BITRATE = 32_000;
 const WAVEFORM_BARS = 40;
 
-type StopReason = "rotate" | "submit";
+type StopReason = "rotate" | "submit" | "stop" | "discard";
+
+export type CapturePhase =
+  | "idle"
+  | "recording"
+  | "paused"
+  | "stopped"
+  | "finalizing";
+
+export type ListensRecorderHandle = {
+  /** Phase the capture strip is in. */
+  getPhase: () => CapturePhase;
+  /** True when staged audio exists (recording, paused, or stopped). */
+  hasAudio: () => boolean;
+  /** Stop capture, upload last segment, keep staging — ready for Submit. */
+  stopSaving: () => void;
+  /** Stop capture and finalize to Commons (navigate away). */
+  stopAndSubmit: () => void;
+  /** Finalize an already-stopped recording. */
+  submitStopped: () => Promise<void>;
+};
+
+type ListensRecorderProps = {
+  /** Transcript + session title from Session details (single Title field). */
+  documentTitle?: string;
+  resolveSessionIds?: () => Promise<
+    { ok: true; sessionIds: string[] } | { ok: false; error: string }
+  >;
+  onPhaseChange?: (phase: CapturePhase) => void;
+};
 
 function pickMimeType(): string | null {
   if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
@@ -88,14 +120,14 @@ async function requestSystemTabAudio(): Promise<
     return {
       ok: false,
       error:
-        "Firefox’s share dialog can’t include tab or system audio (you’ll only get a screen picker). Open CLara in Chrome or Edge, then choose Entire screen (or a Chrome tab) and enable Share audio.",
+        "Firefox’s share dialog can’t include tab or system audio. Open CLara in Chrome or Edge.",
     };
   }
   if (/safari/i.test(ua) && !/chrome|chromium|edg/i.test(ua)) {
     return {
       ok: false,
       error:
-        "Safari can’t capture system/tab audio for web apps. Open CLara in Chrome or Edge for this option.",
+        "Safari can’t capture system/tab audio for web apps. Open CLara in Chrome or Edge.",
     };
   }
 
@@ -124,7 +156,7 @@ async function requestSystemTabAudio(): Promise<
       return {
         ok: false,
         error:
-          "No audio track came back. In Chrome/Edge: pick Entire screen and check “Share system audio”, or pick a Chrome tab playing YouTube/Zoom and check “Share tab audio”. (Window share often has no audio.)",
+          "No audio track came back. Select a tab/window and enable “Also share system audio”.",
       };
     }
 
@@ -138,31 +170,20 @@ async function requestSystemTabAudio(): Promise<
 }
 
 /**
- * Listens v2 Module B: mic (+ system) mix, meters, pause/resume.
- * Every ~12 minutes the MediaRecorder restarts and uploads an independent
- * .webm segment (under Whisper's 25MB/file). Submit finalizes → Inngest
- * Whispers each segment and joins the text.
+ * Capture strip for Listens v2: record / pause / stop / trash + meters.
+ * Submit lives under Session details (parent calls the imperative handle).
  */
-export function ListensRecorder({
-  sessionIds = [],
-  resolveSessionIds,
-}: {
-  sessionIds?: string[];
-  /**
-   * Optional hook before finalize — e.g. create a session from Session
-   * details Title, then return the merged session id list.
-   */
-  resolveSessionIds?: () => Promise<
-    { ok: true; sessionIds: string[] } | { ok: false; error: string }
-  >;
-}) {
+export const ListensRecorder = forwardRef<
+  ListensRecorderHandle,
+  ListensRecorderProps
+>(function ListensRecorder(
+  { documentTitle = "", resolveSessionIds, onPhaseChange },
+  ref,
+) {
   const router = useRouter();
-  const [finalizing, setFinalizing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [phase, setPhase] = useState<CapturePhase>("idle");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [segmentLabel, setSegmentLabel] = useState(1);
-  const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [includeSystemAudio, setIncludeSystemAudio] = useState(true);
   const [systemAudioActive, setSystemAudioActive] = useState(false);
@@ -170,6 +191,7 @@ export function ListensRecorder({
   const [systemLevel, setSystemLevel] = useState(0);
   const [bars, setBars] = useState<number[]>(quietBars);
   const [segmentUploading, setSegmentUploading] = useState(false);
+  const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -185,15 +207,25 @@ export function ListensRecorder({
   const streamIdRef = useRef<string | null>(null);
   const recordingIdRef = useRef<string | null>(null);
   const segmentIndexRef = useRef(0);
+  /** How many segments are already in Storage (0..n). */
+  const uploadedCountRef = useRef(0);
   const segmentElapsedRef = useRef(0);
   const stopReasonRef = useRef<StopReason | null>(null);
   const rotatingRef = useRef(false);
-  const titleRef = useRef(title);
-  titleRef.current = title;
-  const sessionIdsRef = useRef(sessionIds);
-  sessionIdsRef.current = sessionIds;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const documentTitleRef = useRef(documentTitle);
+  documentTitleRef.current = documentTitle;
   const resolveSessionIdsRef = useRef(resolveSessionIds);
   resolveSessionIdsRef.current = resolveSessionIds;
+  const onPhaseChangeRef = useRef(onPhaseChange);
+  onPhaseChangeRef.current = onPhaseChange;
+
+  const updatePhase = useCallback((next: CapturePhase) => {
+    phaseRef.current = next;
+    setPhase(next);
+    onPhaseChangeRef.current?.(next);
+  }, []);
 
   const stopMeterLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -262,19 +294,28 @@ export function ListensRecorder({
     setSystemAudioActive(false);
   }, [stopMeterLoop]);
 
-  const teardownCapture = useCallback(() => {
+  /** Tear down live capture but keep staging ids when stopping to save. */
+  const teardownLiveCapture = useCallback(() => {
     disposeGraph();
     stopAllTracks();
     mediaRecorderRef.current = null;
-    streamIdRef.current = null;
-    recordingIdRef.current = null;
-    segmentIndexRef.current = 0;
-    segmentElapsedRef.current = 0;
     stopReasonRef.current = null;
     rotatingRef.current = false;
   }, [disposeGraph, stopAllTracks]);
 
-  useEffect(() => () => teardownCapture(), [teardownCapture]);
+  const resetAll = useCallback(() => {
+    teardownLiveCapture();
+    streamIdRef.current = null;
+    recordingIdRef.current = null;
+    segmentIndexRef.current = 0;
+    uploadedCountRef.current = 0;
+    segmentElapsedRef.current = 0;
+    setElapsedSeconds(0);
+    setSegmentLabel(1);
+    updatePhase("idle");
+  }, [teardownLiveCapture, updatePhase]);
+
+  useEffect(() => () => teardownLiveCapture(), [teardownLiveCapture]);
 
   const buildCaptureGraph = useCallback(
     (micStream: MediaStream, systemStream: MediaStream | null) => {
@@ -347,13 +388,70 @@ export function ListensRecorder({
       setError(
         uploadError.message.includes("not found") ||
           uploadError.message.includes("Bucket")
-          ? "Listens storage isn’t set up yet. Ask an admin to run migration 0014_listens_staging_storage.sql in Supabase."
+          ? "Listens storage isn’t set up yet. Ask an admin to run migration 0014."
           : `Segment upload failed: ${uploadError.message}`,
       );
       return false;
     }
+    uploadedCountRef.current = index + 1;
     return true;
   }, []);
+
+  const runFinalize = useCallback(async () => {
+    const recordingId = recordingIdRef.current;
+    const segmentCount = uploadedCountRef.current;
+    const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
+    const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
+    const titleForUpload = documentTitleRef.current.trim();
+
+    if (!recordingId || segmentCount < 1) {
+      setError("Nothing to submit yet — record something first.");
+      updatePhase(uploadedCountRef.current > 0 ? "stopped" : "idle");
+      return;
+    }
+
+    updatePhase("finalizing");
+    try {
+      let sessionsForFinalize: string[] = [];
+      const resolve = resolveSessionIdsRef.current;
+      if (resolve) {
+        const resolved = await resolve();
+        if (!resolved.ok) {
+          setError(resolved.error);
+          updatePhase("stopped");
+          return;
+        }
+        sessionsForFinalize = resolved.sessionIds;
+      }
+
+      const result = await finalizeListensUpload({
+        recordingId,
+        segmentCount,
+        mimeType: mimeTypeForUpload,
+        fileExtension,
+        title: titleForUpload || undefined,
+        sessionIds: sessionsForFinalize,
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        updatePhase("stopped");
+        return;
+      }
+
+      resetAll();
+      router.replace(`/sessions/documents/${result.documentId}`);
+      router.refresh();
+    } catch (err) {
+      console.error("finalizeListensUpload client error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not finish saving the recording. Try again.",
+      );
+      updatePhase("stopped");
+    }
+  }, [resetAll, router, updatePhase]);
 
   const startSegmentRecorder = useCallback(() => {
     const recordStream = recordStreamRef.current;
@@ -364,7 +462,7 @@ export function ListensRecorder({
     }
     if (segmentIndexRef.current >= MAX_LISTENS_SEGMENTS) {
       setError("Reached the maximum number of segments for one recording.");
-      stopReasonRef.current = "submit";
+      stopReasonRef.current = "stop";
       mediaRecorderRef.current?.stop();
       return;
     }
@@ -392,11 +490,31 @@ export function ListensRecorder({
       void (async () => {
         if (!reason) return;
 
+        if (reason === "discard") {
+          const uploaded = uploadedCountRef.current;
+          const recordingId = recordingIdRef.current;
+          const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
+          const fileExtension = mimeTypeForUpload.includes("mp4")
+            ? "m4a"
+            : "webm";
+          if (recordingId && uploaded > 0) {
+            await discardListensStaging({
+              recordingId,
+              segmentCount: uploaded,
+              fileExtension,
+            });
+          }
+          resetAll();
+          setError(null);
+          return;
+        }
+
         const uploaded = await uploadSegment(blob, index);
         if (!uploaded) {
-          setIsRecording(false);
-          setIsPaused(false);
-          teardownCapture();
+          teardownLiveCapture();
+          updatePhase(
+            uploadedCountRef.current > 0 ? "stopped" : "idle",
+          );
           return;
         }
 
@@ -407,82 +525,29 @@ export function ListensRecorder({
           return;
         }
 
-        // Submit: finalize with all uploaded segments (0..index inclusive).
-        const segmentCount = index + 1;
-        const recordingId = recordingIdRef.current;
-        const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
-        const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
-        const titleForUpload = titleRef.current;
-        const sessionsForUpload = sessionIdsRef.current;
-
-        if (!recordingId) {
-          setError("Recording session was lost. Try again.");
-          setIsRecording(false);
-          teardownCapture();
+        if (reason === "stop") {
+          teardownLiveCapture();
+          updatePhase("stopped");
           return;
         }
 
-        // Don't use startTransition(async…) — pending stays true until the
-        // Server Action settles, and a hung inngest.send left the UI stuck
-        // on "Finalizing…" even after Whisper had already finished.
-        setFinalizing(true);
-        void (async () => {
-          try {
-            let sessionsForFinalize = sessionsForUpload;
-            const resolve = resolveSessionIdsRef.current;
-            if (resolve) {
-              const resolved = await resolve();
-              if (!resolved.ok) {
-                teardownCapture();
-                setError(resolved.error);
-                setIsRecording(false);
-                setFinalizing(false);
-                return;
-              }
-              sessionsForFinalize = resolved.sessionIds;
-            }
-
-            const result = await finalizeListensUpload({
-              recordingId,
-              segmentCount,
-              mimeType: mimeTypeForUpload,
-              fileExtension,
-              title: titleForUpload,
-              sessionIds: sessionsForFinalize,
-            });
-            teardownCapture();
-            if (!result.ok) {
-              setError(result.error);
-              setIsRecording(false);
-              setFinalizing(false);
-              return;
-            }
-            setTitle("");
-            setIsRecording(false);
-            router.replace(`/sessions/documents/${result.documentId}`);
-            router.refresh();
-          } catch (err) {
-            console.error("finalizeListensUpload client error:", err);
-            teardownCapture();
-            setIsRecording(false);
-            setFinalizing(false);
-            setError(
-              err instanceof Error
-                ? err.message
-                : "Could not finish saving the recording. Try again.",
-            );
-          }
-        })();
+        // submit
+        await runFinalize();
       })();
     };
 
     recorder.start(250);
     mediaRecorderRef.current = recorder;
-  }, [router, teardownCapture, uploadSegment]);
+  }, [resetAll, runFinalize, teardownLiveCapture, updatePhase, uploadSegment]);
 
   const requestStop = useCallback((reason: StopReason) => {
     const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") return;
+    if (!recorder || recorder.state === "inactive") {
+      if (reason === "submit" && uploadedCountRef.current > 0) {
+        void runFinalize();
+      }
+      return;
+    }
     if (reason === "rotate" && rotatingRef.current) return;
     if (reason === "rotate") rotatingRef.current = true;
     stopReasonRef.current = reason;
@@ -490,47 +555,41 @@ export function ListensRecorder({
       recorder.resume();
     }
     recorder.stop();
-    if (reason === "submit") {
-      setIsPaused(false);
-    }
-  }, []);
-
-  const stopAndSubmit = useCallback(() => {
-    requestStop("submit");
-  }, [requestStop]);
+  }, [runFinalize]);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== "recording") return;
     if (typeof recorder.pause !== "function") {
-      setError("Pause isn’t supported in this browser. You can still Submit.");
+      setError("Pause isn’t supported in this browser. You can still Stop.");
       return;
     }
     recorder.pause();
-    setIsPaused(true);
+    updatePhase("paused");
     stopMeterLoop();
     setMicLevel(0);
     setSystemLevel(0);
     setBars(quietBars());
-  }, [stopMeterLoop]);
+  }, [stopMeterLoop, updatePhase]);
 
   const resumeRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== "paused") return;
     recorder.resume();
-    setIsPaused(false);
+    updatePhase("recording");
     void audioContextRef.current?.resume().catch(() => {});
     runMeterLoop();
-  }, [runMeterLoop]);
+  }, [runMeterLoop, updatePhase]);
 
   useEffect(() => {
-    if (!isRecording || isPaused || finalizing) return;
+    if (phase !== "recording") return;
 
     const interval = setInterval(() => {
       setElapsedSeconds((seconds) => {
         const next = seconds + 1;
         if (next >= AUTO_STOP_SECONDS) {
-          requestStop("submit");
+          // Cap reached — save like Stop (don't auto-navigate).
+          requestStop("stop");
           return next;
         }
         return next;
@@ -546,10 +605,15 @@ export function ListensRecorder({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRecording, isPaused, finalizing, requestStop]);
+  }, [phase, requestStop]);
 
   async function startRecording() {
     setError(null);
+
+    if (phase === "stopped" && uploadedCountRef.current > 0) {
+      setError("Trash the saved take first, or Submit it below.");
+      return;
+    }
 
     const mimeType = pickMimeType();
     if (!mimeType) {
@@ -575,6 +639,18 @@ export function ListensRecorder({
       return;
     }
 
+    // If the mic dies mid-take, treat it like Stop — keep what we have.
+    micStream.getAudioTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        if (
+          phaseRef.current === "recording" ||
+          phaseRef.current === "paused"
+        ) {
+          requestStop("stop");
+        }
+      });
+    });
+
     let systemStream: MediaStream | null = null;
     if (includeSystemAudio) {
       const systemResult = await requestSystemTabAudio();
@@ -599,6 +675,7 @@ export function ListensRecorder({
     streamIdRef.current = prepared.streamId;
     recordingIdRef.current = prepared.recordingId;
     segmentIndexRef.current = 0;
+    uploadedCountRef.current = 0;
     segmentElapsedRef.current = 0;
 
     const recordStream = buildCaptureGraph(micStream, systemStream);
@@ -606,34 +683,174 @@ export function ListensRecorder({
 
     setSystemAudioActive(Boolean(systemStream));
     setElapsedSeconds(0);
-    setIsPaused(false);
-    setIsRecording(true);
+    updatePhase("recording");
     startSegmentRecorder();
   }
 
-  const busy = finalizing;
-  const showViz = isRecording || busy || segmentUploading;
+  async function confirmTrash() {
+    setTrashConfirmOpen(false);
+    setError(null);
+
+    if (phase === "recording" || phase === "paused") {
+      requestStop("discard");
+      return;
+    }
+
+    if (phase === "stopped") {
+      const recordingId = recordingIdRef.current;
+      const uploaded = uploadedCountRef.current;
+      const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
+      const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
+      if (recordingId && uploaded > 0) {
+        const result = await discardListensStaging({
+          recordingId,
+          segmentCount: uploaded,
+          fileExtension,
+        });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+      }
+      resetAll();
+    }
+  }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPhase: () => phaseRef.current,
+      hasAudio: () =>
+        uploadedCountRef.current > 0 ||
+        phaseRef.current === "recording" ||
+        phaseRef.current === "paused",
+      stopSaving: () => requestStop("stop"),
+      stopAndSubmit: () => requestStop("submit"),
+      submitStopped: () => runFinalize(),
+    }),
+    [requestStop, runFinalize],
+  );
+
+  const isLive = phase === "recording" || phase === "paused";
+  const busy = phase === "finalizing";
+  const showViz = isLive || busy || segmentUploading || phase === "stopped";
+  const canTrash =
+    isLive || phase === "stopped" || uploadedCountRef.current > 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-ink">Title</span>
-        <input
-          type="text"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          disabled={isRecording || busy}
-          placeholder="Defaults to the recording date/time"
-          className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink disabled:opacity-60"
-        />
-      </label>
+    <div className="flex flex-col gap-5 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+      {/* Transport controls */}
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center justify-center gap-4 sm:gap-5">
+          <RecordButton
+            active={phase === "recording"}
+            paused={phase === "paused"}
+            disabled={busy || segmentUploading || phase === "stopped"}
+            onClick={() => {
+              if (phase === "idle") void startRecording();
+            }}
+          />
+          <IconButton
+            label={phase === "paused" ? "Resume" : "Pause"}
+            disabled={!isLive || segmentUploading || busy}
+            onClick={phase === "paused" ? resumeRecording : pauseRecording}
+          >
+            {phase === "paused" ? <IconPlay /> : <IconPause />}
+          </IconButton>
+          <IconButton
+            label="Stop"
+            disabled={!isLive || segmentUploading || busy}
+            onClick={() => requestStop("stop")}
+          >
+            <IconStop />
+          </IconButton>
+          <IconButton
+            label="Trash recording"
+            disabled={!canTrash || busy || segmentUploading}
+            danger
+            onClick={() => setTrashConfirmOpen(true)}
+          >
+            <IconTrash />
+          </IconButton>
+        </div>
+
+        {showViz ? (
+          <div
+            className="w-full max-w-lg flex flex-col gap-3 rounded-md border border-cloud bg-sand/40 px-4 py-3"
+            aria-live="polite"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
+                <span
+                  className={`h-2 w-2 rounded-pill ${
+                    phase === "paused" || phase === "stopped"
+                      ? "bg-ink/35"
+                      : "animate-pulse bg-danger motion-reduce:animate-none"
+                  }`}
+                />
+                <span className="font-mono">{formatElapsed(elapsedSeconds)}</span>
+                <span className="text-ink/45">
+                  {busy
+                    ? "Finalizing…"
+                    : segmentUploading
+                      ? "Saving chunk…"
+                      : phase === "paused"
+                        ? "Paused"
+                        : phase === "stopped"
+                          ? "Saved — ready to submit"
+                          : "Recording"}
+                </span>
+                {isLive || phase === "stopped" ? (
+                  <span className="font-mono text-[11px] text-ink/40">
+                    chunk {segmentLabel}
+                  </span>
+                ) : null}
+              </div>
+              {isLive ? (
+                <div className="flex flex-col gap-1.5 sm:items-end">
+                  <VolumeMeter
+                    label="Mic"
+                    level={phase === "paused" ? 0 : micLevel}
+                  />
+                  {systemAudioActive ? (
+                    <VolumeMeter
+                      label="System"
+                      level={phase === "paused" ? 0 : systemLevel}
+                      tone="horizon"
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <WaveformBars
+              bars={
+                phase === "paused" || phase === "stopped" || busy
+                  ? quietBars()
+                  : bars
+              }
+            />
+
+            {elapsedSeconds >= WARN_AT_SECONDS && isLive ? (
+              <p className="text-sm text-warning">
+                Nearing the {Math.round(AUTO_STOP_SECONDS / 60)}-min cap — wrap
+                up soon
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-center text-sm text-ink/50">
+            Tap the mic to start capturing
+          </p>
+        )}
+      </div>
 
       <label className="flex items-start gap-2 text-sm text-ink/80">
         <input
           type="checkbox"
           className="mt-1"
           checked={includeSystemAudio}
-          disabled={isRecording || busy}
+          disabled={isLive || busy || phase === "stopped"}
           onChange={(event) => setIncludeSystemAudio(event.target.checked)}
         />
         <span>
@@ -645,101 +862,237 @@ export function ListensRecorder({
         </span>
       </label>
 
-      {showViz ? (
-        <div
-          className="flex flex-col gap-3 rounded-md border border-cloud bg-sand/40 px-4 py-3"
-          aria-live="polite"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-ink/70">
-              <span
-                className={`h-2 w-2 rounded-pill ${
-                  isPaused
-                    ? "bg-ink/35"
-                    : "animate-pulse bg-danger motion-reduce:animate-none"
-                }`}
-              />
-              <span className="font-mono">{formatElapsed(elapsedSeconds)}</span>
-              <span className="text-ink/45">
-                {busy
-                  ? "Finalizing…"
-                  : segmentUploading
-                    ? "Saving chunk…"
-                    : isPaused
-                      ? "Paused"
-                      : "Recording"}
-              </span>
-              <span className="font-mono text-[11px] text-ink/40">
-                chunk {segmentLabel}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5 sm:items-end">
-              <VolumeMeter
-                label="Mic"
-                level={isPaused || busy ? 0 : micLevel}
-              />
-              {systemAudioActive ? (
-                <VolumeMeter
-                  label="System"
-                  level={isPaused || busy ? 0 : systemLevel}
-                  tone="horizon"
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <WaveformBars bars={isPaused || busy ? quietBars() : bars} />
-
-          {elapsedSeconds >= WARN_AT_SECONDS && !busy ? (
-            <p className="text-sm text-warning">
-              Nearing the {Math.round(AUTO_STOP_SECONDS / 60)}-min cap — wrap up
-              soon
-            </p>
-          ) : null}
+      {busy ? (
+        <div className="flex items-center justify-center gap-2 text-sm text-ink/70">
+          <span className="h-2 w-2 animate-pulse rounded-pill bg-glow shadow-glow motion-reduce:animate-none" />
+          <span>Starting transcription…</span>
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        {!isRecording && !busy ? (
+      {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
+
+      {trashConfirmOpen ? (
+        <ConfirmDialog
+          title="Delete this recording?"
+          body="This removes the audio you’ve captured. You stay on Record and can start again."
+          confirmLabel="Delete recording"
+          danger
+          onCancel={() => setTrashConfirmOpen(false)}
+          onConfirm={() => void confirmTrash()}
+        />
+      ) : null}
+    </div>
+  );
+});
+
+function RecordButton({
+  active,
+  paused,
+  disabled,
+  onClick,
+}: {
+  active: boolean;
+  paused: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={active || paused ? "Recording" : "Start recording"}
+      className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-transform duration-200 ease-[var(--ease)] disabled:opacity-40 ${
+        active
+          ? "bg-danger text-paper shadow-glow scale-105"
+          : paused
+            ? "bg-ink/25 text-paper"
+            : "bg-forest text-paper hover:scale-105 hover:shadow-soft"
+      }`}
+    >
+      {active ? (
+        <span className="absolute inset-0 animate-glow-pulse rounded-full bg-danger/30 motion-reduce:animate-none" />
+      ) : null}
+      <IconMic className="relative h-7 w-7" />
+    </button>
+  );
+}
+
+function IconButton({
+  label,
+  disabled,
+  danger,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  danger?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:opacity-35 ${
+        danger
+          ? "border-cloud text-ink/55 hover:border-danger hover:text-danger"
+          : "border-cloud text-ink/70 hover:border-forest hover:text-forest"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function IconMic({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function IconPause() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+function IconPlay() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M8 5v14l11-7L8 5z" />
+    </svg>
+  );
+}
+
+function IconStop() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <rect x="6" y="6" width="12" height="12" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+export function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  cancelLabel = "Cancel",
+  danger,
+  onCancel,
+  onConfirm,
+  secondaryLabel,
+  onSecondary,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+    >
+      <div className="flex w-full max-w-md flex-col gap-4 rounded-lg border border-cloud bg-paper p-5 shadow-soft">
+        <h2
+          id="confirm-dialog-title"
+          className="font-display text-lg font-medium text-ink"
+        >
+          {title}
+        </h2>
+        <p className="text-sm text-ink/65">{body}</p>
+        <div className="flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            onClick={startRecording}
-            className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
+            onClick={onCancel}
+            className="rounded-md border border-cloud px-4 py-2 text-sm text-ink"
           >
-            Start recording
+            {cancelLabel}
           </button>
-        ) : null}
-
-        {isRecording && !busy ? (
-          <>
+          {secondaryLabel && onSecondary ? (
             <button
               type="button"
-              onClick={isPaused ? resumeRecording : pauseRecording}
-              disabled={segmentUploading}
-              className="rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5 disabled:opacity-60"
+              onClick={onSecondary}
+              className="rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5"
             >
-              {isPaused ? "Resume" : "Pause"}
+              {secondaryLabel}
             </button>
-            <button
-              type="button"
-              onClick={stopAndSubmit}
-              disabled={segmentUploading}
-              className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
-            >
-              Submit
-            </button>
-          </>
-        ) : null}
-
-        {busy ? (
-          <div className="flex items-center gap-2 text-sm text-ink/70">
-            <span className="h-2 w-2 animate-pulse rounded-pill bg-glow shadow-glow motion-reduce:animate-none" />
-            <span>Starting transcription…</span>
-          </div>
-        ) : null}
+          ) : null}
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={`rounded-md px-4 py-2 text-sm font-medium text-paper ${
+              danger ? "bg-danger" : "btn-primary bg-forest"
+            }`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
       </div>
-
-      {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
     </div>
   );
 }

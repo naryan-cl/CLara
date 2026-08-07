@@ -217,6 +217,63 @@ export async function finalizeListensUpload(input: {
 }
 
 /**
+ * Delete staged segment files after the user confirms Trash (stay on Record).
+ */
+export async function discardListensStaging(input: {
+  recordingId: string;
+  segmentCount: number;
+  fileExtension?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { ok: false, error: "You must be signed in." };
+    }
+
+    const { stream } = await getActiveStream();
+    if (!stream) {
+      return { ok: false, error: "No active stream." };
+    }
+
+    const recordingId = input.recordingId.trim();
+    if (!recordingId || recordingId.includes("/")) {
+      return { ok: false, error: "Invalid recording id." };
+    }
+
+    const segmentCount = input.segmentCount;
+    if (!Number.isInteger(segmentCount) || segmentCount < 0) {
+      return { ok: false, error: "Invalid segment count." };
+    }
+    if (segmentCount === 0) {
+      return { ok: true };
+    }
+
+    const ext =
+      input.fileExtension === "m4a" || input.fileExtension === "mp4"
+        ? "m4a"
+        : "webm";
+    const paths = Array.from(
+      { length: segmentCount },
+      (_, i) => `${stream.id}/${recordingId}/${i}.${ext}`,
+    );
+
+    const { error } = await supabase.storage
+      .from("listens-staging")
+      .remove(paths);
+    if (error) {
+      return { ok: false, error: `Could not delete recording: ${error.message}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("discardListensStaging failed:", err);
+    return { ok: false, error: "Could not delete the recording. Try again." };
+  }
+}
+
+/**
  * @deprecated Use prepareListensRecording + finalizeListensUpload (chunked path).
  */
 export async function prepareListensUpload(

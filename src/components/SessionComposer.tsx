@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import QRCode from "qrcode";
 import type { SessionSummary } from "@/lib/sessions/types";
 import type { StreamPeer } from "@/lib/streams/list-stream-peers";
@@ -106,6 +106,8 @@ type SessionComposerProps = {
    * when Title is filled (see resolveSessionIds in AddWithSessionComposer).
    */
   variant?: "buttons" | "details";
+  /** Extra content under Connections (e.g. Record Submit). */
+  footer?: ReactNode;
   onSelectionChange: (selection: SessionComposerSelection) => void;
   onCreateSession: (input: {
     name: string;
@@ -139,6 +141,7 @@ export function SessionComposer({
   initialSessionIds = [],
   createLabel = "Create group reflection",
   variant = "buttons",
+  footer,
   onSelectionChange,
   onCreateSession,
 }: SessionComposerProps) {
@@ -249,7 +252,7 @@ export function SessionComposer({
     );
   });
 
-  async function handleCreate(event: React.FormEvent) {
+  async function handleCreate(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setWarning(null);
@@ -408,18 +411,18 @@ export function SessionComposer({
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
-            placeholder="Morning circle"
+            placeholder="What did you talk about?"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink">Inquiry</span>
+          <span className="font-medium text-ink">Inquiry/Description</span>
           <textarea
             value={inquiry}
             onChange={(e) => setInquiry(e.target.value)}
             rows={3}
             className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
-            placeholder="What felt most alive in that session?"
+            placeholder="What did you gather to explore together?"
           />
         </label>
 
@@ -447,6 +450,8 @@ export function SessionComposer({
             />
           </div>
         ) : null}
+
+        {footer ? <div className="pt-2">{footer}</div> : null}
       </section>
     );
   }

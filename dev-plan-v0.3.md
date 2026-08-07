@@ -158,6 +158,8 @@
 
 *   **Record page UX (2026-08-06):** Removed page eyebrows (`Add · Record` / Reflect / Upload). Record description updated. Listens card no longer shows “CLara Listens” header; system-audio hint shortened to Chrome/Edge + “Also share system audio”. Record Session Composer is now **Session details** below the recorder (always open): Title (= session name), Inquiry, Participants, Connections — no Connect/Create buttons. Filling Title creates the session on Submit; Connections still link existing sessions. Reflect/Upload keep button composer.
 
+*   **Record capture strip (2026-08-06):** Single Title lives in Session details (placeholder “What did you talk about?”); Inquiry/Description placeholder “What did you gather to explore together?”. Capture UI is mic / pause / stop / trash icons + waveform; system-audio checkbox under meters; **Submit** under Connections. Stop (or interrupt) keeps staged audio (“Saved — ready to submit”); Trash confirms and deletes staging, stays on Record. Submit while live opens a dialog: Stop & submit, or Save details & continue recording.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.
