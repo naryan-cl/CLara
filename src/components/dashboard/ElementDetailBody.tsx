@@ -261,12 +261,15 @@ export function ElementDetailBody({
   onEditingChange,
   onCanEditChange,
   onDetailKindChange,
+  onDeleted,
 }: {
   item: CommonsListItem;
   editing?: boolean;
   onEditingChange?: (editing: boolean) => void;
   onCanEditChange?: (canEdit: boolean) => void;
   onDetailKindChange?: (kind: "document" | "session" | null) => void;
+  /** After document delete — parent clears selection. */
+  onDeleted?: () => void;
 }) {
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +329,10 @@ export function ElementDetailBody({
         hideEditButton
         forceEditing
         onCancelEditing={() => onEditingChange?.(false)}
+        onDeleted={() => {
+          onEditingChange?.(false);
+          onDeleted?.();
+        }}
       />
     );
   }

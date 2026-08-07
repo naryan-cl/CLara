@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-07 (Phase 7 themes B–D — Plant/Ocean/Desert)  
+**Last updated:** 2026-08-07 (Commons delete + type colours; My harvest removed)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -35,7 +35,8 @@
 *   **Add · Reflect + Session Composer (2026-08-06):** Nav label **Chat → Reflect**. Reflect page (`/add/chat`) uses shared **Session Composer** (connect 1–3 sessions, create group reflection = create a **session** with optional seed question/description, share link `/join/[token]` + QR, participant autocomplete from stream peers). Each Reflect conversation remains its **own** `documents` Reflection row linked via `document_sessions` (never merged into one session body). **Private** reflections stay off the public Commons list and Knowledge Map, but **session attendees + stream admins can read** them. Autosave drafts + Submit (after ~2 exchanges) with thank-you / flower placeholder (map flowers = later). Same Session Composer on Record and Upload. Apply migration **`0012_session_composer.sql`**.
 *   **Record Session details (2026-08-06):** Record no longer uses Connect/Create buttons. Below the recorder, an always-open **Session details** form has Title (session name), Inquiry/Description, Participants, and Connections. Filling Title creates the session on Submit. Reflect/Upload keep the button composer. Page eyebrows (`Add · …`) removed from Add pages. Capture strip: mic/pause/stop/trash; Stop saves staging; Trash deletes; Submit under Connections with in-progress confirmation.
 *   **Admin-editable CLara prompts (2026-08-06):** Stream admins can view/edit the Reflect and Ask CLara system prompts on `/admin` (per-stream overrides on `streams`; NULL = product default in code). Reflect ≠ Ask stay separate. Apply migration **`0015_stream_system_prompts.sql`**. Participant-facing prompt transparency is later.
-*   **Map themes (2026-08-07, Phase 7 Modules A–D shipped in code):** Dashboard canvas supports **Plant / Ocean / Desert** generative topo wallpapers (pan/zoom with the graph) **and** matching theme sprite pools for nodes. **`/map` Knowledge Map stays dark with type-colored circles** (no wallpaper, no sprites). **Ocean** keeps deep blues with light labels/edges. Unlock unit = authored **Public** + **non-draft** Commons docs (`documents.is_draft`; Reflect autosave = draft until Submit). Defaults: Plant free, Ocean @ 5, Desert @ 10 (admin-overridable on `/admin`). Per-member theme pick + unlock congratulations popup. Apply migration **`0017_map_themes.sql`**. Sprite pipeline: `Sprites/split_sprites2.py` → `npm run sprites:prepare` → `public/map-sprites/{theme}/{type}/`. See `dev-plan-v0.3.md` §4.
+*   **Map themes (2026-08-07, Phase 7 Modules A–D shipped in code):** Dashboard canvas supports **Plant / Ocean / Desert** generative topo wallpapers (pan/zoom with the graph) **and** matching theme sprite pools for nodes. **`/map` Knowledge Map stays dark with type-colored circles** (no wallpaper, no sprites). **Ocean** keeps deep blues with light labels/edges. Unlock unit = authored **Public** + **non-draft** Commons docs (`documents.is_draft`; Reflect autosave = draft until Submit). Defaults: Plant free, Ocean @ 5, Desert @ 10 (admin-overridable on `/admin`). Per-member theme pick + unlock congratulations popup. Apply migration **`0017_map_themes.sql`**. Sprite pipeline: `Sprites/split_sprites2.py` (edge flood-fill alpha — keeps interior white) → cull under `Sprites/extracted/` → `npm run sprites:prepare` → `public/map-sprites/{theme}/{type}/`. How-to: `Sprites/README.md`. See `dev-plan-v0.3.md` §4.
+*   **Commons polish (2026-08-07):** Compact filter bar; element-type colour coding (Chat/Record/Upload/Session/Other) + legend; **Delete** in Edit for anyone with edit access (author / attendees / admins) — apply **`0020_document_delete_rls.sql`**. **My harvest** page + Markdown export removed (attendance toggle + “Attended” filter remain).
 
 ---
 
@@ -178,9 +179,9 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Join link** — `/join/[token]` marks attendance and opens Reflect with the session pre-selected.
 
 ### 7.3 Commons — repository
-*   **Filterable / sortable list** of stream elements: chats (saved reflections), recordings (transcripts), uploads (notes/files), and **sessions** (archive woven in — not a separate top-level nav item).
-*   Click → **detail popup** with view/edit (when permitted) and comments (minimize removed 2026-08-06).
-*   Session popup: mark **"I Attended"** and comment; harvest/export of attended-session documents remains available (exact UI placement TBD in Phase 6).
+*   **Filterable / sortable list** of stream elements: chats (saved reflections), recordings (transcripts), uploads (notes/files), and **sessions** (archive woven in — not a separate top-level nav item). Compact filter bar; **colour-coded by element type** with a legend (Chat / Record / Upload / Session / Other).
+*   Click → **detail popup** with view/edit (when permitted) and comments (minimize removed 2026-08-06). Edit form includes **Delete** for the same people who can edit (author, session attendees, stream admins). Apply migration `0020_document_delete_rls.sql`.
+*   Session popup: mark **"I Attended"** and comment. (Standalone **My harvest** export page removed 2026-08-07 — use Commons filters / session archive instead.)
 *   Private-to-owner visibility + eye icon; filters: type, date, attended, my artifacts.
 *   **Comments** + admin audit log — see §5.2.
 *   Existing document routes (`/sessions/documents/[id]`, archive pages) can remain as deep links until the popup UX replaces them.

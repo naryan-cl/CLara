@@ -25,8 +25,10 @@ import sys
 import cv2
 import numpy as np
 
-# Higher (e.g. 248) = only pure white becomes transparent
-# Lower (e.g. 230) = removes off-white / light shadows
+# Near-white cutoff for background flood-fill (and box finding).
+# Higher (e.g. 248) = only pure white counts as background candidate.
+# Lower (e.g. 230) = also treats off-white / light shadows as background.
+# Only candidates connected to the crop edge become transparent — see background_alpha().
 WHITE_THRESHOLD = 240
 
 # Skip noise / tiny fragments

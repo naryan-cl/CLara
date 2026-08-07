@@ -3,7 +3,13 @@
  * and write a theme-scoped manifest.json.
  *
  * Usage: node scripts/prepare-map-sprites.mjs
+ * (npm run sprites:prepare)
  *
+ * Prerequisites:
+ *   1. python Sprites/split_sprites2.py  (edge flood-fill alpha; overwrites extracts)
+ *   2. Cull bad icons under Sprites/extracted/ (see Sprites/README.md)
+ *
+ * Wipes public/map-sprites/ then rebuilds theme packs from POOLS below.
  * Mapping (node type → extract sheet folders) matches Phase 7 plan.
  */
 

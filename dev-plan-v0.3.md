@@ -76,9 +76,10 @@
 *   **`0015_stream_system_prompts.sql`** — `streams.reflect_system_prompt` + `streams.ask_system_prompt` (nullable text). NULL = product default in code. Admin UI on `/admin`. **Required for editable CLara prompts.**
 *   **`0017_map_themes.sql`** — stream default theme + unlock thresholds; member selected theme + unlock-seen; `documents.is_draft`; RPCs `set_my_map_theme` / `ack_map_theme_unlock`. **Required for dashboard Plant/Ocean/Desert themes.**
 *   **`0019_document_chunk_count.sql`** — `document_chunk_count(document_id)` + `list_documents_missing_embeddings(stream_id)` SECURITY DEFINER helpers for Ask index status + admin backfill. **Apply for scoped Ask “not indexed” UI and Admin → Ask index.**
+*   **`0020_document_delete_rls.sql`** — DELETE policies on `documents` for authors, stream admins, and session attendees (same gate as edit). **Required for Commons Edit → Delete.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0017**, **0018**, **0019** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0017**, **0018**, **0019**, **0020** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -103,9 +104,10 @@
 | Listens recorder UI | `src/components/ListensRecorder.tsx` |
 | Listens action | `src/app/(app)/sessions/listens-actions.ts` → `receiveListensRecording` |
 | Whisper transcription helper | `src/lib/openai/transcribe.ts` → `transcribeAudio`, `MAX_AUDIO_BYTES` |
-| Sessions (event containers) | `src/lib/sessions/*` — `list-sessions.ts`, `create-session.ts` (RLS-scoped), `find-or-create-session.ts` (admin, for OKF enrich), `get-session.ts`, `attendance.ts` ("I Attended" harvest) |
+| Sessions (event containers) | `src/lib/sessions/*` — `list-sessions.ts`, `create-session.ts` (RLS-scoped), `find-or-create-session.ts` (admin, for OKF enrich), `get-session.ts`, `attendance.ts` ("I Attended") |
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
-| Harvest UI | `src/app/(app)/sessions/harvest/page.tsx`, `src/components/HarvestExport.tsx` |
+| Commons repository | `src/app/(app)/commons/*`, `src/components/CommonsRepository.tsx`, `src/lib/commons/{types,element-colours,list-items}.ts` — filters, type colours + legend, detail popup |
+| Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
@@ -191,7 +193,7 @@
 
 *   **Dashboard panes: resize + Ask click-away + SSO docs (2026-08-07):** Cherry-picked leftover polish from draft PRs #1/#2 (not whole-merge — those branches would wipe wallpaper). **SSO:** `.env.example` + Dev Plan note for Vercel preview Redirect URL wildcard. **Ask:** click-away re-minimizes when there is no live thread / detail (`onHasConversationChange`). **Resize:** Ask/Details and Commons List panes drag-resize (sizes in `localStorage`); List uses `auto-fill` grid so extra columns appear when the pane is wide enough (~220px card min). **Manual test:** (1) widen List → 2+ columns; (2) drag Ask left/bottom edges; (3) open Ask empty then click map → collapses; (4) with a thread open, click-away keeps it open.
 
-*   **Closed superseded draft PRs (2026-08-07):** [#1](https://github.com/naryan-cl/CLara/pull/1) (`cursor/map-node-sprites-06aa`) and [#2](https://github.com/naryan-cl/CLara/pull/2) (`cursor/dashboard-polish-4b14`) closed without merge. Useful bits already on `main` via cherry-pick / wallpaper work (sprites, FAB top-left, sand hover, SSO docs, Ask click-away). Remaining optional leftovers **not** ported: `scripts/prepare-map-sprites.py` + `sprites:prepare` npm script, collide padding `+18`, scoped Ask RPC fallback polish in `search-commons.ts`. Do not reopen/merge those branches wholesale — they predate fullscreen map + Plant wallpaper.
+*   **Closed superseded draft PRs (2026-08-07):** [#1](https://github.com/naryan-cl/CLara/pull/1) (`cursor/map-node-sprites-06aa`) and [#2](https://github.com/naryan-cl/CLara/pull/2) (`cursor/dashboard-polish-4b14`) closed without merge. Useful bits already on `main` via cherry-pick / wallpaper work (sprites, FAB top-left, sand hover, SSO docs, Ask click-away). Remaining optional leftovers **not** ported: collide padding `+18`, scoped Ask RPC fallback polish in `search-commons.ts`. (`sprites:prepare` + flood-fill split are on the tree now — see `Sprites/README.md`.) Do not reopen/merge those branches wholesale — they predate fullscreen map + Plant wallpaper.
 
 *   **Phase 7 Module A polish (2026-08-07 evening):** Wallpaper is now **procedural SVG** (soft radial washes + contour paths) — no bitmap, so zoom stays sharp and generation is faster. Plant greens lightened (`#D5E6D2` base). Add/List FABs restored to **top-left**; Ask stays top-right. Record/Reflect/Upload hover uses solid **sand** (not transparent forest/5). **Why prior polish was “lost”:** those fixes lived on parallel agent branches that never merged into `main` / this PR branch — cloud agents each branch from `main`, so unmerged PRs do not appear in later agents. Fix: merge (or cherry-pick) finished PRs into `main` before starting the next agent, not only deploy to Vercel.
 
@@ -205,7 +207,9 @@
     *   **Admin:** `/admin` Map themes panel. **Dashboard:** theme picker (unlocked only) + unlock congratulations popup.
     *   **Reflect:** autosave sets `is_draft=true`; Submit clears it. Commons list excludes drafts. Unlock count = Public + non-draft authored docs.
     *   **Manual test:** (1) run `0017` in Supabase; (2) dashboard Plant sprites + wallpaper; (3) `/map` circles/dark; (4) Admin set Ocean unlock to 0 → refresh → Ocean in picker + optional popup; (5) switch Ocean/Desert wallpapers+sprites; (6) Reflect autosave stays draft / does not unlock; Submit public counts.
-    *   **Cull note:** after extract, manually delete bad icon splits under `Sprites/extracted/` then re-run `npm run sprites:prepare`.
+    *   **Cull note:** after extract, manually delete bad icon splits under `Sprites/extracted/` then re-run `npm run sprites:prepare`. Full how-to + cull list: `Sprites/README.md`.
+
+*   **Commons polish (2026-08-07):** Compact one-row filter bar; left-border colour by element type + legend (`src/lib/commons/element-colours.ts`). **Delete** in `DocumentEditor` Edit mode for anyone with `canEdit` (author / session attendees / stream admins) — lib `delete-document.ts` + action; apply **`0020_document_delete_rls.sql`**. Removed **My harvest** route + `HarvestExport` (attendance + Attended filter stay). **Manual test:** (1) run `0020` in Supabase SQL editor; (2) Commons filters look compact; (3) list colours + legend match Chat/Record/Upload/Session; (4) open own doc → Edit → Delete → confirm → gone from list; (5) non-editor does not see Delete; (6) `/sessions/harvest` 404s; no My harvest button on Commons.
 
 *   **Map theme wallpapers — product decisions (updated 2026-08-07):** Supersedes the earlier “nodes stay circles / wallpaper only” lock for the **dashboard**. Confirmed:
     1. Wallpaper **moves with the graph** on the dashboard.
@@ -304,7 +308,7 @@
 
 ### Next up (pick one module at a time)
 1.  **Apply `0017_map_themes.sql`** in Supabase, then verify dashboard themes + Admin thresholds end-to-end.
-2.  **Cull bad sprite extracts** under `Sprites/extracted/`, re-run `npm run sprites:prepare`, commit curated `public/map-sprites`. *(Cull + flood-fill alpha reprocess done 2026-08-07; commit when ready.)*
+2.  **Commit curated `public/map-sprites`** (+ extract/pipeline docs). Flood-fill alpha + cull reprocess done 2026-08-07; see `Sprites/README.md`.
 3.  **Apply `0018_theme_unlock_seen_backfill.sql`** so members who already met Ocean/Desert thresholds before themes shipped do not get a surprise unlock popup.
 4.  **Apply `0019_document_chunk_count.sql`**, then Admin → Ask index → re-index any missing Summaries/docs so scoped Ask works.
 5.  **Prod migrations check** — confirm `0011`–`0019` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
@@ -348,7 +352,7 @@
 ### Phase 5 — Sessions archive, Harvest, Admin polish
 *   [x] `sessions` table (event containers) — migration + RLS; documents keep a `session_id` FK instead of a free-text field
 *   [x] Full session archive — `/sessions/archive` list + `/sessions/archive/[id]` detail page listing that session's Commons documents (reuse `DocumentList`)
-*   [x] "I Attended" harvest — member marks sessions they attended; surface/export the Commons documents tied to those sessions for them (`/sessions/harvest`)
+*   [x] "I Attended" — member marks sessions they attended; Commons "Attended" filter uses this. (Standalone `/sessions/harvest` export removed 2026-08-07.)
 *   [x] Admin polish — membership edge cases (add/remove/promote `stream_members` by email, existing accounts only) + isolation toggle UI, both at `/admin` (§4.2 is no longer DB/RLS-only)
 
 **Phase 5 is complete as of 2026-07-30.** Started ahead of Phase 3/4 by deliberate choice — Ask/Chatbot and Knowledge Map remain "later." Phase 2 is now fully done except optional audio-via-Receives.

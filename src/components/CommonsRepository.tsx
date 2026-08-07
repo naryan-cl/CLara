@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { CommonsDetailPopup } from "@/components/CommonsDetailPopup";
 import {
+  COMMONS_TYPE_LEGEND,
+  colourForElementType,
+} from "@/lib/commons/element-colours";
+import {
   DEFAULT_COMMONS_FILTERS,
   filterCommonsItems,
   type CommonsFilterState,
@@ -68,14 +72,11 @@ export function CommonsRepository({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-cloud bg-paper p-4 shadow-soft sm:p-5">
-        <h2 className="font-display text-base font-medium text-ink">
-          Filters & sort
-        </h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/70">Element type</span>
+    <div className="flex flex-col gap-5">
+      <section className="rounded-md border border-cloud bg-paper px-3 py-2.5 shadow-soft">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          <label className="flex flex-col gap-0.5 text-xs">
+            <span className="font-medium text-ink/55">Type</span>
             <select
               value={filters.elementType}
               onChange={(e) =>
@@ -84,70 +85,70 @@ export function CommonsRepository({
                   e.target.value as CommonsFilterState["elementType"],
                 )
               }
-              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
             >
               <option value="all">All</option>
-              <option value="chat">Chat (reflections)</option>
-              <option value="record">Record (transcripts)</option>
-              <option value="upload">Upload (notes & files)</option>
+              <option value="chat">Chat</option>
+              <option value="record">Record</option>
+              <option value="upload">Upload</option>
               <option value="session">Sessions</option>
               <option value="other">Other</option>
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/70">From date</span>
+          <label className="flex flex-col gap-0.5 text-xs">
+            <span className="font-medium text-ink/55">From</span>
             <input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => patchFilter("dateFrom", e.target.value)}
-              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/70">To date</span>
+          <label className="flex flex-col gap-0.5 text-xs">
+            <span className="font-medium text-ink/55">To</span>
             <input
               type="date"
               value={filters.dateTo}
               onChange={(e) => patchFilter("dateTo", e.target.value)}
-              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink/70">Sort</span>
+          <label className="flex flex-col gap-0.5 text-xs">
+            <span className="font-medium text-ink/55">Sort</span>
             <select
               value={filters.sort}
               onChange={(e) =>
                 patchFilter("sort", e.target.value as CommonsFilterState["sort"])
               }
-              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
             >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
               <option value="title">Title A–Z</option>
             </select>
           </label>
 
-          <label className="flex items-center gap-2 text-sm text-ink/80 sm:mt-6">
+          <label className="flex items-center gap-1.5 pb-1 text-xs text-ink/70">
             <input
               type="checkbox"
               checked={filters.attendedOnly}
               onChange={(e) => patchFilter("attendedOnly", e.target.checked)}
               className="rounded border-cloud"
             />
-            Attended only
+            Attended
           </label>
 
-          <label className="flex items-center gap-2 text-sm text-ink/80 sm:mt-6">
+          <label className="flex items-center gap-1.5 pb-1 text-xs text-ink/70">
             <input
               type="checkbox"
               checked={filters.myArtifactsOnly}
               onChange={(e) => patchFilter("myArtifactsOnly", e.target.checked)}
               className="rounded border-cloud"
             />
-            My artifacts
+            Mine
           </label>
         </div>
       </section>
@@ -172,12 +173,13 @@ export function CommonsRepository({
             {visible.map((item) => {
               const isPrivate =
                 item.kind === "document" && item.privacy_status === "private";
+              const colour = colourForElementType(item.elementType);
               return (
                 <li key={`${item.kind}-${item.id}`}>
                   <button
                     type="button"
                     onClick={() => setSelected(item)}
-                    className="flex w-full flex-col gap-1 rounded-md border border-cloud bg-sand/40 px-3 py-3 text-left transition-colors hover:border-sage/50 hover:bg-sand"
+                    className={`flex w-full flex-col gap-1 rounded-md border border-cloud border-l-4 bg-sand/40 px-3 py-3 text-left transition-colors hover:border-cloud hover:bg-sand ${colour.borderClass}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium text-ink">{item.title}</span>
@@ -192,7 +194,7 @@ export function CommonsRepository({
                       ) : null}
                     </div>
                     <p className="font-mono text-[11px] text-ink/45">
-                      {elementLabel(item)}
+                      <span className={colour.textClass}>{elementLabel(item)}</span>
                       {item.kind === "document" && item.needs_review
                         ? " · needs review"
                         : ""}
@@ -210,6 +212,27 @@ export function CommonsRepository({
             })}
           </ul>
         )}
+
+        <ul
+          className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-cloud pt-3"
+          aria-label="Type colour legend"
+        >
+          {COMMONS_TYPE_LEGEND.map((key) => {
+            const colour = colourForElementType(key);
+            return (
+              <li
+                key={key}
+                className="flex items-center gap-1.5 font-mono text-[11px] text-ink/55"
+              >
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-sm ${colour.swatchClass}`}
+                  aria-hidden="true"
+                />
+                {colour.label}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       {selected ? (

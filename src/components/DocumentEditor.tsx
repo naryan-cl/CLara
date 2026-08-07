@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { saveDocumentEdits } from "@/app/(app)/sessions/documents/actions";
+import {
+  deleteDocumentAction,
+  saveDocumentEdits,
+} from "@/app/(app)/sessions/documents/actions";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -33,10 +36,11 @@ export function DocumentEditor({
   hideEditButton = false,
   forceEditing = false,
   onCancelEditing,
+  onDeleted,
 }: {
   document: CommonsDocument;
   sessions: SessionSummary[];
-  /** Author, session attendees, or admins — hide Edit when false. */
+  /** Author, session attendees, or admins — hide Edit / Delete when false. */
   canEdit?: boolean;
   /** Smaller headings for use inside the Commons popup. */
   compact?: boolean;
@@ -46,11 +50,14 @@ export function DocumentEditor({
   forceEditing?: boolean;
   /** Called when Cancel leaves edit mode while forceEditing was set. */
   onCancelEditing?: () => void;
+  /** Called after a successful delete (parent closes popup / clears selection). */
+  onDeleted?: () => void;
 }) {
   const tags = asStringList(document.tags);
   const participants = asStringList(document.participants);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [busyAction, setBusyAction] = useState<"save" | "delete" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(forceEditing);
@@ -79,8 +86,10 @@ export function DocumentEditor({
     const formData = new FormData(event.currentTarget);
     formData.set("content", contentMarkdown);
 
+    setBusyAction("save");
     startTransition(async () => {
       const result = await saveDocumentEdits(formData);
+      setBusyAction(null);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -88,6 +97,33 @@ export function DocumentEditor({
       setMessage("Saved.");
       setEditing(false);
       onCancelEditing?.();
+      router.refresh();
+    });
+  }
+
+  function onDelete() {
+    const title = document.title?.trim() || "Untitled";
+    const confirmed = window.confirm(
+      `Delete “${title}”? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setMessage(null);
+    setError(null);
+    setBusyAction("delete");
+
+    startTransition(async () => {
+      const result = await deleteDocumentAction(document.id);
+      setBusyAction(null);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        router.push("/commons");
+      }
       router.refresh();
     });
   }
@@ -187,7 +223,17 @@ export function DocumentEditor({
         <h1 className="font-display text-2xl font-medium text-ink">
           Edit document
         </h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="rounded-md border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-60"
+              disabled={pending}
+            >
+              {pending && busyAction === "delete" ? "Deleting…" : "Delete"}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -205,7 +251,7 @@ export function DocumentEditor({
             disabled={pending}
             className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
           >
-            {pending ? "Saving…" : "Save"}
+            {pending && busyAction === "save" ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

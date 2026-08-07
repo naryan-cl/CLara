@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { deleteDocument } from "@/lib/documents/delete-document";
 import { updateDocument } from "@/lib/documents/update-document";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { createSession } from "@/lib/sessions/create-session";
@@ -11,6 +12,10 @@ import type { DocumentPrivacy } from "@/lib/documents/types";
 const NEW_SESSION_VALUE = "__new__";
 
 export type SaveDocumentResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export type DeleteDocumentResult =
   | { ok: true }
   | { ok: false; error: string };
 
@@ -96,5 +101,31 @@ export async function saveDocumentEdits(
   } catch (err) {
     console.error("saveDocumentEdits failed:", err);
     return { ok: false, error: "Something went wrong while saving." };
+  }
+}
+
+export async function deleteDocumentAction(
+  documentId: string,
+): Promise<DeleteDocumentResult> {
+  try {
+    const id = documentId.trim();
+    if (!id) {
+      return { ok: false, error: "Missing document id." };
+    }
+
+    const { error } = await deleteDocument(id);
+    if (error) {
+      return { ok: false, error };
+    }
+
+    revalidatePath("/sessions");
+    revalidatePath("/commons");
+    revalidatePath("/dashboard");
+    revalidatePath(`/sessions/documents/${id}`);
+
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteDocumentAction failed:", err);
+    return { ok: false, error: "Something went wrong while deleting." };
   }
 }

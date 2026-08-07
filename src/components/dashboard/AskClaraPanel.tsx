@@ -252,6 +252,10 @@ export function AskClaraPanel({
               onEditingChange={setEditing}
               onCanEditChange={setCanEdit}
               onDetailKindChange={setDetailKind}
+              onDeleted={() => {
+                setEditing(false);
+                onCloseDetail?.();
+              }}
             />
           </div>
           <form

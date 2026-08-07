@@ -88,6 +88,7 @@ export function CommonsDetailPopup({
                 sessions={detail.sessions}
                 canEdit={detail.canEdit}
                 compact
+                onDeleted={onClose}
               />
               <CommentThread
                 targetType="document"
