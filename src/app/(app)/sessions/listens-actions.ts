@@ -8,8 +8,8 @@ import {
   inngest,
   CLARA_RECORDING_RECEIVED,
 } from "@/lib/inngest/client";
-import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
+import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 
 export type ListensResult =
   | { ok: true; documentId: string; needsReview: boolean }
@@ -18,9 +18,6 @@ export type ListensResult =
 export type PrepareListensRecordingResult =
   | { ok: true; streamId: string; recordingId: string }
   | { ok: false; error: string };
-
-/** Max segments for a single take (12 min × 20 = 4 hours headroom). */
-export const MAX_LISTENS_SEGMENTS = 20;
 
 /**
  * Allocate a recording folder under listens-staging:
@@ -233,6 +230,3 @@ export async function receiveListensRecording(
       "This Record path was upgraded. Refresh the page and submit again (Listens v2).",
   };
 }
-
-/** Re-export for client size checks on a single segment. */
-export { MAX_LISTENS_STAGING_BYTES };

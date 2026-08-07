@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   finalizeListensUpload,
   prepareListensRecording,
-  MAX_LISTENS_SEGMENTS,
 } from "@/app/(app)/sessions/listens-actions";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
+import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
 
