@@ -16,6 +16,7 @@ import {
   seedSimNodes,
   type SimNode,
 } from "@/lib/graph/layout";
+import { nodeSpriteUrl, spriteSizeFor } from "@/lib/graph/node-sprite";
 import {
   directionFromKey,
   findNearestInDirection,
@@ -376,6 +377,8 @@ export function KnowledgeMap({
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
                 const r = radiusFor(node.type);
+                const spriteHref = nodeSpriteUrl(node.type, node.id);
+                const spriteSize = spriteSizeFor(r);
                 return (
                   <g
                     key={node.id}
@@ -473,26 +476,54 @@ export function KnowledgeMap({
                     className="cursor-grab outline-none focus-visible:opacity-90 active:cursor-grabbing"
                     transform={`translate(${node.x}, ${node.y})`}
                   >
+                    {/* Soft typed glow under the art — keeps luminous hover/select. */}
                     <circle
-                      r={r}
+                      r={r + 2}
                       fill={colorFor(node.type)}
-                      fillOpacity={isLit ? 1 : 0.85}
-                      stroke={isPinned ? "var(--paper)" : "transparent"}
-                      strokeWidth={isPinned ? 2 : 0}
+                      fillOpacity={isLit ? 0.35 : 0.12}
                       style={
                         isLit && !reducedMotion
                           ? {
                               animation:
                                 "glow-pulse var(--duration-ambient) var(--ease) infinite",
+                              pointerEvents: "none",
                             }
                           : isLit
                             ? {
                                 filter:
                                   "drop-shadow(0 0 12px rgba(143,214,196,.6))",
+                                pointerEvents: "none",
                               }
-                            : undefined
+                            : { pointerEvents: "none" }
                       }
                     />
+                    {spriteHref ? (
+                      <image
+                        href={spriteHref}
+                        x={-spriteSize / 2}
+                        y={-spriteSize / 2}
+                        width={spriteSize}
+                        height={spriteSize}
+                        style={{ pointerEvents: "none" }}
+                      />
+                    ) : (
+                      <circle
+                        r={r}
+                        fill={colorFor(node.type)}
+                        fillOpacity={0.85}
+                      />
+                    )}
+                    {/* Invisible hit target — sprites are irregular shapes. */}
+                    <circle r={r} fill="transparent" />
+                    {isPinned ? (
+                      <circle
+                        r={r + 4}
+                        fill="none"
+                        stroke="var(--paper)"
+                        strokeWidth={2}
+                        style={{ pointerEvents: "none" }}
+                      />
+                    ) : null}
                     <text
                       y={r + 16}
                       textAnchor="middle"

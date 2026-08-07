@@ -103,7 +103,8 @@ export function createGraphSimulation(
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide((d) => radiusFor((d as SimNode).type) + 14),
+      // Extra padding so irregular plant sprites + labels don't overlap.
+      forceCollide((d) => radiusFor((d as SimNode).type) + 18),
     );
 }
 
@@ -140,7 +141,7 @@ export function computeGraphLayout(
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide((d) => radiusFor((d as SeedNode).type) + 14),
+      forceCollide((d) => radiusFor((d as SeedNode).type) + 18),
     )
     .stop();
 
