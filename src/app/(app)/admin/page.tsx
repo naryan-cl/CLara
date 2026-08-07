@@ -1,9 +1,12 @@
 import { DocumentList } from "@/components/DocumentList";
 import { MembersPanel } from "@/components/MembersPanel";
 import { IsolationToggle } from "@/components/IsolationToggle";
+import { PromptsPanel } from "@/components/PromptsPanel";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listNeedsReviewDocuments } from "@/lib/documents/list-needs-review";
 import { listStreamMembers } from "@/lib/streams/list-members";
+import { getStreamPrompts } from "@/lib/prompts/get-stream-prompts";
+import { defaultPromptFor } from "@/lib/prompts/defaults";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminPage() {
@@ -31,19 +34,26 @@ export default async function AdminPage() {
 
   const { documents, error } = await listNeedsReviewDocuments(stream.id);
   const { members, error: membersError } = await listStreamMembers(stream.id);
+  const { prompts, error: promptsError } = await getStreamPrompts(stream.id);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const reflectValue =
+    prompts?.reflectEffective ?? defaultPromptFor("reflect");
+  const askValue = prompts?.askEffective ?? defaultPromptFor("ask");
+  const reflectIsCustom = Boolean(prompts?.reflectOverride?.trim());
+  const askIsCustom = Boolean(prompts?.askOverride?.trim());
+
   return (
     <div className="flex flex-col gap-10">
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Admin</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Membership, isolation, and the metadata review queue for{" "}
-          {stream.name}.
+          Membership, isolation, CLara prompts, and the metadata review queue
+          for {stream.name}.
         </p>
       </div>
 
@@ -53,6 +63,29 @@ export default async function AdminPage() {
         </h2>
         <div className="mt-4">
           <IsolationToggle initialEnabled={stream.isolation_enabled} />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+        <h2 className="font-display text-lg font-medium text-ink">
+          CLara prompts
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-ink/60">
+          These are the system instructions Reflect and Ask CLara use for{" "}
+          {stream.name}. Edits apply immediately to new messages. Reflect and
+          Ask stay separate — changing one never changes the other.
+        </p>
+        <div className="mt-4">
+          {promptsError ? (
+            <p className="font-mono text-sm text-danger">{promptsError}</p>
+          ) : (
+            <PromptsPanel
+              reflectValue={reflectValue}
+              reflectIsCustom={reflectIsCustom}
+              askValue={askValue}
+              askIsCustom={askIsCustom}
+            />
+          )}
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { searchCommons } from "@/lib/embeddings/search-commons";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
+import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 
 export type AskSource = {
   documentId: string;
@@ -108,21 +109,18 @@ export async function askClara(
           })
           .join("\n\n");
 
+  const { prompt: systemPrompt } = await getEffectiveSystemPrompt(
+    stream.id,
+    "ask",
+  );
+
   const client = new OpenAI({ apiKey });
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
     messages: [
       {
         role: "system",
-        content:
-          "You are Ask CLara, for the CLara platform (Camp CLAI stream). " +
-          "Answer the user's question using ONLY the numbered Camp CLAI " +
-          "Commons excerpts provided below — never your own outside " +
-          "knowledge. Cite the excerpts you rely on inline using their " +
-          "[n] number. If the excerpts don't actually contain enough " +
-          "information to answer, say so plainly instead of guessing. " +
-          "You may use earlier turns in this Ask thread only to understand " +
-          "follow-up questions — still ground factual claims in the excerpts.",
+        content: systemPrompt,
       },
       ...prior.map((m) => ({
         role: m.role as "user" | "assistant",

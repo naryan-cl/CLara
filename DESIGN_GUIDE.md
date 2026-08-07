@@ -1,6 +1,6 @@
 # CLara Platform — Visual Design Guide
 
-**Version:** 0.2 (draft)  
+**Version:** 0.2 (draft) · Motion §6 closed out 2026-08-06 (`--duration-ambient: 3.2s`)  
 **Direction:** Cultivating Leadership's warmth and depth, pushed toward a calm, futuristic feel.  
 **Applies to:** The **CLara** product UI, including the **Camp CLAI** stream and future streams.
 
@@ -105,7 +105,7 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 **Concept anchor cards (dashboard):** `--paper` card, serif concept name, one-line description, small related-count meta, tap → concept panel. Grid of these = the always-visible frame.
 
-**Knowledge Map:** dark `--forest-deep` canvas; nodes are soft circles/pills labeled in sans; active/hover nodes glow `--glow`; edges are thin `--sage` curves with a faint animated flow. Side panel slides in for node detail. Respect reduced-motion (freeze the flow).
+**Knowledge Map:** dark `--forest-deep` canvas that **fills its panel** (no fixed 560px leftover blank). Nodes are soft circles labeled in sans; active/hover nodes glow `--glow`; pinned nodes get a light paper ring. Edges are thin `--sage` **quadratic curves** with a faint animated flow. **Interactions (Festival harvest pattern):** scroll to zoom, drag background to pan, drag a node to **pin** it (peers reheat around it), double-click to unpin. On the dashboard, node detail **slides over Ask CLara** so Explore (map/list) keeps its size; on `/map`, detail overlays the canvas. Respect reduced-motion (freeze the flow).
 
 **CLara Chatbot (Add) & Ask CLara (Synthesis):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
 
@@ -119,10 +119,11 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 ## 6. Motion
 
-- **Feel:** slow, eased, purposeful. Durations 200–400ms UI; ambient presence (thinking / listening / map glow) currently **3.2s** per breath cycle (tuned slower than the original ~800ms guide suggestion after product feedback). Easing `cubic-bezier(.22,.61,.36,1)`.  
-- **Signature moments:** map nodes gently pulse/glow when active; CLara "thinking" shows a soft breathing glow, not a spinner; page transitions fade+rise 8px.  
-- **Implementation (shipped):** CSS tokens + keyframes in `src/app/globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`). Shared UI: `ThinkingPresence` (Ask + Chat) and `FadeRise` under `src/components/motion/`. Prefer those over one-off animations. **Motion utilities are explicit `@layer utilities` classes** (not `@theme inline --animate-*`) — nesting duration/ease CSS vars inside `@theme inline` produced broken animation shorthands and motion appeared to do nothing.  
-- **Accessibility:** honor `prefers-reduced-motion` — disable ambient/flow animation, keep only essential fades. Note: Windows “Animation effects” off maps to reduced-motion in Chromium, which freezes loops by design.
+- **Feel:** slow, eased, purposeful. Durations 200–400ms UI; ambient presence (thinking / listening / map glow) **`--duration-ambient: 3.2s`** per breath cycle (user-verified 2026-08-06). Easing `cubic-bezier(.22,.61,.36,1)`.  
+- **Signature moments:** map nodes gently pulse/glow when selected **or hovered**; CLara "thinking" / Reflect "listening" show a soft breathing glow, not a spinner; content enters with fade+rise (~10px).  
+- **Implementation (shipped + closed):** CSS tokens + keyframes in `src/app/globals.css`. Shared UI under `src/components/motion/`: `ThinkingPresence`, `ListeningPresence`, `FadeRise`. Motion utilities are explicit `@layer utilities` (not `@theme inline --animate-*` — that broke animations). Prefer those helpers over one-off keyframes.  
+- **Out of scope for this pass:** landing hero overhaul, app-wide route transitions, Lottie characters, cursor trails.  
+- **Accessibility:** honor `prefers-reduced-motion` — disable ambient/flow animation, keep only essential fades. Windows “Animation effects” off maps to reduced-motion in Chromium.
 
 ---
 
@@ -158,6 +159,8 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
   --radius-sm:8px; --radius-md:14px; --radius-lg:22px; --radius-pill:999px;
   --shadow-soft:0 4px 24px rgba(28,42,46,.08);
   --ease:cubic-bezier(.22,.61,.36,1);
+  --duration-ui:280ms;
+  --duration-ambient:3.2s;
   --font-display:'Fraunces',serif; --font-sans:'Inter',system-ui,sans-serif; --font-mono:'IBM Plex Mono',monospace;
 }
 ```

@@ -7,6 +7,8 @@ import { addStreamMemberByEmail } from "@/lib/streams/add-member";
 import { removeStreamMember } from "@/lib/streams/remove-member";
 import { updateMemberRole } from "@/lib/streams/update-member-role";
 import { updateStreamIsolation } from "@/lib/streams/update-isolation";
+import { updateStreamPrompt } from "@/lib/prompts/update-stream-prompt";
+import type { PromptKind } from "@/lib/prompts/defaults";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -89,6 +91,47 @@ export async function toggleIsolation(enabled: boolean): Promise<ActionResult> {
   if (!auth.ok) return auth;
 
   const { error } = await updateStreamIsolation(auth.streamId, enabled);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Save a Reflect or Ask system-prompt override for the active stream. */
+export async function saveStreamPrompt(
+  kind: PromptKind,
+  value: string,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (kind !== "reflect" && kind !== "ask") {
+    return { ok: false, error: "Unknown prompt kind." };
+  }
+
+  const { error } = await updateStreamPrompt(auth.streamId, kind, value);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Clear override so the product default is used again. */
+export async function resetStreamPrompt(
+  kind: PromptKind,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (kind !== "reflect" && kind !== "ask") {
+    return { ok: false, error: "Unknown prompt kind." };
+  }
+
+  const { error } = await updateStreamPrompt(auth.streamId, kind, null);
   if (error) {
     return { ok: false, error };
   }

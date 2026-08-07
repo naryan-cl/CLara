@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { inngest, CLARA_DOCUMENT_CREATED } from "@/lib/inngest/client";
@@ -20,18 +21,10 @@ export type ChatResult =
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 20;
 
-const SYSTEM_PROMPT =
-  "You are the CLara Chatbot, a warm and curious space for a Camp CLAI " +
-  "participant to think out loud and reflect, one-on-one. Ask thoughtful " +
-  "follow-up questions, listen well, and help them articulate what's " +
-  "alive for them right now. You do NOT have access to the Camp CLAI " +
-  "Commons, past sessions, or other participants' content — this is a " +
-  "private reflective conversation, not a lookup tool. Keep replies " +
-  "conversational and fairly short (a few sentences), not a lecture.";
-
 /**
  * CLara Chatbot (Add · Reflect): open reflective conversation. Deliberately
  * separate from Ask CLara — no Commons retrieval, no shared prompt/state.
+ * System prompt: stream override or product default (admin-editable).
  */
 export async function sendChatMessage(
   history: ChatMessage[],
@@ -43,6 +36,14 @@ export async function sendChatMessage(
 
   if (!user) {
     return { ok: false, error: "You must be signed in to chat." };
+  }
+
+  const { stream, error: streamError } = await getActiveStream();
+  if (!stream) {
+    return {
+      ok: false,
+      error: streamError ?? "No active stream — join a stream to reflect.",
+    };
   }
 
   const apiKey = getOpenAiApiKey();
@@ -64,11 +65,16 @@ export async function sendChatMessage(
     return { ok: false, error: "Say something first." };
   }
 
+  const { prompt: systemPrompt } = await getEffectiveSystemPrompt(
+    stream.id,
+    "reflect",
+  );
+
   const client = new OpenAI({ apiKey });
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       ...trimmedHistory,
     ],
   });

@@ -7,6 +7,7 @@ import { KnowledgeMap } from "@/components/KnowledgeMap";
 import { FadeRise } from "@/components/motion/FadeRise";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
 import type { CommonsListItem } from "@/lib/commons/types";
+import type { GraphNode } from "@/lib/graph/types";
 
 type View = "map" | "list";
 
@@ -22,17 +23,22 @@ function elementLabel(item: CommonsListItem) {
  * Dashboard's "explore" side: List/Map toggle over the stream's Commons
  * items, plus quick entry points into Add. Map reuses KnowledgeMap with a
  * Commons-derived graph so contributors appear even before concept extraction.
+ * Node detail is owned by DashboardGrid (slides over Ask CLara).
  */
 export function ExploreCommonsPanel({
   items,
   streamId,
   currentUserId,
   error,
+  selectedMapNodeId = null,
+  onMapNodeSelect,
 }: {
   items: CommonsListItem[];
   streamId: string;
   currentUserId: string;
   error?: string | null;
+  selectedMapNodeId?: string | null;
+  onMapNodeSelect?: (node: GraphNode | null) => void;
 }) {
   const [view, setView] = useState<View>("map");
   const [selected, setSelected] = useState<CommonsListItem | null>(null);
@@ -44,6 +50,11 @@ export function ExploreCommonsPanel({
   const actionClass =
     "flex flex-1 items-center justify-center gap-2 rounded-md border border-forest px-4 py-3 text-sm font-medium text-forest transition-[background-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:bg-forest/5 hover:-translate-y-px active:translate-y-0";
 
+  function setViewAndClear(next: View) {
+    setView(next);
+    if (next !== "map") onMapNodeSelect?.(null);
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col gap-6 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
       <div className="flex shrink-0 items-center justify-between gap-3">
@@ -51,19 +62,21 @@ export function ExploreCommonsPanel({
           Explore Commons
         </h2>
         <div className="inline-flex gap-1 rounded-pill bg-cloud/40 p-1">
-          <ViewButton active={view === "map"} onClick={() => setView("map")}>
+          <ViewButton active={view === "map"} onClick={() => setViewAndClear("map")}>
             Map
           </ViewButton>
           <ViewButton
             active={view === "list"}
-            onClick={() => setView("list")}
+            onClick={() => setViewAndClear("list")}
           >
             List
           </ViewButton>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div
+        className={`min-h-0 flex-1 ${view === "map" && items.length > 0 && !error ? "overflow-hidden" : "overflow-auto"}`}
+      >
         {error ? (
           <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
             <p className="font-mono text-sm text-danger">{error}</p>
@@ -99,8 +112,14 @@ export function ExploreCommonsPanel({
             </div>
           </div>
         ) : view === "map" ? (
-          <FadeRise key="map" className="min-w-0">
-            <KnowledgeMap nodes={nodes} edges={edges} />
+          <FadeRise key="map" className="h-full min-h-0 min-w-0">
+            <KnowledgeMap
+              nodes={nodes}
+              edges={edges}
+              selectedId={selectedMapNodeId}
+              onSelect={onMapNodeSelect}
+              hideDetailPanel
+            />
           </FadeRise>
         ) : (
           <FadeRise key="list" className="grid gap-3 sm:grid-cols-2">

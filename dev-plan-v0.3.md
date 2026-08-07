@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-06 (Reflect + Session Composer; run migration 0012)  
+**Last updated:** 2026-08-06 (Admin CLara prompts; run migration 0015)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Apply newer Supabase migrations if missing (`0011`, **`0012_session_composer.sql`** for Reflect / Session Composer).
+5. Apply newer Supabase migrations if missing (`0011`–`0014`, **`0015_stream_system_prompts.sql`** for admin-editable Reflect/Ask prompts).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -73,9 +73,10 @@
 *   `0012_session_composer.sql` — sessions `seed_question` / `description` / `share_token`; `document_sessions`; `session_relations`; private-doc read for attendees/admins; creator attendee insert; `list_stream_peers` RPC.
 *   **`0013_fix_document_sessions_rls.sql`** — breaks documents ↔ document_sessions RLS recursion (Commons “infinite recursion” error). **Run after 0012.**
 *   **`0014_listens_staging_storage.sql`** — private `listens-staging` Storage bucket (25MB, path `{stream_id}/{uuid}.{ext}`) for Listens v2 async Whisper. **Required for Record after v2 Module A.**
+*   **`0015_stream_system_prompts.sql`** — `streams.reflect_system_prompt` + `streams.ask_system_prompt` (nullable text). NULL = product default in code. Admin UI on `/admin`. **Required for editable CLara prompts.**
 
 ### Not yet migrated
-*   (none outstanding — ensure **0012** and **0013** are applied on the shared Supabase project)
+*   (ensure **0012**–**0015** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -104,6 +105,7 @@
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
 | Harvest UI | `src/app/(app)/sessions/harvest/page.tsx`, `src/components/HarvestExport.tsx` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
+| Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
 | Ask CLara embeddings (Module A) | `src/lib/embeddings/{chunk-text,store-document-embeddings}.ts`, `src/lib/openai/embed.ts`, `src/lib/inngest/functions/embed-document.ts` — chunk → embed → `document_embeddings` on `clara/document.created` |
 | Ask CLara retrieval + UI (Module B) | `src/lib/embeddings/search-commons.ts` (embed question → `match_document_chunks` RPC), `src/app/(app)/ask/actions.ts` (`askClara` — grounded chat completion + citations), `src/components/AskForm.tsx`, `src/app/(app)/ask/page.tsx` |
@@ -111,7 +113,7 @@
 | Session Composer | `src/components/SessionComposer.tsx`, `src/app/(app)/sessions/composer-actions.ts`, `/join/[token]` |
 | Listens (Record) | `src/app/(app)/sessions/listens-actions.ts`, `src/components/ListensRecorder.tsx`, `/add/record` |
 | Knowledge Map extraction (Module A) | `src/lib/graph/{types,extract-graph,upsert-graph}.ts` (LLM proposes nodes/edges → admin-client upsert, dedupes nodes by label), `src/lib/inngest/functions/extract-graph.ts` — public-documents-only, on `clara/document.created` |
-| Knowledge Map read + UI (Module B) | `src/lib/graph/{list-graph,layout}.ts` (RLS read; `computeGraphLayout` — pure d3-force layout, deterministic seeded positions), `src/components/KnowledgeMap.tsx` (dark-canvas SVG render + detail panel), `src/app/(app)/map/page.tsx` |
+| Knowledge Map read + UI (Module B) | `src/lib/graph/{list-graph,layout,curves}.ts` (RLS read; `computeGraphLayout` / live `createGraphSimulation`; quadratic edge paths), `src/components/KnowledgeMap.tsx` + `NodeDetailPanel.tsx` (fill canvas, zoom/pan, pin-drag, detail overlay), `src/app/(app)/map/page.tsx`, dashboard overlay via `DashboardGrid` |
 | Env template | `.env.example` |
 
 ### Inngest
@@ -141,9 +143,12 @@
 *   **Dashboard redesign shipped 2026-08-05 (component-verified; live Supabase data path not yet verified):** `/dashboard` replaced with a two-panel Explore Commons + Ask CLara layout imported from a Claude Design mockup (`claude.ai/design` project `732f3a44…`, file `CLara Dashboard.dc.html`). Old static "Placeholder data" anchors, "Jump in" link grid, page-level `{stream} Dashboard` header, and "Recent Commons Activity" section all removed.
 *   **Motion / aliveness foundation shipped 2026-08-06:** CSS motion tokens + keyframes in `globals.css` (`--ease`, `--duration-ui`, `--duration-ambient`; `clara-breathe`, `fade-rise`, `glow-pulse`, `panel-slide-in`, `success-glow`) with `prefers-reduced-motion` gates. Signature moments: `ThinkingPresence` (Ask + Chat — breathing glow, not spinner), Knowledge Map selected-node pulse + sliding detail panel, FadeRise on messages/source chips/Commons popup/Map↔List toggle. Micro-delight: `.btn-primary` lift, `.card-press`, empty-state ambient glow, nav active glow settle, success beat on save/share/upload/record. Helpers live in `src/components/motion/`. No motion library added. **Decision:** aliveness = luminous presence (DESIGN_GUIDE grounded · luminous · spacious), not bounce/confetti; CSS-first so beginners can read the motion vocabulary in one place. *(Reflect Submit adds a one-shot confetti celebration as an intentional exception for contribution gratitude.)*
 *   **Motion bugfix (2026-08-06):** `@theme inline --animate-*` tokens that nested `var(--duration-*)` / `var(--ease)` produced broken animation shorthands — classes looked present in markup but motion never ran. Fixed by defining `.animate-clara-breathe` / `.animate-fade-rise` / etc. as explicit `@layer utilities` that resolve `:root` vars at runtime. Dashboard empty map clarified: Explore panel is wired to real `listGraph()`; empty = no `nodes` rows yet (needs Public doc + `clara-extract-graph`), not a missing UI connection. Empty-state copy + error hint for missing `0010` migration.
+*   **Motion closed out (2026-08-06 evening):** User verified breathing feels good. Ambient cycle settled at **`--duration-ambient: 3.2s`** (100% slower than the interim 1.6s). Map pulse uses the same token; hover (not only selection) also glows. Aliveness plan complete — intentionally **not** doing landing-hero overhaul, app-wide page-route transitions, Lottie, or cursor trails. `ListeningPresence` (Reflect empty state) shares the same breathe vocabulary.
 *   **Reflect + Session Composer shipped (2026-08-06):** Apply **`0012_session_composer.sql`** + **`0013_fix_document_sessions_rls.sql`**. Nav Add → Reflect; Session Composer on Reflect/Record/Upload; `/join/[token]`; autosave + Submit; reflections linked via `document_sessions` (not merged). Private = off public Commons/map, visible to attendees/admins; Inquiry seeds open as CLara messages.
 *   **Reflect UX polish (2026-08-06):** Session Composer is button-driven (Connect picker with search; Create opens a modal). Single **Inquiry** field (stored as `seed_question`; description field removed from create UI). Reflect privacy checkbox moved under Send and **defaults unchecked** (public unless opted private).
 *   **Dashboard Commons wiring + Add fix (2026-08-06):** Explore Map/List now use `listCommonsItems` (same Commons docs/sessions as `/commons`), not only Knowledge Map extraction nodes. Map builds a lightweight graph via `commonsItemsToGraph` (docs linked to their session when present). List opens `CommonsDetailPopup`. Dashboard columns stretch to equal height and fill the desktop viewport (`min-h` + `items-stretch`). Record/Reflect/Upload quick actions share the same outline style. Removed Commons page “Add something” button (Add lives in nav + dashboard). **Bugfix:** Record/Upload crashed because Server pages passed a children render-function into Client `AddWithSessionComposer` (non-serializable RSC boundary); now uses a `mode: "record" | "upload"` prop like Reflect’s dedicated client page.
+
+*   **Knowledge Map interaction pass (2026-08-06):** Festival-style canvas — curved edges (`src/lib/graph/curves.ts`), ResizeObserver fill (no blank under map), scroll-zoom + drag-pan, drag-to-pin with live `d3-force` reheat for unpinned peers (double-click unpins). Dashboard: `DashboardGrid` slides `NodeDetailPanel` over Ask CLara so Explore width stays fixed (`hideDetailPanel` on map). `/map` keeps an in-canvas overlay panel. **Manual test:** (1) dashboard Map fills Explore height; (2) click node → Ask covered, map unchanged; (3) wheel zoom / drag pan; (4) drag node → stays pinned, others settle; (5) double-click pin to release; (6) `/map` still works.
 
 *   **Listens Record UX (2026-08-06):** Title label without “(optional)”; live mic level + frequency-bar waveform via Web Audio `AnalyserNode`; Pause/Resume (`MediaRecorder.pause`); Stop relabeled **Submit**; on success navigates to `/sessions/documents/[id]`.
 *   **Listens system/tab audio (2026-08-06):** Optional “Include system/tab audio” uses `getDisplayMedia` (video discarded; audio kept), mixed with mic via `AudioContext` → `MediaStreamDestination` for one Whisper blob. Separate **Mic** and **System** volume meters. Browser must share audio in the picker (tab audio or Windows system audio). If share ends mid-take, mic continues.
@@ -159,6 +164,8 @@
 *   **Record page UX (2026-08-06):** Removed page eyebrows (`Add · Record` / Reflect / Upload). Record description updated. Listens card no longer shows “CLara Listens” header; system-audio hint shortened to Chrome/Edge + “Also share system audio”. Record Session Composer is now **Session details** below the recorder (always open): Title (= session name), Inquiry, Participants, Connections — no Connect/Create buttons. Filling Title creates the session on Submit; Connections still link existing sessions. Reflect/Upload keep button composer.
 
 *   **Record capture strip (2026-08-06):** Single Title lives in Session details (placeholder “What did you talk about?”); Inquiry/Description placeholder “What did you gather to explore together?”. Capture UI is mic / pause / stop / trash icons + waveform; system-audio checkbox under meters; **Submit** under Connections. Stop (or interrupt) keeps staged audio (“Saved — ready to submit”); Trash confirms and deletes staging, stays on Record. Submit while live opens a dialog: Stop & submit, or Save details & continue recording.
+
+*   **Admin CLara prompts (2026-08-06, code shipped — apply migration):** `0015_stream_system_prompts.sql` adds nullable `streams.reflect_system_prompt` + `streams.ask_system_prompt`. Product defaults live in `src/lib/prompts/defaults.ts`. `sendChatMessage` / `askClara` load the effective prompt per stream (override or default; fail soft to default if read fails). `/admin` **CLara prompts** section (`PromptsPanel`) lets stream admins view, edit, save, and reset each prompt independently. Saving text identical to the default clears the override (NULL). **Decision:** admin-only for v1; participant prompt transparency later. Reflect ≠ Ask remain separate columns and call sites. **Manual test:** (1) run `0015` in Supabase; (2) Admin → see both current prompts; (3) edit Reflect → Save → send a Reflect message and confirm tone changed; (4) Reset Reflect → confirm default restored; (5) edit Ask independently and confirm Reflect unchanged; (6) non-admin still cannot open Admin prompts.
 
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
@@ -242,11 +249,12 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Commit + deploy this session’s work** — Record/Upload fix, dashboard Commons map/list, Listens pause/waveform/system audio, Commons popup without minimize — if not already on `main`/Vercel.
-2.  **Prod migrations check** — confirm `0011`–`0013` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
-3.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
-4.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
-5.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
+1.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
+2.  **Commit + deploy this session’s work** — if not already on `main`/Vercel.
+3.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+4.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+6.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.

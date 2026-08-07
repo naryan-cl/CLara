@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-06 (Record Session details + page eyebrow cleanup)  
+**Last updated:** 2026-08-06 (Admin CLara prompts; run migration 0015)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -34,6 +34,7 @@
 *   **Site IA Phase 6 shipped in code (2026-08-05):** nav + Add routes + Commons repository/popup/comments implemented. Apply Supabase migration `0011_comments_and_attendee_edit.sql` before comments and attendee-edit work against the shared database.
 *   **Add · Reflect + Session Composer (2026-08-06):** Nav label **Chat → Reflect**. Reflect page (`/add/chat`) uses shared **Session Composer** (connect 1–3 sessions, create group reflection = create a **session** with optional seed question/description, share link `/join/[token]` + QR, participant autocomplete from stream peers). Each Reflect conversation remains its **own** `documents` Reflection row linked via `document_sessions` (never merged into one session body). **Private** reflections stay off the public Commons list and Knowledge Map, but **session attendees + stream admins can read** them. Autosave drafts + Submit (after ~2 exchanges) with thank-you / flower placeholder (map flowers = later). Same Session Composer on Record and Upload. Apply migration **`0012_session_composer.sql`**.
 *   **Record Session details (2026-08-06):** Record no longer uses Connect/Create buttons. Below the recorder, an always-open **Session details** form has Title (session name), Inquiry/Description, Participants, and Connections. Filling Title creates the session on Submit. Reflect/Upload keep the button composer. Page eyebrows (`Add · …`) removed from Add pages. Capture strip: mic/pause/stop/trash; Stop saves staging; Trash deletes; Submit under Connections with in-progress confirmation.
+*   **Admin-editable CLara prompts (2026-08-06):** Stream admins can view/edit the Reflect and Ask CLara system prompts on `/admin` (per-stream overrides on `streams`; NULL = product default in code). Reflect ≠ Ask stay separate. Apply migration **`0015_stream_system_prompts.sql`**. Participant-facing prompt transparency is later.
 
 ---
 
@@ -188,10 +189,11 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav.
 *   Pipelines stay separate from Chatbot — no shared prompt/state.
 
-### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has three sections:
+### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has these sections:
 *   **Metadata queue** — lists documents with `needs_review = true`. No separate "approve" action — opening a flagged document through the normal editor and saving with Title + Type filled clears the flag.
 *   **Membership** — add an *existing* account to the stream by email, promote/demote member ↔ admin, remove a member. Deliberately does not create accounts or send invite email — the person must have signed in at least once already; a UI guard prevents an admin from removing/demoting themselves.
 *   **Isolation** — toggle for `streams.isolation_enabled` (§4.2), previously database-only.
+*   **CLara prompts** *(2026-08-06):* view and edit the Reflect (Chatbot) and Ask CLara system prompts for the active stream. Overrides live on `streams.reflect_system_prompt` / `streams.ask_system_prompt` (NULL = product default in `src/lib/prompts/defaults.ts`). Reset clears the override. Admin-only for v1; pipelines stay separate.
 *   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---

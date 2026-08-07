@@ -39,7 +39,9 @@ export default async function MapPage() {
           </p>
         </div>
       ) : (
-        <KnowledgeMap nodes={nodes} edges={edges} />
+        <div className="h-[min(70vh,640px)] min-h-[320px]">
+          <KnowledgeMap nodes={nodes} edges={edges} />
+        </div>
       )}
     </div>
   );
