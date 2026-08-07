@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-07 (Dashboard resizable panes + SSO preview docs)  
+**Last updated:** 2026-08-07 (Closed superseded draft PRs #1/#2)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -188,6 +188,8 @@
 *   **Git handoff rule (2026-08-07):** Agents must **land finished work on `main`** (push or merge) before ending a session. Feature-branch-only / unmerged PRs are how prior polish (sprites, FAB position, hover) was lost — next agents checkout `main`, not orphaned branches. Deploying a preview ≠ updating `main`. See `.cursorrules` “Git — always land on main.”
 
 *   **Dashboard panes: resize + Ask click-away + SSO docs (2026-08-07):** Cherry-picked leftover polish from draft PRs #1/#2 (not whole-merge — those branches would wipe wallpaper). **SSO:** `.env.example` + Dev Plan note for Vercel preview Redirect URL wildcard. **Ask:** click-away re-minimizes when there is no live thread / detail (`onHasConversationChange`). **Resize:** Ask/Details and Commons List panes drag-resize (sizes in `localStorage`); List uses `auto-fill` grid so extra columns appear when the pane is wide enough (~220px card min). **Manual test:** (1) widen List → 2+ columns; (2) drag Ask left/bottom edges; (3) open Ask empty then click map → collapses; (4) with a thread open, click-away keeps it open.
+
+*   **Closed superseded draft PRs (2026-08-07):** [#1](https://github.com/naryan-cl/CLara/pull/1) (`cursor/map-node-sprites-06aa`) and [#2](https://github.com/naryan-cl/CLara/pull/2) (`cursor/dashboard-polish-4b14`) closed without merge. Useful bits already on `main` via cherry-pick / wallpaper work (sprites, FAB top-left, sand hover, SSO docs, Ask click-away). Remaining optional leftovers **not** ported: `scripts/prepare-map-sprites.py` + `sprites:prepare` npm script, collide padding `+18`, scoped Ask RPC fallback polish in `search-commons.ts`. Do not reopen/merge those branches wholesale — they predate fullscreen map + Plant wallpaper.
 
 *   **Phase 7 Module A polish (2026-08-07 evening):** Wallpaper is now **procedural SVG** (soft radial washes + contour paths) — no bitmap, so zoom stays sharp and generation is faster. Plant greens lightened (`#D5E6D2` base). Add/List FABs restored to **top-left**; Ask stays top-right. Record/Reflect/Upload hover uses solid **sand** (not transparent forest/5). **Why prior polish was “lost”:** those fixes lived on parallel agent branches that never merged into `main` / this PR branch — cloud agents each branch from `main`, so unmerged PRs do not appear in later agents. Fix: merge (or cherry-pick) finished PRs into `main` before starting the next agent, not only deploy to Vercel.
 
