@@ -13,6 +13,7 @@ import { findCommonsItemForGraphNode } from "@/lib/commons/graph-node";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphNode } from "@/lib/graph/types";
+import { PLANT_PALETTE } from "@/lib/map-theme";
 
 type AskHandoff = {
   key: string;
@@ -91,7 +92,8 @@ export function DashboardGrid({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-0 bg-forest-deep"
+      className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-0"
+      style={{ background: PLANT_PALETTE.base }}
       aria-label="Stream dashboard"
     >
       {/* Map canvas */}
@@ -133,6 +135,8 @@ export function DashboardGrid({
             onSelect={onMapNodeSelect}
             hideDetailPanel
             hideChrome
+            wallpaperTheme="plant"
+            wallpaperSeed={`stream:${streamId}`}
             className="h-full w-full rounded-none border-0"
           />
         )}

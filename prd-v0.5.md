@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-07 (Map theme unlock rules locked)  
+**Last updated:** 2026-08-07 (Phase 7 Module A — Plant wallpaper)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -35,7 +35,7 @@
 *   **Add · Reflect + Session Composer (2026-08-06):** Nav label **Chat → Reflect**. Reflect page (`/add/chat`) uses shared **Session Composer** (connect 1–3 sessions, create group reflection = create a **session** with optional seed question/description, share link `/join/[token]` + QR, participant autocomplete from stream peers). Each Reflect conversation remains its **own** `documents` Reflection row linked via `document_sessions` (never merged into one session body). **Private** reflections stay off the public Commons list and Knowledge Map, but **session attendees + stream admins can read** them. Autosave drafts + Submit (after ~2 exchanges) with thank-you / flower placeholder (map flowers = later). Same Session Composer on Record and Upload. Apply migration **`0012_session_composer.sql`**.
 *   **Record Session details (2026-08-06):** Record no longer uses Connect/Create buttons. Below the recorder, an always-open **Session details** form has Title (session name), Inquiry/Description, Participants, and Connections. Filling Title creates the session on Submit. Reflect/Upload keep the button composer. Page eyebrows (`Add · …`) removed from Add pages. Capture strip: mic/pause/stop/trash; Stop saves staging; Trash deletes; Submit under Connections with in-progress confirmation.
 *   **Admin-editable CLara prompts (2026-08-06):** Stream admins can view/edit the Reflect and Ask CLara system prompts on `/admin` (per-stream overrides on `streams`; NULL = product default in code). Reflect ≠ Ask stay separate. Apply migration **`0015_stream_system_prompts.sql`**. Participant-facing prompt transparency is later.
-*   **Map theme wallpapers (2026-08-07, decided — not built):** Dashboard canvas backgrounds will support **Plant / Ocean / Desert** topographic themes (generative contour + elevation bands). Wallpaper **pans/zooms with the graph**. Node glyphs stay basic circles (no theme sprites); label/edge contrast adjusts per theme. **Stream admin** sets default theme + contribution thresholds to unlock more themes; each member selects among unlocked themes; unlock shows a congratulations popup offering to apply the new theme. **Unlock unit:** Commons documents the member authored that are finalized and **Public** — drafts and Private items do not count. **Default thresholds:** Plant available immediately; Ocean at **5** contributions; Desert at **10** (admin-overridable). See `dev-plan-v0.3.md` §4.
+*   **Map theme wallpapers (2026-08-07, decided — Module A shipped in code):** Dashboard canvas backgrounds support **Plant / Ocean / Desert** topographic themes (generative contour + elevation bands). Wallpaper **pans/zooms with the graph**. Node glyphs stay basic circles (no theme sprites); label/edge contrast adjusts per theme. **Plant** is live on the dashboard map (seeded per stream). Ocean/Desert palettes stubbed; Admin unlocks + per-user pick not built yet. **Unlock unit:** Commons documents the member authored that are finalized and **Public** — drafts and Private items do not count. **Default thresholds:** Plant available immediately; Ocean at **5** contributions; Desert at **10** (admin-overridable). See `dev-plan-v0.3.md` §4.
 
 ---
 

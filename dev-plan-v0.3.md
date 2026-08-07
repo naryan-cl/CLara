@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-07 (Map theme unlock rules: public contributions; Ocean@5 / Desert@10)  
+**Last updated:** 2026-08-07 (Phase 7 Module A — Plant wallpaper shipped in code)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -182,7 +182,10 @@
     **Unlock counting (locked 2026-08-07):** A contribution = a **Commons document the member authored** in that stream that is **not a draft** and **not Private**. Drafts and private items never count toward unlocks.
     **Default Camp CLAI thresholds (locked 2026-08-07; admin-overridable later):** **Plant** available from the start (stream default). **Ocean** unlocks at **5** counting contributions. **Desert** unlocks at **10**.
     **Technical approach (planned):** procedural large world under the pan/zoom `<g>` (canvas/WebGL or SVG paths from seeded noise), theme = palette + seed params; optional subtle drift. Schema sketch (later migration): stream defaults + unlock thresholds; per-member selected theme + unlock state; contribution count helper (`author_id` + stream + not draft + not private).
+    **Impl note for Module D:** Reflect **autosave** already writes real `documents` rows today with no `is_draft` / `submitted_at` column — counting “non-draft” will need a small schema or status flag so autosaved reflections are excluded until Submit. Record/Upload count on successful finalize (public only).
     **Build as small modules (when started):** A wallpaper renderer + Plant palette; B Ocean/Desert + contrast tokens; C Admin default + thresholds; D unlock count + popup + user theme pick. Do not mix into Chatbot/Ask pipelines.
+
+*   **Phase 7 Module A — Plant wallpaper (2026-08-07, code shipped):** Generative lighter-green topo behind the **dashboard** Commons map. Seeded fBm height field → canvas elevation wash + SVG marching-squares contours (`src/lib/map-theme/`). `MapWallpaper` sits inside the pan/zoom `<g>` so it moves with the graph; subtle drift (~12 fps) freezes under `prefers-reduced-motion`. Contrast pass: dark ink labels, forest edges, light node ring on Plant field. Nodes stay plain circles (no sprites). `/map` stays classic dark (no wallpaper prop). Dashboard passes `wallpaperTheme="plant"` + `wallpaperSeed={stream:…}`. **Manual test:** (1) dashboard with Commons items shows Plant wash + contours; (2) pan/zoom moves wallpaper with nodes; (3) labels readable on green; (4) `/map` still dark forest-deep; (5) reduced-motion → no drift.
 
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
@@ -267,12 +270,13 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
-1.  **Map theme Module A (when product says go):** generative Plant wallpaper inside pan/zoom group + contrast pass for lighter field; nodes remain plain circles.
-2.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
-3.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
-4.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
-5.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
-6.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later. Optional: whether theme wallpapers also apply on `/map`.
+1.  **Verify Phase 7 Module A** on a real dashboard (pan/zoom/contrast), then tune Plant palette if needed.
+2.  **Phase 7 Module B:** wire Ocean + Desert palettes (already stubbed) + optional theme switcher for testing before unlocks.
+3.  **Apply migration `0015_stream_system_prompts.sql`** on shared Supabase, then verify Admin → CLara prompts (edit/save/reset Reflect + Ask).
+4.  **Prod migrations check** — confirm `0011`–`0015` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
+5.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Module B chunked path shipped 2026-08-06 (apply `0014` if not already).
+6.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
+7.  **Knowledge Map vs Commons map** — decide whether `/map` stays concept-extraction-only while dashboard Map shows Commons items (current), or unify later. Optional: whether theme wallpapers also apply on `/map`.
 
 ### Blocked / open
 *   Supabase Auth URL config for production (Google redirect) — needs **owner** access.
@@ -325,9 +329,9 @@ Build one module at a time; verify; update this Progress section; then continue.
 *   [x] **Module E — Comments + audit log** — `0011_comments_and_attendee_edit.sql` + CommentThread; author edit/delete; "edited" marker; admin audit — shipped 2026-08-05 (**run migration in Supabase**)
 *   [x] **Module F — Docs & landing copy** — landing triad Add/Commons/Synthesis; dashboard jump-in updated — shipped 2026-08-05
 
-### Phase 7 — Map theme wallpapers *(decided 2026-08-07 — not started)*
+### Phase 7 — Map theme wallpapers *(Module A shipped 2026-08-07)*
 
-*   [ ] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast; nodes stay plain circles
+*   [x] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast; nodes stay plain circles
 *   [ ] **Module B — Ocean + Desert palettes** — same renderer, theme tokens; optional subtle contour drift (`prefers-reduced-motion` → static)
 *   [ ] **Module C — Admin defaults + thresholds** — stream default theme + contribution counts to unlock themes (seed defaults: Plant free, Ocean @ 5, Desert @ 10)
 *   [ ] **Module D — Unlocks + user pick** — count authored **Public non-draft** Commons docs; unlock popup (“Apply it now?”); per-member theme selection

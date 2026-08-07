@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { MapWallpaper } from "@/components/map/MapWallpaper";
 import { NodeDetailPanel } from "@/components/NodeDetailPanel";
 import { curvedPath, edgeEndpoints } from "@/lib/graph/curves";
 import {
@@ -21,6 +22,7 @@ import {
   findNearestInDirection,
 } from "@/lib/graph/spatial-nav";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
+import { paletteFor, type MapThemeId } from "@/lib/map-theme";
 
 type ViewTransform = { x: number; y: number; k: number };
 
@@ -64,8 +66,12 @@ function getMountedServerSnapshot() {
 
 /**
  * Knowledge Map canvas (DESIGN_GUIDE.md "Knowledge Map" + Festival harvest
- * patterns): dark forest-deep surface, curved sage edges, scroll-zoom /
- * drag-pan, drag-to-pin nodes with live force adjust for unpinned peers.
+ * patterns): curved edges, scroll-zoom / drag-pan, drag-to-pin nodes with
+ * live force adjust for unpinned peers.
+ *
+ * Optional `wallpaperTheme` (Phase 7): generative topo under the graph that
+ * pans/zooms with nodes. Nodes stay plain circles; contrast tokens come from
+ * the theme palette. Omit theme for the classic dark forest-deep canvas.
  *
  * `hideDetailPanel` + `onSelect` let the dashboard open detail inside Ask
  * without resizing the map. `hideChrome` drops the hint row for full-bleed.
@@ -77,6 +83,8 @@ export function KnowledgeMap({
   onSelect,
   hideDetailPanel = false,
   hideChrome = false,
+  wallpaperTheme = null,
+  wallpaperSeed,
   className = "",
 }: {
   nodes: GraphNode[];
@@ -86,6 +94,10 @@ export function KnowledgeMap({
   hideDetailPanel?: boolean;
   /** Dashboard full-bleed: no hint row, square canvas edge. */
   hideChrome?: boolean;
+  /** Generative topo wallpaper (Plant/Ocean/Desert). Null = dark classic. */
+  wallpaperTheme?: MapThemeId | null;
+  /** Seed for generative terrain (stable per stream is ideal). */
+  wallpaperSeed?: string;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -129,6 +141,9 @@ export function KnowledgeMap({
     getMountedSnapshot,
     getMountedServerSnapshot,
   );
+
+  const themePalette = wallpaperTheme ? paletteFor(wallpaperTheme) : null;
+  const canvasFill = themePalette?.base ?? "var(--forest-deep)";
 
   useEffect(() => {
     viewRef.current = view;
@@ -264,6 +279,12 @@ export function KnowledgeMap({
   const activeId = focusedId ?? selectedId ?? simNodes[0]?.id ?? null;
   const ready = hasMounted && size.width > 0 && simNodes.length > 0;
 
+  const edgeStroke = themePalette?.edgeStroke ?? "var(--sage)";
+  const edgeOpacity = themePalette?.edgeOpacity ?? 0.45;
+  const labelFill = themePalette?.labelFill ?? "var(--paper)";
+  const nodeStrokeDefault = themePalette?.nodeStroke ?? "transparent";
+  const pinnedStroke = themePalette?.pinnedStroke ?? "var(--paper)";
+
   return (
     <div
       className={`relative flex h-full min-h-[220px] w-full flex-col ${hideChrome ? "gap-0" : "gap-2"} ${className}`.trim()}
@@ -278,11 +299,16 @@ export function KnowledgeMap({
       <div
         ref={containerRef}
         className={`relative min-h-0 flex-1 overflow-hidden touch-none ${hideChrome ? "" : "rounded-lg"}`}
-        style={{ background: "var(--forest-deep)" }}
+        style={{ background: canvasFill }}
       >
         {!ready ? (
           <div className="flex h-full min-h-[220px] items-center justify-center">
-            <p className="font-mono text-xs text-sage">Laying out the map…</p>
+            <p
+              className={`font-mono text-xs ${themePalette ? "" : "text-sage"}`}
+              style={themePalette ? { color: labelFill } : undefined}
+            >
+              Laying out the map…
+            </p>
           </div>
         ) : (
           <svg
@@ -303,10 +329,11 @@ export function KnowledgeMap({
               }));
             }}
           >
+            {/* Hit target uses theme base; wallpaper lives inside the transform. */}
             <rect
               width="100%"
               height="100%"
-              fill="var(--forest-deep)"
+              fill={canvasFill}
               onPointerDown={(event) => {
                 if (event.button !== 0) return;
                 dragRef.current = {
@@ -343,6 +370,16 @@ export function KnowledgeMap({
             />
 
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+              {wallpaperTheme ? (
+                <MapWallpaper
+                  theme={wallpaperTheme}
+                  viewportWidth={size.width}
+                  viewportHeight={size.height}
+                  seed={wallpaperSeed}
+                  reducedMotion={reducedMotion}
+                />
+              ) : null}
+
               {edges.map((edge) => {
                 const source = nodeById.get(edge.sourceNodeId);
                 const target = nodeById.get(edge.targetNodeId);
@@ -361,8 +398,8 @@ export function KnowledgeMap({
                     key={edge.id}
                     d={d}
                     fill="none"
-                    stroke="var(--sage)"
-                    strokeOpacity={0.45}
+                    stroke={edgeStroke}
+                    strokeOpacity={edgeOpacity}
                     strokeWidth={1.5}
                     strokeDasharray={reducedMotion ? undefined : "4 6"}
                     style={
@@ -482,8 +519,8 @@ export function KnowledgeMap({
                       r={r}
                       fill={colorFor(node.type)}
                       fillOpacity={isLit ? 1 : 0.85}
-                      stroke={isPinned ? "var(--paper)" : "transparent"}
-                      strokeWidth={isPinned ? 2 : 0}
+                      stroke={isPinned ? pinnedStroke : nodeStrokeDefault}
+                      strokeWidth={isPinned ? 2 : themePalette ? 1 : 0}
                       style={
                         isLit && !reducedMotion
                           ? {
@@ -501,7 +538,8 @@ export function KnowledgeMap({
                     <text
                       y={r + 16}
                       textAnchor="middle"
-                      className="fill-paper font-mono text-[10px] select-none"
+                      className={`font-mono text-[10px] select-none ${themePalette ? "" : "fill-paper"}`}
+                      fill={themePalette ? labelFill : undefined}
                       style={{ pointerEvents: "none" }}
                     >
                       {node.label.length > 22
