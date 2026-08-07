@@ -5,6 +5,8 @@ import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { searchCommons } from "@/lib/embeddings/search-commons";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
 import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
+import type { AskScope } from "@/lib/ask/scope";
+import { askScopeIsActive } from "@/lib/ask/scope";
 
 export type AskSource = {
   documentId: string;
@@ -25,6 +27,9 @@ export type AskResult =
 
 const NOTHING_FOUND_ANSWER =
   "I couldn't find anything in the Camp CLAI Commons about that yet. Try a different question, or check back once more has been added.";
+
+const NOTHING_FOUND_SCOPED =
+  "I couldn't find anything grounded in that Commons element yet. It may not be embedded, or try a different question about it.";
 
 /** Cap history so prompts stay bounded (same spirit as Chatbot's cap). */
 const MAX_HISTORY_MESSAGES = 12;
@@ -50,12 +55,14 @@ function sanitizeHistory(
 
 /**
  * Ask CLara — grounded RAG over the Commons.
- * Optional `history` enables follow-ups in the same UI session without
- * mixing prompts/state with the CLara Chatbot (Add → Reflect).
+ * Optional `history` enables follow-ups; optional `scope` limits retrieval
+ * to one document or session (dashboard map "Ask about this").
+ * Separate from the CLara Chatbot (Add → Reflect).
  */
 export async function askClara(
   question: string,
   history: AskHistoryMessage[] = [],
+  scope: AskScope | null = null,
 ): Promise<AskResult> {
   const trimmed = question.trim();
   if (!trimmed) {
@@ -76,6 +83,7 @@ export async function askClara(
   }
 
   const prior = sanitizeHistory(history);
+  const scoped = askScopeIsActive(scope);
 
   // Retrieval uses the latest question. For short follow-ups ("what else?"),
   // blend the previous user question so embeddings stay on-topic.
@@ -88,14 +96,25 @@ export async function askClara(
   const { matches, error: searchError } = await searchCommons(
     stream.id,
     retrievalQuery,
+    undefined,
+    undefined,
+    scope,
   );
   if (searchError) {
     return { ok: false, error: searchError };
   }
 
   if (matches.length === 0 && prior.length === 0) {
-    return { ok: true, answer: NOTHING_FOUND_ANSWER, sources: [] };
+    return {
+      ok: true,
+      answer: scoped ? NOTHING_FOUND_SCOPED : NOTHING_FOUND_ANSWER,
+      sources: [],
+    };
   }
+
+  const scopeHint = scoped
+    ? `\n\n(Ground answers only in excerpts from: ${scope!.label}. If the excerpts aren't enough, say so clearly.)`
+    : "";
 
   const context =
     matches.length === 0
@@ -120,7 +139,7 @@ export async function askClara(
     messages: [
       {
         role: "system",
-        content: systemPrompt,
+        content: systemPrompt + scopeHint,
       },
       ...prior.map((m) => ({
         role: m.role as "user" | "assistant",

@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { embedTexts } from "@/lib/openai/embed";
+import type { AskScope } from "@/lib/ask/scope";
+import { askScopeIsActive } from "@/lib/ask/scope";
 
 export type CommonsMatch = {
   chunkId: string;
@@ -32,44 +34,90 @@ const DEFAULT_MATCH_COUNT = 6;
  */
 export const DEFAULT_MIN_SIMILARITY = 0.28;
 
+function rowToMatch(row: MatchDocumentChunksRow): CommonsMatch {
+  return {
+    chunkId: row.chunk_id,
+    documentId: row.document_id,
+    documentTitle: row.document_title,
+    documentType: row.document_type,
+    sessionId: row.session_id,
+    sessionName: row.session_name,
+    content: row.content,
+    similarity: row.similarity,
+  };
+}
+
+function filterByScope(
+  matches: CommonsMatch[],
+  scope: AskScope | null | undefined,
+): CommonsMatch[] {
+  if (!askScopeIsActive(scope)) return matches;
+  return matches.filter((match) => {
+    if (scope?.documentId && match.documentId !== scope.documentId) {
+      return false;
+    }
+    if (scope?.sessionId && match.sessionId !== scope.sessionId) {
+      return false;
+    }
+    return true;
+  });
+}
+
 /**
  * Embed a question and find the most relevant Commons chunks in one stream,
- * via the `match_document_chunks` SECURITY DEFINER function (0009) — it
- * re-checks stream membership and document privacy itself, so this uses the
- * normal request-scoped (RLS-bound) client, not the admin client.
+ * via the `match_document_chunks` SECURITY DEFINER function.
+ * Optional `scope` limits retrieval to one document or one session (0016).
+ * If 0016 isn't applied yet, falls back to a wider unscoped fetch + client filter.
  */
 export async function searchCommons(
   streamId: string,
   question: string,
   matchCount: number = DEFAULT_MATCH_COUNT,
   minSimilarity: number = DEFAULT_MIN_SIMILARITY,
+  scope?: AskScope | null,
 ): Promise<{ matches: CommonsMatch[]; error: string | null }> {
   const [queryEmbedding] = await embedTexts([question]);
-
   const supabase = await createClient();
+  const scoped = askScopeIsActive(scope);
+
   const { data, error } = await supabase.rpc("match_document_chunks", {
     p_stream_id: streamId,
     p_query_embedding: queryEmbedding,
     p_match_count: matchCount,
+    p_document_id: scope?.documentId ?? null,
+    p_session_id: scope?.sessionId ?? null,
   });
 
-  if (error) {
+  if (!error) {
+    const rows = (data ?? []) as MatchDocumentChunksRow[];
+    const matches = rows
+      .map(rowToMatch)
+      .filter((match) => match.similarity >= minSimilarity);
+    return { matches, error: null };
+  }
+
+  // Before 0016: RPC rejects unknown args. Retry unscoped, then filter.
+  if (!scoped) {
     return { matches: [], error: error.message };
   }
 
-  const rows = (data ?? []) as MatchDocumentChunksRow[];
-  const matches: CommonsMatch[] = rows
-    .map((row) => ({
-      chunkId: row.chunk_id,
-      documentId: row.document_id,
-      documentTitle: row.document_title,
-      documentType: row.document_type,
-      sessionId: row.session_id,
-      sessionName: row.session_name,
-      content: row.content,
-      similarity: row.similarity,
-    }))
-    .filter((match) => match.similarity >= minSimilarity);
+  const fallback = await supabase.rpc("match_document_chunks", {
+    p_stream_id: streamId,
+    p_query_embedding: queryEmbedding,
+    p_match_count: Math.max(matchCount * 6, 40),
+  });
+
+  if (fallback.error) {
+    return { matches: [], error: fallback.error.message };
+  }
+
+  const rows = (fallback.data ?? []) as MatchDocumentChunksRow[];
+  const matches = filterByScope(
+    rows
+      .map(rowToMatch)
+      .filter((match) => match.similarity >= minSimilarity),
+    scope,
+  ).slice(0, matchCount);
 
   return { matches, error: null };
 }

@@ -185,8 +185,8 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   Existing document routes (`/sessions/documents/[id]`, archive pages) can remain as deep links until the popup UX replaces them.
 
 ### 7.4 Synthesis — Ask CLara / Knowledge Map
-*   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav. **Follow-up thread** *(2026-08-05):* same-session conversation history in the Ask UI (client-held; still a separate pipeline from Chatbot).
-*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav.
+*   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav. **Follow-up thread** *(2026-08-05):* same-session conversation history in the Ask UI (client-held; still a separate pipeline from Chatbot). **Scoped Ask from dashboard map** *(2026-08-06):* map node detail shows summary/transcript + participants; asking about that element closes the overlay and continues in Ask grounded only in that document or session (`0016` RPC filters).
+*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav. Dashboard Explore Map uses Commons items (docs/sessions) with the same interactive canvas.
 *   Pipelines stay separate from Chatbot — no shared prompt/state.
 
 ### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has these sections:

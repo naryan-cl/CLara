@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   askClara,
   type AskHistoryMessage,
@@ -9,6 +9,8 @@ import {
 } from "@/app/(app)/ask/actions";
 import { FadeRise } from "@/components/motion/FadeRise";
 import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
+import type { AskScope } from "@/lib/ask/scope";
+import { askScopeIsActive } from "@/lib/ask/scope";
 
 type AskTurn = {
   role: "user" | "assistant";
@@ -21,39 +23,45 @@ type AskTurn = {
  * Kept separate from ChatForm / Chatbot — different action, prompt, and RAG.
  *
  * `embedded` drops the outer card chrome when the parent already provides a
- * panel border (dashboard Ask box), so the two dashboard columns stay one box
- * each and can stretch to equal height.
+ * panel border (dashboard Ask box).
+ * `scope` limits grounding to one document or session (map overlay handoff).
+ * `initialQuestion` + `autoSubmitInitial` seed a first turn when remounting
+ * after "Ask about this" from the map detail panel.
  */
-export function AskForm({ embedded = false }: { embedded?: boolean } = {}) {
+export function AskForm({
+  embedded = false,
+  scope = null,
+  initialQuestion = null,
+  autoSubmitInitial = false,
+  onClearScope,
+}: {
+  embedded?: boolean;
+  scope?: AskScope | null;
+  initialQuestion?: string | null;
+  autoSubmitInitial?: boolean;
+  onClearScope?: () => void;
+} = {}) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const didAutoSubmit = useRef(false);
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = draft.trim();
+  function runAsk(
+    question: string,
+    history: AskHistoryMessage[],
+    scopeForAsk: AskScope | null = scope,
+  ) {
     setError(null);
-
-    if (!trimmed) {
-      setError("Ask something first.");
-      return;
-    }
-
-    const historyForServer: AskHistoryMessage[] = turns.map((t) => ({
-      role: t.role,
-      content: t.content,
-    }));
-
     startTransition(async () => {
-      const result = await askClara(trimmed, historyForServer);
+      const result = await askClara(question, history, scopeForAsk);
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setTurns((prev) => [
         ...prev,
-        { role: "user", content: trimmed },
+        { role: "user", content: question },
         {
           role: "assistant",
           content: result.answer,
@@ -64,11 +72,38 @@ export function AskForm({ embedded = false }: { embedded?: boolean } = {}) {
     });
   }
 
+  useEffect(() => {
+    if (!autoSubmitInitial || !initialQuestion?.trim() || didAutoSubmit.current) {
+      return;
+    }
+    didAutoSubmit.current = true;
+    runAsk(initialQuestion.trim(), [], scope ?? null);
+    // Only on mount / remount with a seed question.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot seed
+  }, [autoSubmitInitial, initialQuestion]);
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setError("Ask something first.");
+      return;
+    }
+
+    const historyForServer: AskHistoryMessage[] = turns.map((t) => ({
+      role: t.role,
+      content: t.content,
+    }));
+    runAsk(trimmed, historyForServer);
+  }
+
   function onClear() {
     setTurns([]);
     setError(null);
     setDraft("");
   }
+
+  const scoped = askScopeIsActive(scope);
 
   return (
     <form
@@ -79,17 +114,33 @@ export function AskForm({ embedded = false }: { embedded?: boolean } = {}) {
           : "flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
       }
     >
+      {scoped ? (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-horizon/30 bg-horizon/5 px-3 py-2">
+          <p className="text-xs text-ink/70">
+            Grounded in{" "}
+            <span className="font-medium text-ink">{scope!.label}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => onClearScope?.()}
+            className="font-mono text-[11px] text-horizon hover:underline"
+          >
+            Ask whole Commons
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
-        {turns.length === 0 ? (
+        {turns.length === 0 && !pending ? (
           <p className="relative text-sm text-ink/50">
             <span
               className="pointer-events-none absolute -left-2 top-0 h-8 w-8 rounded-full bg-glow/15 blur-xl animate-clara-breathe motion-reduce:animate-none"
               aria-hidden="true"
             />
             <span className="relative">
-              Ask anything about this stream&apos;s Commons. You can follow up
-              in this thread — answers stay grounded in sources, separate from
-              Chat.
+              {scoped
+                ? `Ask about “${scope!.label}” — answers stay grounded in that element.`
+                : "Ask anything about this stream's Commons. You can follow up in this thread — answers stay grounded in sources, separate from Chat."}
             </span>
           </p>
         ) : (
@@ -159,9 +210,13 @@ export function AskForm({ embedded = false }: { embedded?: boolean } = {}) {
           onChange={(event) => setDraft(event.target.value)}
           rows={3}
           placeholder={
-            turns.length === 0
-              ? "What came up around psychological safety this week?"
-              : "Can you say more about that?"
+            scoped
+              ? turns.length === 0
+                ? "What should we notice in this piece?"
+                : "Can you say more about that?"
+              : turns.length === 0
+                ? "What came up around psychological safety this week?"
+                : "Can you say more about that?"
           }
           className="rounded-md border border-cloud bg-sand/40 p-3 text-sm text-ink outline-none focus:border-horizon"
         />
