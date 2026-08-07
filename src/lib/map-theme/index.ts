@@ -36,12 +36,7 @@ export {
   type StreamThemeSettings,
   type ThemeUnlockState,
 } from "./unlocks";
-export {
-  countThemeContributions,
-  getMemberThemePrefs,
-  getStreamThemeSettings,
-  getThemeUnlockState,
-  markThemeUnlockSeen,
-  setMemberSelectedTheme,
-  updateStreamThemeSettings,
-} from "./theme-state";
+
+// Server-only helpers (cookies / Supabase): import from
+// `@/lib/map-theme/theme-state` — do NOT re-export here or client
+// components that import this barrel will pull in next/headers.
