@@ -22,7 +22,7 @@ type AskHandoff = {
 
 /**
  * Dashboard shell: full-bleed Knowledge Map under the nav, with floating
- * Add / List FABs and Ask host clustered at the top-right. Element detail
+ * Add / List FABs (top-left) and Ask host (top-right). Element detail
  * opens inside Ask (title changes, entry stays at the bottom).
  */
 export function DashboardGrid({
@@ -157,14 +157,14 @@ export function DashboardGrid({
         )}
       </div>
 
-      {/* Top-right chrome: Add / List above Ask */}
-      <div className="pointer-events-none absolute right-4 top-4 z-20 flex flex-col items-end gap-3 sm:right-6 sm:top-5">
-        <div
-          ref={listChromeRef}
-          className="pointer-events-auto flex flex-col items-end gap-3"
-        >
+      {/* Top-left chrome: Add / List */}
+      <div
+        ref={listChromeRef}
+        className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5"
+      >
+        <div className="pointer-events-auto flex flex-col items-start gap-3">
           <div className="flex items-center gap-3">
-            <AddFab menuAlign="end" />
+            <AddFab menuAlign="start" />
             <ListFab
               open={listOpen}
               onToggle={() => setListOpen((value) => !value)}
@@ -184,7 +184,10 @@ export function DashboardGrid({
             />
           ) : null}
         </div>
+      </div>
 
+      {/* Ask host — top right */}
+      <div className="pointer-events-none absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
         <div className="pointer-events-auto">
           <AskClaraPanel
             formKey={askHandoff?.key ?? "default"}
