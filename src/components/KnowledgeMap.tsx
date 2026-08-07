@@ -343,13 +343,15 @@ export function KnowledgeMap({
                 const source = nodeById.get(edge.sourceNodeId);
                 const target = nodeById.get(edge.targetNodeId);
                 if (!source || !target) return null;
+                // Radius 0 → line through icon centers; nodes paint above
+                // edges so connectors look like they grow from the plant.
                 const { x1, y1, x2, y2 } = edgeEndpoints(
                   source.x,
                   source.y,
-                  radiusFor(source.type),
+                  0,
                   target.x,
                   target.y,
-                  radiusFor(target.type),
+                  0,
                 );
                 const d = curvedPath(x1, y1, x2, y2, edge.id);
                 return (
@@ -476,27 +478,6 @@ export function KnowledgeMap({
                     className="cursor-grab outline-none focus-visible:opacity-90 active:cursor-grabbing"
                     transform={`translate(${node.x}, ${node.y})`}
                   >
-                    {/* Soft typed glow under the art — keeps luminous hover/select. */}
-                    <circle
-                      r={r + 2}
-                      fill={colorFor(node.type)}
-                      fillOpacity={isLit ? 0.35 : 0.12}
-                      style={
-                        isLit && !reducedMotion
-                          ? {
-                              animation:
-                                "glow-pulse var(--duration-ambient) var(--ease) infinite",
-                              pointerEvents: "none",
-                            }
-                          : isLit
-                            ? {
-                                filter:
-                                  "drop-shadow(0 0 12px rgba(143,214,196,.6))",
-                                pointerEvents: "none",
-                              }
-                            : { pointerEvents: "none" }
-                      }
-                    />
                     {spriteHref ? (
                       <image
                         href={spriteHref}
@@ -504,13 +485,29 @@ export function KnowledgeMap({
                         y={-spriteSize / 2}
                         width={spriteSize}
                         height={spriteSize}
-                        style={{ pointerEvents: "none" }}
+                        style={
+                          isLit && !reducedMotion
+                            ? {
+                                pointerEvents: "none",
+                                animation:
+                                  "glow-pulse var(--duration-ambient) var(--ease) infinite",
+                                filter:
+                                  "drop-shadow(0 0 10px rgba(143,214,196,.55))",
+                              }
+                            : isLit
+                              ? {
+                                  pointerEvents: "none",
+                                  filter:
+                                    "drop-shadow(0 0 10px rgba(143,214,196,.55))",
+                                }
+                              : { pointerEvents: "none" }
+                        }
                       />
                     ) : (
                       <circle
                         r={r}
                         fill={colorFor(node.type)}
-                        fillOpacity={0.85}
+                        fillOpacity={isLit ? 1 : 0.85}
                       />
                     )}
                     {/* Invisible hit target — sprites are irregular shapes. */}
@@ -527,7 +524,7 @@ export function KnowledgeMap({
                     <text
                       y={r + 16}
                       textAnchor="middle"
-                      className="fill-paper font-mono text-[10px] select-none"
+                      className="fill-paper font-display text-[11px] font-medium select-none"
                       style={{ pointerEvents: "none" }}
                     >
                       {node.label.length > 22

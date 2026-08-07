@@ -154,6 +154,8 @@
 
 *   **Map node sprites (2026-08-07):** Soft circles replaced by curated nature PNGs in `public/map-sprites/` (Atom→mushrooms, Concept→flowering plants, Framework→cacti, Theme→leafy). Shared `KnowledgeMap` picks a stable icon via `hash(node.id)` (`src/lib/graph/node-sprite.ts`). Glow underlay + paper pin ring kept. Rebuild resized assets with `python3 scripts/prepare-map-sprites.py` (source sheets stay under `Sprites/` — app only loads the ~80px public icons). Dashboard + `/map` both get the change. **Manual test:** (1) dashboard Map shows mushrooms/flowers/cacti/leafy by Commons kind remap; (2) refresh keeps the same art per node; (3) `/map` ontology types match the same families; (4) hover/select glow + pin still work; (5) Network tab loads `/map-sprites/*` only, not the multi‑MB sheets.
 
+*   **Map sprite polish (2026-08-07):** Removed faded underlay circles; hover/select glow is a drop-shadow on the PNG. Edges run **center-to-center behind** sprites (no radius trim gap). Node labels switched from IBM Plex Mono to **Fraunces** (`font-display`) for a field-notebook feel.
+
 *   **Listens Record UX (2026-08-06):** Title label without “(optional)”; live mic level + frequency-bar waveform via Web Audio `AnalyserNode`; Pause/Resume (`MediaRecorder.pause`); Stop relabeled **Submit**; on success navigates to `/sessions/documents/[id]`.
 *   **Listens system/tab audio (2026-08-06):** Optional “Include system/tab audio” uses `getDisplayMedia` (video discarded; audio kept), mixed with mic via `AudioContext` → `MediaStreamDestination` for one Whisper blob. Separate **Mic** and **System** volume meters. Browser must share audio in the picker (tab audio or Windows system audio). If share ends mid-take, mic continues.
 
