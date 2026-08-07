@@ -185,6 +185,8 @@
     **Impl note for Module D:** Reflect **autosave** already writes real `documents` rows today with no `is_draft` / `submitted_at` column — counting “non-draft” will need a small schema or status flag so autosaved reflections are excluded until Submit. Record/Upload count on successful finalize (public only).
     **Build as small modules (when started):** A wallpaper renderer + Plant palette; B Ocean/Desert + contrast tokens; C Admin default + thresholds; D unlock count + popup + user theme pick. Do not mix into Chatbot/Ask pipelines.
 
+*   **Git handoff rule (2026-08-07):** Agents must **land finished work on `main`** (push or merge) before ending a session. Feature-branch-only / unmerged PRs are how prior polish (sprites, FAB position, hover) was lost — next agents checkout `main`, not orphaned branches. Deploying a preview ≠ updating `main`. See `.cursorrules` “Git — always land on main.”
+
 *   **Phase 7 Module A polish (2026-08-07 evening):** Wallpaper is now **procedural SVG** (soft radial washes + contour paths) — no bitmap, so zoom stays sharp and generation is faster. Plant greens lightened (`#D5E6D2` base). Add/List FABs restored to **top-left**; Ask stays top-right. Record/Reflect/Upload hover uses solid **sand** (not transparent forest/5). **Why prior polish was “lost”:** those fixes lived on parallel agent branches that never merged into `main` / this PR branch — cloud agents each branch from `main`, so unmerged PRs do not appear in later agents. Fix: merge (or cherry-pick) finished PRs into `main` before starting the next agent, not only deploy to Vercel.
 
 ### Manual test checklist (Reflect)
@@ -247,6 +249,7 @@
 *   Rich text ↔ Markdown storage (TipTap + marked/turndown; underline may be `<u>` in MD).
 *   Receives: Upload XOR Add text.
 *   Repo **public while building**; secrets only in Vercel / `.env.local`.
+*   **Land finished agent work on `main`** (2026-08-07) — merge/push before session end; unmerged feature branches are invisible to the next agent.
 *   Inngest for **this** app ≠ Old Clara Inngest (different serve URL).
 *   Reference: Festival + Old Clara folders (see below).
 *   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
