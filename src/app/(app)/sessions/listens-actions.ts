@@ -11,18 +11,24 @@ import {
 import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 
-const INNGEST_SEND_TIMEOUT_MS = 12_000;
+const INNGEST_SEND_TIMEOUT_MS = 5_000;
 
-async function sendRecordingEvent(
-  data: {
-    documentId: string;
-    streamId: string;
-    recordingId: string;
-    segmentCount: number;
-    mimeType: string;
-    fileExtension: string;
-  },
-): Promise<void> {
+/**
+ * Try to enqueue Whisper, but never block the Record UI for long.
+ * Inngest often accepts the event before the HTTP promise settles; awaiting
+ * forever left the page stuck on "Finalizing…" while the transcript already
+ * finished. On timeout/failure we still return success to the client — the
+ * placeholder document + Storage objects remain (do not delete; a late
+ * delivery may still run).
+ */
+async function enqueueRecordingTranscription(data: {
+  documentId: string;
+  streamId: string;
+  recordingId: string;
+  segmentCount: number;
+  mimeType: string;
+  fileExtension: string;
+}): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
@@ -32,14 +38,12 @@ async function sendRecordingEvent(
       }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-          reject(
-            new Error(
-              "Inngest did not respond in time. Locally run `npm run inngest:dev` (with INNGEST_DEV=1). On Vercel, check INNGEST_EVENT_KEY.",
-            ),
-          );
+          reject(new Error("Inngest send timed out"));
         }, INNGEST_SEND_TIMEOUT_MS);
       }),
     ]);
+  } catch (err) {
+    console.error("Listens transcription enqueue issue (document kept):", err);
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -189,28 +193,14 @@ export async function finalizeListensUpload(input: {
       return { ok: false, error: linkError.error };
     }
 
-    try {
-      await sendRecordingEvent({
-        documentId: document.id,
-        streamId: stream.id,
-        recordingId,
-        segmentCount,
-        mimeType: input.mimeType || "audio/webm",
-        fileExtension: ext,
-      });
-    } catch (err) {
-      console.error("Failed to enqueue Listens transcription:", err);
-      await supabase.storage.from("listens-staging").remove(uploadedPaths);
-      await supabase.from("documents").delete().eq("id", document.id);
-      const message =
-        err instanceof Error ? err.message : "Couldn't start transcription.";
-      return {
-        ok: false,
-        error: message.includes("Inngest")
-          ? message
-          : "Couldn't start transcription. Locally run `npm run inngest:dev`. On Vercel, check INNGEST_EVENT_KEY.",
-      };
-    }
+    await enqueueRecordingTranscription({
+      documentId: document.id,
+      streamId: stream.id,
+      recordingId,
+      segmentCount,
+      mimeType: input.mimeType || "audio/webm",
+      fileExtension: ext,
+    });
 
     return {
       ok: true,

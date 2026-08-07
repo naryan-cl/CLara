@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   finalizeListensUpload,
@@ -145,11 +145,19 @@ async function requestSystemTabAudio(): Promise<
  */
 export function ListensRecorder({
   sessionIds = [],
+  resolveSessionIds,
 }: {
   sessionIds?: string[];
+  /**
+   * Optional hook before finalize — e.g. create a session from Session
+   * details Title, then return the merged session id list.
+   */
+  resolveSessionIds?: () => Promise<
+    { ok: true; sessionIds: string[] } | { ok: false; error: string }
+  >;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [finalizing, setFinalizing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -184,6 +192,8 @@ export function ListensRecorder({
   titleRef.current = title;
   const sessionIdsRef = useRef(sessionIds);
   sessionIdsRef.current = sessionIds;
+  const resolveSessionIdsRef = useRef(resolveSessionIds);
+  resolveSessionIdsRef.current = resolveSessionIds;
 
   const stopMeterLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -412,37 +422,57 @@ export function ListensRecorder({
           return;
         }
 
-        startTransition(async () => {
+        // Don't use startTransition(async…) — pending stays true until the
+        // Server Action settles, and a hung inngest.send left the UI stuck
+        // on "Finalizing…" even after Whisper had already finished.
+        setFinalizing(true);
+        void (async () => {
           try {
+            let sessionsForFinalize = sessionsForUpload;
+            const resolve = resolveSessionIdsRef.current;
+            if (resolve) {
+              const resolved = await resolve();
+              if (!resolved.ok) {
+                teardownCapture();
+                setError(resolved.error);
+                setIsRecording(false);
+                setFinalizing(false);
+                return;
+              }
+              sessionsForFinalize = resolved.sessionIds;
+            }
+
             const result = await finalizeListensUpload({
               recordingId,
               segmentCount,
               mimeType: mimeTypeForUpload,
               fileExtension,
               title: titleForUpload,
-              sessionIds: sessionsForUpload,
+              sessionIds: sessionsForFinalize,
             });
             teardownCapture();
             if (!result.ok) {
               setError(result.error);
               setIsRecording(false);
+              setFinalizing(false);
               return;
             }
             setTitle("");
             setIsRecording(false);
-            router.push(`/sessions/documents/${result.documentId}`);
+            router.replace(`/sessions/documents/${result.documentId}`);
             router.refresh();
           } catch (err) {
             console.error("finalizeListensUpload client error:", err);
             teardownCapture();
             setIsRecording(false);
+            setFinalizing(false);
             setError(
               err instanceof Error
                 ? err.message
                 : "Could not finish saving the recording. Try again.",
             );
           }
-        });
+        })();
       })();
     };
 
@@ -494,7 +524,7 @@ export function ListensRecorder({
   }, [runMeterLoop]);
 
   useEffect(() => {
-    if (!isRecording || isPaused || pending) return;
+    if (!isRecording || isPaused || finalizing) return;
 
     const interval = setInterval(() => {
       setElapsedSeconds((seconds) => {
@@ -516,7 +546,7 @@ export function ListensRecorder({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isRecording, isPaused, pending, requestStop]);
+  }, [isRecording, isPaused, finalizing, requestStop]);
 
   async function startRecording() {
     setError(null);
@@ -581,23 +611,11 @@ export function ListensRecorder({
     startSegmentRecorder();
   }
 
-  const busy = pending;
+  const busy = finalizing;
   const showViz = isRecording || busy || segmentUploading;
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-      <div>
-        <h2 className="font-display text-lg font-medium text-ink">
-          CLara Listens
-        </h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Record mic + optional system audio for meetings up to ~3 hours.
-          Audio uploads in ~12-minute chunks to private staging; Whisper
-          transcribes each chunk in the background. Use Chrome or Edge for
-          system audio.
-        </p>
-      </div>
-
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Title</span>
         <input
@@ -621,10 +639,8 @@ export function ListensRecorder({
         <span>
           <span className="font-medium text-ink">Include system audio</span>
           <span className="mt-0.5 block text-ink/55">
-            On by default. Browsers always show a screen/window picker — we
-            discard the video and keep sound. In <strong>Chrome or Edge</strong>
-            , choose <em>Entire screen</em> + <em>Share system audio</em>, or a{" "}
-            <em>Chrome tab</em> with <em>Share tab audio</em>.
+            Only works with Chrome or Edge — select a tab/window and select
+            &ldquo;Also share system audio&rdquo;.
           </span>
         </span>
       </label>

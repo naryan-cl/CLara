@@ -5,6 +5,7 @@ import { ChatForm } from "@/components/ChatForm";
 import {
   SessionComposer,
   type SessionComposerSelection,
+  EMPTY_DRAFT,
 } from "@/components/SessionComposer";
 import {
   addParticipantsToSession,
@@ -29,6 +30,7 @@ export function ReflectPageClient({
   const [selection, setSelection] = useState<SessionComposerSelection>({
     sessionIds: initialSessionIds,
     sessions: sessions.filter((s) => initialSessionIds.includes(s.id)),
+    draft: EMPTY_DRAFT,
   });
 
   const onSelectionChange = useCallback((next: SessionComposerSelection) => {
@@ -38,12 +40,7 @@ export function ReflectPageClient({
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-          Add · Reflect
-        </p>
-        <h1 className="mt-1 font-display text-2xl font-medium text-ink">
-          Reflect
-        </h1>
+        <h1 className="font-display text-2xl font-medium text-ink">Reflect</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Explore your thinking with CLara. The chatbot will ask deepening
           questions to draw out your reflection, surfacing more than just the

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ListensRecorder } from "@/components/ListensRecorder";
 import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
 import {
+  EMPTY_DRAFT,
   SessionComposer,
   type SessionComposerSelection,
 } from "@/components/SessionComposer";
@@ -19,16 +20,15 @@ type Props = {
   peers: StreamPeer[];
   createLabel: string;
   loadError?: string | null;
-  /** Which Add capture UI to show under the Session Composer. */
+  /** Which Add capture UI to show. */
   mode: "record" | "upload";
 };
 
 /**
- * Shared Add shell: Session Composer above Record / Upload capture UI.
+ * Shared Add shell for Record / Upload.
  *
- * `mode` is used instead of a children render-prop so Server Component pages
- * can pass only serializable props into this Client Component (a function
- * children callback would crash the RSC → client boundary).
+ * Record: capture UI first, then always-open Session details below.
+ * Upload: Connect/Create buttons above the upload form.
  */
 export function AddWithSessionComposer({
   sessions,
@@ -40,27 +40,67 @@ export function AddWithSessionComposer({
   const [selection, setSelection] = useState<SessionComposerSelection>({
     sessionIds: [],
     sessions: [],
+    draft: EMPTY_DRAFT,
   });
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   const onSelectionChange = useCallback((next: SessionComposerSelection) => {
     setSelection(next);
   }, []);
 
+  /**
+   * Called right before finalize: if Session details Title is filled, create
+   * that session (with inquiry/participants), then merge with Connections.
+   */
+  const resolveSessionIds = useCallback(async () => {
+    const { sessionIds, draft } = selectionRef.current;
+    let ids = [...sessionIds];
+
+    if (draft.name.trim()) {
+      const result = await createGroupSession({
+        name: draft.name,
+        inquiry: draft.inquiry,
+        participantUserIds: draft.participantUserIds,
+      });
+      if (!result.ok) {
+        return { ok: false as const, error: result.error };
+      }
+      ids = [...new Set([result.session.id, ...ids])].slice(0, 3);
+    }
+
+    return { ok: true as const, sessionIds: ids };
+  }, []);
+
+  const composer = (
+    <SessionComposer
+      sessions={sessions}
+      peers={peers}
+      createLabel={createLabel}
+      variant={mode === "record" ? "details" : "buttons"}
+      onSelectionChange={onSelectionChange}
+      onCreateSession={createGroupSession}
+      onAddParticipants={addParticipantsToSession}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-8">
       {loadError ? <p className="text-sm text-danger">{loadError}</p> : null}
-      <SessionComposer
-        sessions={sessions}
-        peers={peers}
-        createLabel={createLabel}
-        onSelectionChange={onSelectionChange}
-        onCreateSession={createGroupSession}
-        onAddParticipants={addParticipantsToSession}
-      />
+
       {mode === "record" ? (
-        <ListensRecorder sessionIds={selection.sessionIds} />
+        <>
+          <ListensRecorder
+            sessionIds={selection.sessionIds}
+            resolveSessionIds={resolveSessionIds}
+          />
+          {composer}
+        </>
       ) : (
-        <ReceiveUploadForm sessionIds={selection.sessionIds} />
+        <>
+          {composer}
+          <ReceiveUploadForm sessionIds={selection.sessionIds} />
+        </>
       )}
     </div>
   );

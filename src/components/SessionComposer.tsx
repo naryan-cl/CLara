@@ -81,9 +81,17 @@ export function SessionShareCard({ joinPath, sessionName }: ShareProps) {
   );
 }
 
+export type SessionComposerDraft = {
+  /** Session name — labeled "Title" in the details layout. */
+  name: string;
+  inquiry: string;
+  participantUserIds: string[];
+};
+
 export type SessionComposerSelection = {
   sessionIds: string[];
   sessions: SessionSummary[];
+  draft: SessionComposerDraft;
 };
 
 type SessionComposerProps = {
@@ -91,6 +99,13 @@ type SessionComposerProps = {
   peers: StreamPeer[];
   initialSessionIds?: string[];
   createLabel?: string;
+  /**
+   * `buttons` — Reflect/Upload Connect + Create controls.
+   * `details` — Record: always-open Session details form (Title/Inquiry/
+   * Participants/Connections). New sessions are created on record Submit
+   * when Title is filled (see resolveSessionIds in AddWithSessionComposer).
+   */
+  variant?: "buttons" | "details";
   onSelectionChange: (selection: SessionComposerSelection) => void;
   onCreateSession: (input: {
     name: string;
@@ -108,15 +123,22 @@ type SessionComposerProps = {
 
 const MAX_CONNECT = 3;
 
+const EMPTY_DRAFT: SessionComposerDraft = {
+  name: "",
+  inquiry: "",
+  participantUserIds: [],
+};
+
 /**
- * Minimal shared Add box: Connect + Create as buttons that open pickers/popups.
- * Inquiry (stored as sessions.seed_question) seeds Reflect chat when connected.
+ * Shared Add box for linking work to sessions.
+ * Reflect/Upload use button pickers; Record uses an expanded details form.
  */
 export function SessionComposer({
   sessions: initialSessions,
   peers,
   initialSessionIds = [],
   createLabel = "Create group reflection",
+  variant = "buttons",
   onSelectionChange,
   onCreateSession,
 }: SessionComposerProps) {
@@ -159,9 +181,17 @@ export function SessionComposer({
 
   useEffect(() => {
     const selected = sessions.filter((s) => selectedIds.includes(s.id));
-    onSelectionChange({ sessionIds: selectedIds, sessions: selected });
+    onSelectionChange({
+      sessionIds: selectedIds,
+      sessions: selected,
+      draft: {
+        name,
+        inquiry,
+        participantUserIds: participantIds,
+      },
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, sessions]);
+  }, [selectedIds, sessions, name, inquiry, participantIds]);
 
   useEffect(() => {
     if (!connectOpen) return;
@@ -258,6 +288,169 @@ export function SessionComposer({
     setCreateOpen(false);
   }
 
+  const connectionsPicker = (
+    <div className="space-y-2">
+      <input
+        value={sessionQuery}
+        onChange={(e) => setSessionQuery(e.target.value)}
+        placeholder="Search sessions…"
+        className="w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
+      />
+      <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-cloud bg-sand/20 p-2">
+        {filteredSessions.length === 0 ? (
+          <p className="px-1 py-2 text-sm text-ink/45">No sessions found.</p>
+        ) : (
+          filteredSessions.map((session) => {
+            const checked = selectedIds.includes(session.id);
+            const disabled = !checked && selectedIds.length >= MAX_CONNECT;
+            return (
+              <label
+                key={session.id}
+                className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-sand/40 ${
+                  disabled ? "opacity-40" : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => toggleSession(session.id)}
+                />
+                <span>
+                  <span className="font-medium text-ink">{session.name}</span>
+                  {session.seed_question ? (
+                    <span className="mt-0.5 block text-xs text-ink/45">
+                      {session.seed_question}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })
+        )}
+      </div>
+      {selectedSessions.length > 0 ? (
+        <ul className="space-y-1.5">
+          {selectedSessions.map((session) => (
+            <li
+              key={session.id}
+              className="flex items-start justify-between gap-2 rounded-md border border-cloud bg-sand/20 px-3 py-2 text-sm"
+            >
+              <span>
+                <span className="font-medium text-ink">{session.name}</span>
+                {session.seed_question ? (
+                  <span className="mt-0.5 block text-xs text-ink/50">
+                    {session.seed_question}
+                  </span>
+                ) : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeSession(session.id)}
+                className="shrink-0 font-mono text-[11px] text-ink/45 hover:text-danger"
+                aria-label={`Remove ${session.name}`}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+
+  const participantsPicker = (
+    <div>
+      <input
+        value={peerQuery}
+        onChange={(e) => setPeerQuery(e.target.value)}
+        placeholder="Search stream members…"
+        className="w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
+      />
+      <div className="mt-1 max-h-36 space-y-1 overflow-y-auto rounded-md border border-cloud bg-sand/20 p-2">
+        {filteredPeers.length === 0 ? (
+          <p className="px-1 text-xs text-ink/45">No matches.</p>
+        ) : (
+          filteredPeers.map((peer) => (
+            <label
+              key={peer.user_id}
+              className="flex cursor-pointer gap-2 px-1 py-0.5 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={participantIds.includes(peer.user_id)}
+                onChange={() => toggleParticipant(peer.user_id)}
+              />
+              <span>
+                {peer.display_name}
+                <span className="ml-1 text-xs text-ink/40">{peer.email}</span>
+              </span>
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  if (variant === "details") {
+    return (
+      <section className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+        <div>
+          <h2 className="font-display text-lg font-medium text-ink">
+            Session details
+          </h2>
+        </div>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Title</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
+            placeholder="Morning circle"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Inquiry</span>
+          <textarea
+            value={inquiry}
+            onChange={(e) => setInquiry(e.target.value)}
+            rows={3}
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
+            placeholder="What felt most alive in that session?"
+          />
+        </label>
+
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Participants</span>
+          {participantsPicker}
+        </div>
+
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Connections</span>
+          <p className="text-xs text-ink/45">
+            Link up to {MAX_CONNECT} existing sessions.
+          </p>
+          {connectionsPicker}
+        </div>
+
+        {createdShare ? (
+          <div className="space-y-2">
+            {warning ? (
+              <p className="text-sm text-ink/60">{warning}</p>
+            ) : null}
+            <SessionShareCard
+              joinPath={createdShare.joinPath}
+              sessionName={createdShare.name}
+            />
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-6 lg:grid-cols-2">
       {/* Connect */}
@@ -276,49 +469,7 @@ export function SessionComposer({
 
         {connectOpen ? (
           <div className="absolute left-0 z-20 mt-2 w-full min-w-[18rem] max-w-md rounded-lg border border-cloud bg-paper p-3 shadow-soft">
-            <input
-              value={sessionQuery}
-              onChange={(e) => setSessionQuery(e.target.value)}
-              placeholder="Search sessions…"
-              className="w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
-              autoFocus
-            />
-            <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
-              {filteredSessions.length === 0 ? (
-                <p className="px-1 py-2 text-sm text-ink/45">No sessions found.</p>
-              ) : (
-                filteredSessions.map((session) => {
-                  const checked = selectedIds.includes(session.id);
-                  const disabled = !checked && selectedIds.length >= MAX_CONNECT;
-                  return (
-                    <label
-                      key={session.id}
-                      className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-sand/40 ${
-                        disabled ? "opacity-40" : ""
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={checked}
-                        disabled={disabled}
-                        onChange={() => toggleSession(session.id)}
-                      />
-                      <span>
-                        <span className="font-medium text-ink">
-                          {session.name}
-                        </span>
-                        {session.seed_question ? (
-                          <span className="mt-0.5 block text-xs text-ink/45">
-                            {session.seed_question}
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  );
-                })
-              )}
-            </div>
+            {connectionsPicker}
             <div className="mt-2 flex justify-end">
               <button
                 type="button"
@@ -331,7 +482,7 @@ export function SessionComposer({
           </div>
         ) : null}
 
-        {selectedSessions.length > 0 ? (
+        {!connectOpen && selectedSessions.length > 0 ? (
           <ul className="mt-3 space-y-1.5">
             {selectedSessions.map((session) => (
               <li
@@ -436,36 +587,7 @@ export function SessionComposer({
               <p className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
                 Participants (optional)
               </p>
-              <input
-                value={peerQuery}
-                onChange={(e) => setPeerQuery(e.target.value)}
-                placeholder="Search stream members…"
-                className="mt-1 w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
-              />
-              <div className="mt-1 max-h-28 space-y-1 overflow-y-auto rounded-md border border-cloud bg-sand/20 p-2">
-                {filteredPeers.length === 0 ? (
-                  <p className="px-1 text-xs text-ink/45">No matches.</p>
-                ) : (
-                  filteredPeers.map((peer) => (
-                    <label
-                      key={peer.user_id}
-                      className="flex cursor-pointer gap-2 px-1 py-0.5 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={participantIds.includes(peer.user_id)}
-                        onChange={() => toggleParticipant(peer.user_id)}
-                      />
-                      <span>
-                        {peer.display_name}
-                        <span className="ml-1 text-xs text-ink/40">
-                          {peer.email}
-                        </span>
-                      </span>
-                    </label>
-                  ))
-                )}
-              </div>
+              <div className="mt-1">{participantsPicker}</div>
             </div>
 
             {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -492,3 +614,5 @@ export function SessionComposer({
     </section>
   );
 }
+
+export { EMPTY_DRAFT };

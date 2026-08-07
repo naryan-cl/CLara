@@ -154,6 +154,10 @@
 
 *   **Listens v2 Module B — chunked upload (2026-08-06):** MediaRecorder restarts every ~12 min; each segment uploads to `listens-staging/{streamId}/{recordingId}/{i}.webm` during the take. `finalizeListensUpload({ recordingId, segmentCount })` enqueues Inngest `clara-transcribe-recording`, which Whispers segments in order, joins text with blank lines, deletes objects, then `clara/document.created`. Soft cap ~3 hours (20 segments). Same text-join model as Old Clara; no audio stitch; no permanent `save_audio`. **Manual test:** (1) short take = 1 segment still works; (2) temporarily set `SEGMENT_SECONDS` to 20 to force multi-chunk; (3) pause/resume mid-take; (4) after job, staging folder empty and transcript ordered.
 
+*   **Listens finalize UI hang fix (2026-08-06):** Record stayed on “Finalizing… / Starting transcription…” even when Inngest had already written the transcript. Cause: Server Action awaited `inngest.send` (HTTP can hang after the event is accepted) inside `startTransition(async…)`, so `pending` never cleared and navigation never ran. Fix: fire-and-forget enqueue after the placeholder document is created (do not delete on enqueue failure); client uses local `finalizing` + `router.replace` to the document page.
+
+*   **Record page UX (2026-08-06):** Removed page eyebrows (`Add · Record` / Reflect / Upload). Record description updated. Listens card no longer shows “CLara Listens” header; system-audio hint shortened to Chrome/Edge + “Also share system audio”. Record Session Composer is now **Session details** below the recorder (always open): Title (= session name), Inquiry, Participants, Connections — no Connect/Create buttons. Filling Title creates the session on Submit; Connections still link existing sessions. Reflect/Upload keep button composer.
+
 ### Manual test checklist (Reflect)
 1. Run migration `0012_session_composer.sql` in Supabase SQL editor.
 2. Open Add → Reflect — empty chat shows listening animation; input is white.

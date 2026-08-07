@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-06 (Add · Reflect + Session Composer)  
+**Last updated:** 2026-08-06 (Record Session details + page eyebrow cleanup)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -33,6 +33,7 @@
 *   **Site IA restructure decided (2026-08-05, not yet built):** primary navigation becomes **Dashboard · Add · Commons · Synthesis · Admin**. Architecture lens renamed **Add → Commons → Synthesis** (was Input → Commons → Output). **Add** nests Chat / Record / Upload; **Synthesis** nests Ask CLara / Knowledge Map; **Commons** becomes the filterable/sortable repository of chats, recordings, uploads, and sessions (archive + "I Attended" woven in). Detail opens as a **popup** (minimize removed 2026-08-06). **Comments** on all Commons elements (author name + avatar/initials + timestamp; author can edit/delete; "edited" marker; admin-visible edit audit log). **Edit** of an element: author, session attendees, and stream admins only. Private items stay visible to their owner with an **eye icon**; filters include element type, date, attended, my artifacts. Mobile: **hamburger** with expandable Add/Synthesis sub-menus. Dashboard stays as-is for now. See §2, §5, §7 and `dev-plan-v0.3.md` Phase 6.
 *   **Site IA Phase 6 shipped in code (2026-08-05):** nav + Add routes + Commons repository/popup/comments implemented. Apply Supabase migration `0011_comments_and_attendee_edit.sql` before comments and attendee-edit work against the shared database.
 *   **Add · Reflect + Session Composer (2026-08-06):** Nav label **Chat → Reflect**. Reflect page (`/add/chat`) uses shared **Session Composer** (connect 1–3 sessions, create group reflection = create a **session** with optional seed question/description, share link `/join/[token]` + QR, participant autocomplete from stream peers). Each Reflect conversation remains its **own** `documents` Reflection row linked via `document_sessions` (never merged into one session body). **Private** reflections stay off the public Commons list and Knowledge Map, but **session attendees + stream admins can read** them. Autosave drafts + Submit (after ~2 exchanges) with thank-you / flower placeholder (map flowers = later). Same Session Composer on Record and Upload. Apply migration **`0012_session_composer.sql`**.
+*   **Record Session details (2026-08-06):** Record no longer uses Connect/Create buttons. Below the recorder, an always-open **Session details** form has Title (session name), Inquiry, Participants, and Connections. Filling Title creates the session on Submit. Reflect/Upload keep the button composer. Page eyebrows (`Add · …`) removed from Add pages.
 
 ---
 
@@ -114,7 +115,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ### 5.1 Add (contribution)
 
 1.  **Reflect** (`/add/chat`, nav label Reflect; legacy `/chat` redirects) — *(Shipped; Reflect UX 2026-08-06.)* Solo, reflective conversation with CLara; separate pipeline from Ask CLara (no shared prompt, no Commons retrieval). **Session Composer** above the chat: connect to 1–3 existing sessions and/or **Create group reflection** (creates a first-class **session** with optional seed question). Seed questions appear as opening CLara messages. Conversation **autosaves** as a draft Reflection; after ~2 user↔CLara exchanges, **Submit** finalizes, shows thank-you + flower placeholder, then returns to the dashboard. **Private by default** (checkbox); private docs are hidden from public Commons / map but readable by **session attendees and stream admins**. Each person's reflection is its own document, linked to session(s) — not appended into a shared session Markdown body. Share/join via `/join/[token]`.
-2.  **Record** (Listens) — *(Shipped v1 + v2 Module A/B.)* Browser mic (+ optional system/tab audio) → private `listens-staging` → ~12-min chunk uploads during long takes → async Whisper (Inngest joins segment text) → Commons `Transcript`. Soft ~3 hour cap. Same **Session Composer** as Reflect. Mobile = device mic.
+2.  **Record** (Listens) — *(Shipped v1 + v2 Module A/B.)* Browser mic (+ optional system/tab audio) → private `listens-staging` → ~12-min chunk uploads during long takes → async Whisper (Inngest joins segment text) → Commons `Transcript`. Soft ~3 hour cap. **Session details** below the recorder (Title / Inquiry / Participants / Connections); Title creates a session on Submit. Mobile = device mic.
 3.  **Upload** (Receives) — bring existing text/files into the Commons; same **Session Composer** as Reflect/Record.
     *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap).
     *   **Add text** — rich-text editor (formatting visible; **stored as Markdown**); lives under Upload (not a fourth Add nav item).
