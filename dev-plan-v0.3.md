@@ -324,6 +324,13 @@ Build one module at a time; verify; update this Progress section; then continue.
 *   [x] **Module E — Comments + audit log** — `0011_comments_and_attendee_edit.sql` + CommentThread; author edit/delete; "edited" marker; admin audit — shipped 2026-08-05 (**run migration in Supabase**)
 *   [x] **Module F — Docs & landing copy** — landing triad Add/Commons/Synthesis; dashboard jump-in updated — shipped 2026-08-05
 
+### Phase 7 — Map theme wallpapers *(decided 2026-08-07 — not started)*
+
+*   [ ] **Module A — Plant wallpaper + contrast** — generative large-region topo under pan/zoom; Plant palette; retune node/label/edge contrast; nodes stay plain circles
+*   [ ] **Module B — Ocean + Desert palettes** — same renderer, theme tokens; optional subtle contour drift (`prefers-reduced-motion` → static)
+*   [ ] **Module C — Admin defaults + thresholds** — stream default theme + contribution counts to unlock themes
+*   [ ] **Module D — Unlocks + user pick** — contribution counter; unlock popup (“Apply it now?”); per-member theme selection
+
 ---
 
 ## 6. Cursor implementation guidelines
