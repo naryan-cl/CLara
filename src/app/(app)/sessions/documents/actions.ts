@@ -5,6 +5,7 @@ import { updateDocument } from "@/lib/documents/update-document";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { createSession } from "@/lib/sessions/create-session";
 import { createClient } from "@/lib/supabase/server";
+import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
 import type { DocumentPrivacy } from "@/lib/documents/types";
 
 const NEW_SESSION_VALUE = "__new__";
@@ -77,6 +78,13 @@ export async function saveDocumentEdits(
 
     if (error || !document) {
       return { ok: false, error: error ?? "Save failed." };
+    }
+
+    // Re-index Ask (and refresh OKF / graph) when content is present.
+    // Why: edits used to update documents.content only — Ask kept stale or
+    // empty embeddings until a full re-create.
+    if (document.content?.trim()) {
+      await enqueueDocumentCreated(document.id, document.stream_id);
     }
 
     revalidatePath("/sessions");

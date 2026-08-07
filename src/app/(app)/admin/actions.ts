@@ -11,8 +11,14 @@ import { updateStreamPrompt } from "@/lib/prompts/update-stream-prompt";
 import type { PromptKind } from "@/lib/prompts/defaults";
 import { updateStreamThemeSettings } from "@/lib/map-theme/theme-state";
 import { isMapThemeId, type MapThemeId } from "@/lib/map-theme";
+import { listDocumentsMissingEmbeddings } from "@/lib/embeddings/list-missing-embeddings";
+import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+export type BackfillResult =
+  | { ok: true; queued: number }
+  | { ok: false; error: string };
 
 async function requireAdmin(): Promise<
   { ok: true; streamId: string; userId: string } | { ok: false; error: string }
@@ -177,4 +183,27 @@ export async function saveMapThemeSettings(input: {
   revalidatePath("/admin");
   revalidatePath("/dashboard");
   return { ok: true };
+}
+
+/**
+ * Enqueue clara/document.created for every non-draft doc that has content
+ * but zero Ask embedding chunks. Inngest clara-embed-document does the work.
+ */
+export async function backfillMissingEmbeddings(): Promise<BackfillResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const { documents, error } = await listDocumentsMissingEmbeddings(
+    auth.streamId,
+  );
+  if (error) {
+    return { ok: false, error };
+  }
+
+  for (const doc of documents) {
+    await enqueueDocumentCreated(doc.documentId, auth.streamId);
+  }
+
+  revalidatePath("/admin");
+  return { ok: true, queued: documents.length };
 }

@@ -7,7 +7,7 @@ import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
-import { inngest, CLARA_DOCUMENT_CREATED } from "@/lib/inngest/client";
+import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -99,17 +99,6 @@ function formatMessages(messages: ChatMessage[]): string {
         : `**CLara:** ${message.content}`,
     )
     .join("\n\n");
-}
-
-async function enqueueDocumentCreated(documentId: string, streamId: string) {
-  try {
-    await inngest.send({
-      name: CLARA_DOCUMENT_CREATED,
-      data: { documentId, streamId },
-    });
-  } catch (err) {
-    console.error("Failed to enqueue OKF enrichment:", err);
-  }
 }
 
 /**

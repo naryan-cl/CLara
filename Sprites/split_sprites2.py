@@ -10,6 +10,9 @@ Output:
 Fix vs naive contours: nearby disconnected pieces (bare branches, spaced
 coral) are clustered into one icon via morphological close + bbox proximity
 merge before cropping.
+
+Alpha: only near-white pixels connected to the crop edge become transparent,
+so enclosed white highlights inside the art stay opaque.
 """
 
 from __future__ import annotations
@@ -160,6 +163,51 @@ def sheet_swallowed(
     return (w * h) >= 0.7 * (w_img * h_img)
 
 
+def background_alpha(gray_icon: np.ndarray, threshold: int) -> np.ndarray:
+    """
+    Make near-white background transparent without punching interior white.
+
+    Flood-fills from crop-edge near-white pixels; only that connected
+    background gets alpha 0. Enclosed white (highlights, eyes) stays opaque.
+    """
+    h, w = gray_icon.shape[:2]
+    # 1 = candidate background (near-white); flood will mark reachable cells
+    near_white = (gray_icon >= threshold).astype(np.uint8)
+    # OpenCV floodFill mask is 2px larger than the image on each side
+    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    seeds: list[tuple[int, int]] = []
+    for x in range(w):
+        if near_white[0, x]:
+            seeds.append((x, 0))
+        if near_white[h - 1, x]:
+            seeds.append((x, h - 1))
+    for y in range(h):
+        if near_white[y, 0]:
+            seeds.append((0, y))
+        if near_white[y, w - 1]:
+            seeds.append((w - 1, y))
+
+    # Flood only through near-white (value 1); mark background as 2
+    work = near_white.copy()
+    for sx, sy in seeds:
+        if mask[sy + 1, sx + 1] != 0:
+            continue
+        if work[sy, sx] == 0:
+            continue
+        cv2.floodFill(
+            work,
+            mask,
+            (sx, sy),
+            2,
+            loDiff=0,
+            upDiff=0,
+            flags=cv2.FLOODFILL_FIXED_RANGE,
+        )
+
+    background = work == 2
+    return np.where(background, 0, 255).astype(np.uint8)
+
+
 def process_sprite_sheet(image_path: str, theme_id: str) -> int:
     if not os.path.exists(image_path):
         print(f"File not found: {image_path}")
@@ -212,7 +260,7 @@ def process_sprite_sheet(image_path: str, theme_id: str) -> int:
         icon = image[y1:y2, x1:x2]
         icon_bgra = cv2.cvtColor(icon, cv2.COLOR_BGR2BGRA)
         gray_icon = cv2.cvtColor(icon, cv2.COLOR_BGR2GRAY)
-        alpha = np.where(gray_icon >= alpha_threshold, 0, 255).astype(np.uint8)
+        alpha = background_alpha(gray_icon, alpha_threshold)
         icon_bgra[:, :, 3] = alpha
 
         out_path = os.path.join(output_dir, f"icon_{count:02d}.png")

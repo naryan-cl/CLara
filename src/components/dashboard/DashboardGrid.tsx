@@ -223,11 +223,14 @@ export function DashboardGrid({
             selectedNode={selectedItem ? null : selectedNode}
             onCloseDetail={clearSelection}
             onAskAbout={onAskAbout}
+            mapTheme={mapTheme}
           />
         </div>
       </div>
 
-      {pendingUnlock ? <ThemeUnlockPopup theme={pendingUnlock} /> : null}
+      {pendingUnlock ? (
+        <ThemeUnlockPopup theme={pendingUnlock} accentTheme={mapTheme} />
+      ) : null}
     </div>
   );
 }

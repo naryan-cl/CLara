@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   askClara,
+  getScopedAskIndexStatus,
   type AskHistoryMessage,
   type AskSource,
 } from "@/app/(app)/ask/actions";
@@ -11,6 +12,10 @@ import { FadeRise } from "@/components/motion/FadeRise";
 import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 import type { AskScope } from "@/lib/ask/scope";
 import { askScopeIsActive } from "@/lib/ask/scope";
+import {
+  themeAccentButtonStyle,
+  type MapThemeId,
+} from "@/lib/map-theme";
 
 type AskTurn = {
   role: "user" | "assistant";
@@ -40,6 +45,7 @@ export function AskForm({
   streamName,
   onConversationActive,
   onHasConversationChange,
+  accentTheme = null,
 }: {
   embedded?: boolean;
   scope?: AskScope | null;
@@ -52,11 +58,14 @@ export function AskForm({
   onConversationActive?: () => void;
   /** Reports whether a real thread (turns) is present — used to re-minimize. */
   onHasConversationChange?: (hasConversation: boolean) => void;
+  /** Dashboard map theme — tints Ask / Ask follow-up. Null = default forest. */
+  accentTheme?: MapThemeId | null;
 } = {}) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [indexHint, setIndexHint] = useState<string | null>(null);
   const didAutoSubmit = useRef(false);
   const notifiedActive = useRef(false);
 
@@ -70,6 +79,39 @@ export function AskForm({
     onHasConversationChange?.(turns.length > 0);
   }, [turns.length, onHasConversationChange]);
 
+  // When grounded in one element, check whether Ask has chunks for it.
+  useEffect(() => {
+    if (!askScopeIsActive(scope)) {
+      queueMicrotask(() => setIndexHint(null));
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const status = await getScopedAskIndexStatus(scope);
+      if (cancelled) return;
+      if (status.error) {
+        setIndexHint(null);
+        return;
+      }
+      if (status.unknown) {
+        setIndexHint(
+          "Ask-index status unknown — apply migration 0019 if scoped Ask stays empty.",
+        );
+        return;
+      }
+      if (!status.indexed) {
+        setIndexHint(
+          "Not in Ask’s search index yet — indexing may still be running, or a stream admin can re-index from Admin → Ask index.",
+        );
+        return;
+      }
+      setIndexHint(null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [scope?.documentId, scope?.sessionId, scope?.label]);
+
   function runAsk(
     question: string,
     history: AskHistoryMessage[],
@@ -82,6 +124,11 @@ export function AskForm({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      if (result.indexed === false) {
+        setIndexHint(
+          "Not in Ask’s search index yet — indexing may still be running, or a stream admin can re-index from Admin → Ask index.",
+        );
       }
       setTurns((prev) => [
         ...prev,
@@ -165,6 +212,12 @@ export function AskForm({
             Ask whole Commons
           </button>
         </div>
+      ) : null}
+
+      {scoped && indexHint && showThread ? (
+        <p className="rounded-md border border-ember/30 bg-ember/5 px-3 py-2 text-xs text-ink/70">
+          {indexHint}
+        </p>
       ) : null}
 
       {showThread ? (
@@ -276,7 +329,14 @@ export function AskForm({
           <button
             type="submit"
             disabled={pending}
-            className="btn-primary organic-ask-btn bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
+            className={
+              accentTheme
+                ? "btn-primary organic-ask-btn px-4 py-2 text-sm font-medium disabled:opacity-60"
+                : "btn-primary organic-ask-btn bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
+            }
+            style={
+              accentTheme ? themeAccentButtonStyle(accentTheme) : undefined
+            }
           >
             {pending ? "Asking…" : turns.length === 0 ? "Ask" : "Ask follow-up"}
           </button>

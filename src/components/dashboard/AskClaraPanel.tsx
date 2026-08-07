@@ -8,6 +8,10 @@ import { useResizablePanel } from "@/components/dashboard/useResizablePanel";
 import type { AskScope } from "@/lib/ask/scope";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphNode } from "@/lib/graph/types";
+import {
+  themeAccentButtonStyle,
+  type MapThemeId,
+} from "@/lib/map-theme";
 
 type AskHostMode = "minimized" | "conversation" | "detail";
 
@@ -42,6 +46,7 @@ export function AskClaraPanel({
   onCloseDetail,
   onAskAbout,
   forceConversation = false,
+  mapTheme = null,
 }: {
   formKey?: string;
   scope?: AskScope | null;
@@ -56,6 +61,8 @@ export function AskClaraPanel({
   onAskAbout?: (payload: { question: string; scope: AskScope }) => void;
   /** Parent sets true after a handoff so we open in conversation mode. */
   forceConversation?: boolean;
+  /** Active dashboard map theme — tints Ask chrome. */
+  mapTheme?: MapThemeId | null;
 } = {}) {
   const rootRef = useRef<HTMLElement>(null);
   const [conversationOpen, setConversationOpen] = useState(
@@ -271,7 +278,12 @@ export function AskClaraPanel({
             ) : null}
             <button
               type="submit"
-              className="btn-primary organic-ask-btn self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30"
+              className={
+                mapTheme
+                  ? "btn-primary organic-ask-btn self-start px-4 py-2 text-sm font-medium"
+                  : "btn-primary organic-ask-btn self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30"
+              }
+              style={mapTheme ? themeAccentButtonStyle(mapTheme) : undefined}
             >
               Ask
             </button>
@@ -319,6 +331,7 @@ export function AskClaraPanel({
             streamName={streamName}
             onConversationActive={() => setConversationOpen(true)}
             onHasConversationChange={setHasConversation}
+            accentTheme={mapTheme}
           />
         </div>
       ) : null}

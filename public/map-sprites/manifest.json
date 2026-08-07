@@ -69,8 +69,7 @@
       "plant/concept/icon_43.png",
       "plant/concept/icon_44.png",
       "plant/concept/icon_45.png",
-      "plant/concept/icon_46.png",
-      "plant/concept/icon_47.png"
+      "plant/concept/icon_46.png"
     ],
     "Framework": [
       "plant/framework/icon_00.png",
@@ -296,8 +295,7 @@
       "ocean/theme/icon_40.png",
       "ocean/theme/icon_41.png",
       "ocean/theme/icon_42.png",
-      "ocean/theme/icon_43.png",
-      "ocean/theme/icon_44.png"
+      "ocean/theme/icon_43.png"
     ]
   },
   "desert": {
@@ -323,9 +321,7 @@
       "desert/atom/icon_18.png",
       "desert/atom/icon_19.png",
       "desert/atom/icon_20.png",
-      "desert/atom/icon_21.png",
-      "desert/atom/icon_22.png",
-      "desert/atom/icon_23.png"
+      "desert/atom/icon_21.png"
     ],
     "Concept": [
       "desert/concept/icon_00.png",
@@ -406,8 +402,7 @@
       "desert/framework/icon_23.png",
       "desert/framework/icon_24.png",
       "desert/framework/icon_25.png",
-      "desert/framework/icon_26.png",
-      "desert/framework/icon_27.png"
+      "desert/framework/icon_26.png"
     ],
     "Theme": [
       "desert/theme/icon_00.png",

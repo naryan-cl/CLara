@@ -9,6 +9,7 @@ export {
   OCEAN_PALETTE,
   PLANT_PALETTE,
   paletteFor,
+  themeAccentButtonStyle,
 } from "./palettes";
 export {
   clearTopoWorldCache,

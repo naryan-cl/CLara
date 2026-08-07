@@ -34,6 +34,13 @@ const DEFAULT_MATCH_COUNT = 6;
  */
 export const DEFAULT_MIN_SIMILARITY = 0.28;
 
+/**
+ * When Ask is scoped to one document (or session), keep every returned chunk.
+ * The user already chose that element — a global 0.28 cutoff was dropping
+ * short Summaries even when embeddings existed.
+ */
+export const SCOPED_MIN_SIMILARITY = 0;
+
 function rowToMatch(row: MatchDocumentChunksRow): CommonsMatch {
   return {
     chunkId: row.chunk_id,
@@ -73,12 +80,15 @@ export async function searchCommons(
   streamId: string,
   question: string,
   matchCount: number = DEFAULT_MATCH_COUNT,
-  minSimilarity: number = DEFAULT_MIN_SIMILARITY,
+  minSimilarity?: number,
   scope?: AskScope | null,
 ): Promise<{ matches: CommonsMatch[]; error: string | null }> {
   const [queryEmbedding] = await embedTexts([question]);
   const supabase = await createClient();
   const scoped = askScopeIsActive(scope);
+  const cutoff =
+    minSimilarity ??
+    (scoped ? SCOPED_MIN_SIMILARITY : DEFAULT_MIN_SIMILARITY);
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
     p_stream_id: streamId,
@@ -92,7 +102,7 @@ export async function searchCommons(
     const rows = (data ?? []) as MatchDocumentChunksRow[];
     const matches = rows
       .map(rowToMatch)
-      .filter((match) => match.similarity >= minSimilarity);
+      .filter((match) => match.similarity >= cutoff);
     return { matches, error: null };
   }
 
@@ -113,9 +123,7 @@ export async function searchCommons(
 
   const rows = (fallback.data ?? []) as MatchDocumentChunksRow[];
   const matches = filterByScope(
-    rows
-      .map(rowToMatch)
-      .filter((match) => match.similarity >= minSimilarity),
+    rows.map(rowToMatch).filter((match) => match.similarity >= cutoff),
     scope,
   ).slice(0, matchCount);
 

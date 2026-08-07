@@ -33,9 +33,22 @@ export default async function MapPage() {
         </div>
       ) : nodes.length === 0 ? (
         <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-          <p className="text-sm text-ink/60">
-            Nothing on the map yet — it fills in automatically as Public
-            documents are added to the Commons.
+          <p className="text-sm text-ink/70">
+            Nothing on the Knowledge Map yet.
+          </p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-ink/60">
+            This page shows <strong>concepts extracted</strong> from Public
+            Commons documents (Atoms, Concepts, Frameworks, Themes) — not the
+            same as the dashboard map, which plots Commons items themselves.
+            After a Public document is submitted, the{" "}
+            <span className="font-mono text-xs">clara-extract-graph</span> job
+            (Inngest + OpenAI) fills this graph. Private docs and Reflect
+            drafts never appear here.
+          </p>
+          <p className="mt-3 text-sm text-ink/55">
+            If the dashboard already has items but this stays empty, check that
+            Inngest is running in production and that Public documents have
+            finished extraction.
           </p>
         </div>
       ) : (

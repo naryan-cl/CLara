@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acknowledgeThemeUnlock } from "@/app/(app)/dashboard/theme-actions";
+import {
+  themeAccentButtonStyle,
+  type MapThemeId,
+} from "@/lib/map-theme";
 import { themeLabel } from "@/lib/map-theme/unlocks";
 
 /**
@@ -10,13 +14,17 @@ import { themeLabel } from "@/lib/map-theme/unlocks";
  */
 export function ThemeUnlockPopup({
   theme,
+  accentTheme,
 }: {
   theme: "ocean" | "desert";
+  /** Active map theme for button tint (usually still Plant when unlocking). */
+  accentTheme?: MapThemeId;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const buttonTheme = accentTheme ?? theme;
 
   if (dismissed) return null;
 
@@ -58,7 +66,8 @@ export function ThemeUnlockPopup({
             type="button"
             disabled={pending}
             onClick={() => finish(true)}
-            className="btn-primary rounded-md bg-forest px-4 py-2 text-sm text-paper disabled:opacity-50"
+            className="btn-primary rounded-md px-4 py-2 text-sm disabled:opacity-50"
+            style={themeAccentButtonStyle(buttonTheme)}
           >
             {pending ? "Applying…" : "Apply it now"}
           </button>

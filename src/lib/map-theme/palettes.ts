@@ -3,6 +3,7 @@ import type { MapThemeId, MapThemePalette } from "./types";
 /**
  * Plant — soft light-green topo field.
  * Labels/edges use ink/forest so they stay readable on the wash.
+ * Accent stays close to product `--forest` so Plant feels familiar.
  */
 export const PLANT_PALETTE: MapThemePalette = {
   id: "plant",
@@ -15,9 +16,12 @@ export const PLANT_PALETTE: MapThemePalette = {
   edgeOpacity: 0.45,
   nodeStroke: "rgba(28, 42, 46, 0.28)",
   pinnedStroke: "#1C2A2E",
+  accent: "#2E4B45",
+  accentFg: "#FBF9F5",
+  accentRing: "rgba(143, 214, 196, 0.35)",
 };
 
-/** Placeholders retired — Ocean is the deep-blue dashboard biome. */
+/** Ocean — deep blue field; light labels; horizon accent for chrome. */
 export const OCEAN_PALETTE: MapThemePalette = {
   id: "ocean",
   base: "#7A9EB5",
@@ -30,8 +34,12 @@ export const OCEAN_PALETTE: MapThemePalette = {
   edgeOpacity: 0.45,
   nodeStroke: "rgba(251, 249, 245, 0.35)",
   pinnedStroke: "#FBF9F5",
+  accent: "#2F5570",
+  accentFg: "#FBF9F5",
+  accentRing: "rgba(197, 217, 230, 0.45)",
 };
 
+/** Desert — sand field; warm clay accent for chrome. */
 export const DESERT_PALETTE: MapThemePalette = {
   id: "desert",
   base: "#D4C3A3",
@@ -43,6 +51,9 @@ export const DESERT_PALETTE: MapThemePalette = {
   edgeOpacity: 0.45,
   nodeStroke: "rgba(28, 42, 46, 0.3)",
   pinnedStroke: "#1C2A2E",
+  accent: "#5C4A32",
+  accentFg: "#FBF9F5",
+  accentRing: "rgba(196, 174, 134, 0.55)",
 };
 
 const BY_ID: Record<MapThemeId, MapThemePalette> = {
@@ -53,4 +64,18 @@ const BY_ID: Record<MapThemeId, MapThemePalette> = {
 
 export function paletteFor(theme: MapThemeId): MapThemePalette {
   return BY_ID[theme];
+}
+
+/** Inline styles for primary dashboard chrome buttons on a theme. */
+export function themeAccentButtonStyle(theme: MapThemeId): {
+  backgroundColor: string;
+  color: string;
+  boxShadow: string;
+} {
+  const p = paletteFor(theme);
+  return {
+    backgroundColor: p.accent,
+    color: p.accentFg,
+    boxShadow: `0 0 0 1px ${p.accentRing}`,
+  };
 }

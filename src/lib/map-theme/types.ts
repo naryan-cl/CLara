@@ -24,6 +24,12 @@ export type MapThemePalette = {
   /** Subtle ring so glow nodes read on lighter fields. */
   nodeStroke: string;
   pinnedStroke: string;
+  /** Dashboard chrome primary (Ask buttons, selected theme chip). */
+  accent: string;
+  /** Text / icon color on `accent`. */
+  accentFg: string;
+  /** Soft ring around accent buttons (CSS color). */
+  accentRing: string;
 };
 
 export type TopoWashBlob = {
