@@ -1,0 +1,422 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
+import QRCode from "qrcode";
+import { FlowerMark } from "@/components/FlowerMark";
+import {
+  createGroupSession,
+  finalizeSessionGathering,
+  loadSessionLiveBoard,
+  pollSessionLiveCounts,
+} from "@/app/(app)/sessions/composer-actions";
+import type { JoinMode, SessionSummary } from "@/lib/sessions/types";
+import type { StreamPeer } from "@/lib/streams/list-stream-peers";
+
+type Props = {
+  peers: StreamPeer[];
+  /** Resume an existing live board (e.g. /add/session?id=…). */
+  initialSessionId?: string | null;
+  loadError?: string | null;
+};
+
+const MODES: { mode: JoinMode; label: string }[] = [
+  { mode: "reflect", label: "Reflect" },
+  { mode: "record", label: "Record" },
+  { mode: "upload", label: "Upload" },
+];
+
+/**
+ * Add → Session: create a gathering, then host the live board
+ * (share icons + QR, counts, Finalize).
+ */
+export function SessionLiveBoard({
+  peers,
+  initialSessionId = null,
+  loadError,
+}: Props) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [inquiry, setInquiry] = useState("");
+  const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [peerQuery, setPeerQuery] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<SessionSummary | null>(null);
+  const [joinPaths, setJoinPaths] = useState<Record<JoinMode, string> | null>(
+    null,
+  );
+  const [counts, setCounts] = useState({ inProgress: 0, submitted: 0 });
+  const [activeShare, setActiveShare] = useState<JoinMode | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [showThanks, setShowThanks] = useState(false);
+
+  const loadBoard = useCallback(async (sessionId: string) => {
+    const result = await loadSessionLiveBoard(sessionId);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSession(result.session);
+    setJoinPaths(result.joinPaths);
+    setCounts(result.counts);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!initialSessionId) return;
+    void loadBoard(initialSessionId);
+  }, [initialSessionId, loadBoard]);
+
+  useEffect(() => {
+    if (!session) return;
+    const id = window.setInterval(() => {
+      void pollSessionLiveCounts(session.id).then((result) => {
+        if (!result.error) {
+          setCounts(result.counts);
+          if (result.finalizedAt) {
+            setSession((prev) =>
+              prev
+                ? { ...prev, finalized_at: result.finalizedAt }
+                : prev,
+            );
+          }
+        }
+      });
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [session]);
+
+  useEffect(() => {
+    if (!activeShare || !joinPaths) {
+      setQrDataUrl(null);
+      return;
+    }
+    const path = joinPaths[activeShare];
+    const absolute =
+      typeof window === "undefined"
+        ? path
+        : `${window.location.origin}${path}`;
+    let cancelled = false;
+    QRCode.toDataURL(absolute, {
+      width: 180,
+      margin: 1,
+      color: { dark: "#1a2e1a", light: "#ffffff" },
+    })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeShare, joinPaths]);
+
+  const filteredPeers = useMemo(() => {
+    const q = peerQuery.trim().toLowerCase();
+    if (!q) return peers;
+    return peers.filter(
+      (p) =>
+        p.display_name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q),
+    );
+  }, [peers, peerQuery]);
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    const result = await createGroupSession({
+      name,
+      inquiry,
+      participantUserIds: participantIds,
+    });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    await loadBoard(result.session.id);
+    router.replace(`/add/session?id=${result.session.id}`);
+  }
+
+  async function shareMode(mode: JoinMode) {
+    if (!joinPaths) return;
+    const path = joinPaths[mode];
+    const absolute = `${window.location.origin}${path}`;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+    setActiveShare(mode);
+  }
+
+  async function handleFinalize() {
+    if (!session) return;
+    setFinalizing(true);
+    setError(null);
+    const result = await finalizeSessionGathering(session.id);
+    setFinalizing(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduceMotion) {
+      void confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ["#2f5d50", "#c4a574", "#e8dcc8"],
+      });
+    }
+
+    setShowThanks(true);
+    window.setTimeout(() => {
+      router.push(`/dashboard?select=session:${session.id}`);
+    }, 2800);
+  }
+
+  if (showThanks) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex max-w-sm flex-col items-center gap-4 rounded-lg border border-cloud bg-paper p-8 text-center shadow-soft">
+          <FlowerMark className="h-16 w-16 text-forest" />
+          <p className="font-display text-xl font-medium text-ink">
+            Thank you for your contribution to the Commons
+          </p>
+          <p className="text-sm text-ink/55">
+            Taking you to the dashboard with this gathering open…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+        <div>
+          <h1 className="font-display text-2xl font-medium text-ink">
+            New session
+          </h1>
+          <p className="mt-1 text-sm text-ink/60">
+            Start a gathering for others to Reflect, Record, or Upload into.
+            You will get a join code and share links after you save.
+          </p>
+          {loadError ? (
+            <p className="mt-2 text-sm text-danger">{loadError}</p>
+          ) : null}
+        </div>
+
+        <form
+          onSubmit={(e) => void handleCreate(e)}
+          className="flex flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft"
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Name</span>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
+              placeholder="Morning circle"
+              autoFocus
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Inquiry (optional)</span>
+            <textarea
+              value={inquiry}
+              onChange={(e) => setInquiry(e.target.value)}
+              rows={3}
+              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
+              placeholder="What felt most alive today?"
+            />
+          </label>
+
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Participants (optional)</span>
+            <input
+              value={peerQuery}
+              onChange={(e) => setPeerQuery(e.target.value)}
+              placeholder="Search stream members…"
+              className="rounded-md border border-cloud bg-white px-3 py-2 text-sm outline-none focus:border-horizon"
+            />
+            <div className="mt-1 max-h-36 space-y-1 overflow-y-auto rounded-md border border-cloud bg-sand/20 p-2">
+              {filteredPeers.map((peer) => (
+                <label
+                  key={peer.user_id}
+                  className="flex cursor-pointer gap-2 px-1 py-0.5 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={participantIds.includes(peer.user_id)}
+                    onChange={() => {
+                      setParticipantIds((prev) =>
+                        prev.includes(peer.user_id)
+                          ? prev.filter((id) => id !== peer.user_id)
+                          : [...prev, peer.user_id],
+                      );
+                    }}
+                  />
+                  <span>
+                    {peer.display_name}
+                    <span className="ml-1 text-xs text-ink/40">
+                      {peer.email}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+          <button
+            type="submit"
+            disabled={pending || !name.trim()}
+            className="btn-primary rounded-md bg-forest px-4 py-2.5 text-sm font-medium text-paper disabled:opacity-60"
+          >
+            {pending ? "Saving…" : "Save session"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  const absoluteShare =
+    activeShare && joinPaths && typeof window !== "undefined"
+      ? `${window.location.origin}${joinPaths[activeShare]}`
+      : null;
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div>
+        <p className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+          {session.finalized_at ? "Finalized · still accepting Adds" : "Live"}
+        </p>
+        <h1 className="font-display text-2xl font-medium text-ink">
+          {session.name}
+        </h1>
+        {session.seed_question ? (
+          <p className="mt-1 text-sm text-ink/60">{session.seed_question}</p>
+        ) : null}
+      </div>
+
+      <div className="rounded-lg border border-cloud bg-paper p-5 shadow-soft">
+        <p className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+          Join code
+        </p>
+        <p className="mt-1 font-mono text-3xl tracking-[0.2em] text-forest">
+          {session.join_code}
+        </p>
+        <p className="mt-2 text-xs text-ink/50">
+          Others can enter this code under Connect on Reflect, Record, or
+          Upload — or use the share links below.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-cloud bg-paper p-5 shadow-soft">
+        <p className="font-medium text-ink">Invite contributions</p>
+        <p className="mt-1 text-sm text-ink/55">
+          Click an icon to copy its join link and show a QR code.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {MODES.map(({ mode, label }) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => void shareMode(mode)}
+              className={`rounded-md border px-4 py-2.5 text-sm font-medium transition-colors ${
+                activeShare === mode
+                  ? "border-forest bg-forest/10 text-forest"
+                  : "border-cloud bg-sand/30 text-ink hover:border-horizon"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {copied ? (
+          <p className="mt-2 text-xs text-forest">Link copied</p>
+        ) : null}
+        {activeShare && absoluteShare ? (
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            {qrDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={qrDataUrl}
+                alt={`QR to join via ${activeShare}`}
+                width={140}
+                height={140}
+                className="rounded border border-cloud bg-white"
+              />
+            ) : (
+              <div className="flex h-[140px] w-[140px] items-center justify-center rounded border border-cloud text-xs text-ink/40">
+                QR…
+              </div>
+            )}
+            <p className="max-w-xs break-all font-mono text-[11px] text-ink/55">
+              {absoluteShare}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-lg border border-cloud bg-paper p-4 text-center shadow-soft">
+          <p className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+            In progress
+          </p>
+          <p className="mt-1 font-display text-3xl text-ink">
+            {counts.inProgress}
+          </p>
+        </div>
+        <div className="rounded-lg border border-cloud bg-paper p-4 text-center shadow-soft">
+          <p className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+            Submitted
+          </p>
+          <p className="mt-1 font-display text-3xl text-ink">
+            {counts.submitted}
+          </p>
+        </div>
+      </div>
+
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      <button
+        type="button"
+        onClick={() => void handleFinalize()}
+        disabled={finalizing}
+        className="btn-primary rounded-md bg-forest px-4 py-3 text-sm font-medium text-paper disabled:opacity-60"
+      >
+        {finalizing
+          ? "Finalizing…"
+          : session.finalized_at
+            ? "Refresh synthesis"
+            : "Finalize gathering"}
+      </button>
+      <p className="text-xs text-ink/45">
+        Finalize synthesizes submitted Adds into a Summary. People can still
+        join afterward.
+      </p>
+    </div>
+  );
+}

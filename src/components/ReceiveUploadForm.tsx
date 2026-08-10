@@ -64,8 +64,12 @@ function isAudioFile(file: File) {
 
 export function ReceiveUploadForm({
   sessionIds = [],
+  relatedDocumentIds = [],
+  relatedSessionIds = [],
 }: {
   sessionIds?: string[];
+  relatedDocumentIds?: string[];
+  relatedSessionIds?: string[];
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +131,12 @@ export function ReceiveUploadForm({
     formData.set("source", mode);
     if (sessionIds.length > 0) {
       formData.set("sessionIds", sessionIds.join(","));
+    }
+    if (relatedDocumentIds.length > 0) {
+      formData.set("relatedDocumentIds", relatedDocumentIds.join(","));
+    }
+    if (relatedSessionIds.length > 0) {
+      formData.set("relatedSessionIds", relatedSessionIds.join(","));
     }
     const convertible = mode === "file" && file ? isConvertibleFile(file) : false;
     const audio = mode === "file" && file ? isAudioFile(file) : false;

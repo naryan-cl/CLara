@@ -13,7 +13,7 @@ export default async function AddReflectPage({ searchParams }: Props) {
   return (
     <ReflectPageClient
       sessions={bootstrap.sessions}
-      peers={bootstrap.peers}
+      relateTargets={bootstrap.relateTargets}
       initialSessionIds={initialSessionIds}
       loadError={bootstrap.error}
     />

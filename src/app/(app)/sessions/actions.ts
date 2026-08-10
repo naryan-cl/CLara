@@ -4,13 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
-import { parseSessionIdsFromFormData } from "@/lib/documents/parse-session-ids";
+import { setDocumentLinks } from "@/lib/documents/set-document-links";
+import { parseSessionIdsFromFormData, parseIdListFromFormData } from "@/lib/documents/parse-session-ids";
 import {
   inngest,
   CLARA_DOCUMENT_CREATED,
   CLARA_UPLOAD_RECEIVED,
 } from "@/lib/inngest/client";
 import { MAX_AUDIO_BYTES, transcribeAudio } from "@/lib/openai/transcribe";
+import { mapTranscriptSpeakersToNames } from "@/lib/listens/map-speakers";
+import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
 import type { StreamSummary } from "@/lib/streams/types";
 
 const TEXT_EXTENSIONS = new Set([".md", ".txt"]);
@@ -40,6 +43,21 @@ const ALLOWED_EXTENSIONS = new Set([
 export type ReceiveResult =
   | { ok: true; documentId: string; needsReview: boolean }
   | { ok: false; error: string };
+
+async function persistRelateLinks(
+  formData: FormData,
+  streamId: string,
+  documentId: string,
+  userId: string,
+) {
+  await setDocumentLinks({
+    streamId,
+    sourceDocumentId: documentId,
+    createdBy: userId,
+    targetDocumentIds: parseIdListFromFormData(formData, "relatedDocumentIds"),
+    targetSessionIds: parseIdListFromFormData(formData, "relatedSessionIds"),
+  });
+}
 
 /**
  * CLara Receives: file upload XOR pasted text → Commons document
@@ -180,6 +198,8 @@ export async function receiveTextContent(
       return { ok: false, error: linkError.error };
     }
 
+    await persistRelateLinks(formData, stream.id, document.id, user.id);
+
     try {
       await inngest.send({
         name: CLARA_DOCUMENT_CREATED,
@@ -239,15 +259,21 @@ async function receiveAudioUpload({
   const title = titleFromForm || defaultTitle;
   const sessionIds = parseSessionIdsFromFormData(formData);
   const primarySessionId = sessionIds[0] ?? null;
+  const participants = await resolveSessionParticipantNames(sessionIds);
+  const content =
+    participants.length > 0
+      ? await mapTranscriptSpeakersToNames(transcribed.text, participants)
+      : transcribed.text;
 
   const { document, error } = await createDocument({
     streamId,
     createdBy: userId,
-    content: transcribed.text,
+    content,
     title,
     type: "Transcript",
     privacyStatus: "public",
     sessionId: primarySessionId,
+    participants,
   });
 
   if (error || !document) {
@@ -258,6 +284,8 @@ async function receiveAudioUpload({
   if (linkError.error) {
     return { ok: false, error: linkError.error };
   }
+
+  await persistRelateLinks(formData, streamId, document.id, userId);
 
   try {
     await inngest.send({
@@ -344,6 +372,8 @@ async function receiveConvertibleUpload({
     await supabase.from("documents").delete().eq("id", document.id);
     return { ok: false, error: linkError.error };
   }
+
+  await persistRelateLinks(formData, stream.id, document.id, user.id);
 
   try {
     await inngest.send({

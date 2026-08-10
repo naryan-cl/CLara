@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-07 (Commons delete + type colours; My harvest removed)  
+**Last updated:** 2026-08-10 (Admin analytics + map layout playground)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -37,6 +37,9 @@
 *   **Admin-editable CLara prompts (2026-08-06):** Stream admins can view/edit the Reflect and Ask CLara system prompts on `/admin` (per-stream overrides on `streams`; NULL = product default in code). Reflect ≠ Ask stay separate. Apply migration **`0015_stream_system_prompts.sql`**. Participant-facing prompt transparency is later.
 *   **Map themes (2026-08-07, Phase 7 Modules A–D shipped in code):** Dashboard canvas supports **Plant / Ocean / Desert** generative topo wallpapers (pan/zoom with the graph) **and** matching theme sprite pools for nodes. **`/map` Knowledge Map stays dark with type-colored circles** (no wallpaper, no sprites). **Ocean** keeps deep blues with light labels/edges. Unlock unit = authored **Public** + **non-draft** Commons docs (`documents.is_draft`; Reflect autosave = draft until Submit). Defaults: Plant free, Ocean @ 5, Desert @ 10 (admin-overridable on `/admin`). Per-member theme pick + unlock congratulations popup. Apply migration **`0017_map_themes.sql`**. Sprite pipeline: `Sprites/split_sprites2.py` (edge flood-fill alpha — keeps interior white) → cull under `Sprites/extracted/` → `npm run sprites:prepare` → `public/map-sprites/{theme}/{type}/`. How-to: `Sprites/README.md`. See `dev-plan-v0.3.md` §4.
 *   **Commons polish (2026-08-07):** Compact filter bar; element-type colour coding (Chat/Record/Upload/Session/Other) + legend; **Delete** in Edit for anyone with edit access (author / attendees / admins) — apply **`0020_document_delete_rls.sql`**. **My harvest** page + Markdown export removed (attendance toggle + “Attended” filter remain).
+*   **Transcript quality (2026-08-10):** Record / Upload audio transcripts are no longer a flat text blob. Default model is **`gpt-4o-transcribe-diarize`** (speakers + segment clocks). Commons Markdown looks like `**Name** · [M:SS]` turns; Session details participants seed `documents.participants` and rename Speaker A/B when possible (solo → that person; multi → light LLM map). Multi-chunk Listens shifts clocks so the full take stays continuous. Set `OPENAI_TRANSCRIPTION_MODEL=whisper-1` for timestamp-only (no speakers). Cost stays ~$0.006/min audio.
+*   **Admin analytics + map layout (2026-08-10):** `/admin/analytics` (stream Commons/graph/membership aggregates; Phase A). Site pageviews via Vercel Web Analytics. `/admin/map-layout` tunes Dashboard/Knowledge Map physics + sizes (`0022_map_layout_config.sql`). See §7.5.
+*   **Sessions as intentional gatherings (IA v2, 2026-08-10):** **Session** is the only nesting parent for multi-person contribution. **Add → Session** is first in the Add menu (`/add/session`): host creates a gathering (name, inquiry, short join code + share links), stays on a **live board** with Reflect/Record/Upload share icons (copy link + QR), live in-progress vs submitted counts, and **Finalize** (soft close — synthesizes current children into a Summary; late Adds still allowed; optional refresh synthesis). Solo Reflect / Record / Upload create **one Add** with no session create UI. **Connect** = **Relate** (user-described edge to another element) and/or **Join code** (only path to nest under a Session). Three connection kinds stay distinct: session parent/child (nesting), user-described links, auto-generated (OKF/map). Commons / dashboard hide session children until the parent is opened. Dashboard Commons map uses Reflect/Record/Upload/Session visuals — not Atom/Concept/Framework/Theme (those stay on `/map`). Apply migration **`0021_session_gathering.sql`**.
 
 ---
 
@@ -107,35 +110,38 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ```
   ADD                           COMMONS                        SYNTHESIS
   ───                           ───────                        ─────────
-  Chat (CLara Chatbot)   →   Structured database      →   Ask CLara
-  Record (Listens)       →   Markdown + OKF metadata →   Knowledge Map
-  Upload (Receives)      ↗   + sessions, comments,
-                             privacy, filters
+  Session (gathering)    →   Structured database      →   Ask CLara
+  Reflect (CLara Chatbot)→   Markdown + OKF metadata →   Knowledge Map
+  Record (Listens)       →   + sessions (parents), comments,
+  Upload (Receives)      ↗     privacy, filters, relate edges
 ```
 
 *(Formerly labeled Input → Commons → Output — same architecture, renamed 2026-08-05.)*
 
 ### 5.1 Add (contribution)
 
-1.  **Reflect** (`/add/chat`, nav label Reflect; legacy `/chat` redirects) — *(Shipped; Reflect UX 2026-08-06.)* Solo, reflective conversation with CLara; separate pipeline from Ask CLara (no shared prompt, no Commons retrieval). **Session Composer** above the chat: connect to 1–3 existing sessions and/or **Create group reflection** (creates a first-class **session** with optional seed question). Seed questions appear as opening CLara messages. Conversation **autosaves** as a draft Reflection; after ~2 user↔CLara exchanges, **Submit** finalizes, shows thank-you + flower placeholder, then returns to the dashboard. **Private by default** (checkbox); private docs are hidden from public Commons / map but readable by **session attendees and stream admins**. Each person's reflection is its own document, linked to session(s) — not appended into a shared session Markdown body. Share/join via `/join/[token]`.
-2.  **Record** (Listens) — *(Shipped v1 + v2 Module A/B.)* Browser mic (+ optional system/tab audio) → private `listens-staging` → ~12-min chunk uploads during long takes → async Whisper (Inngest joins segment text) → Commons `Transcript`. Soft ~3 hour cap. **Session details** below the recorder (Title / Inquiry / Participants / Connections); Title creates a session on Submit. Mobile = device mic.
-3.  **Upload** (Receives) — bring existing text/files into the Commons; same **Session Composer** as Reflect/Record.
+0.  **Session** (`/add/session`, first in Add menu) — *(IA v2.)* Intentional multi-person gathering. Host enters name + inquiry; system issues a **short join code** and share links. After save, host stays on a **live board**: Reflect / Record / Upload icons copy mode-specific join links + show QR; live counts of **in progress** (drafts) vs **submitted**; **Finalize** synthesizes submitted children into a session Summary (thank-you + confetti → dashboard with session open). Finalize is a **soft close** — late Adds via join code still allowed; host may refresh synthesis. Apply **`0021_session_gathering.sql`**.
+1.  **Reflect** (`/add/chat`, nav label Reflect; legacy `/chat` redirects) — Solo reflective conversation with CLara (separate from Ask). Creates **one** Reflection document — **no create-session UI**. **Connect:** **Relate** (user-described link to another Commons element) and/or **Join code** (nest under a Session — only nesting path). Inquiry seed appears when joining via session. Autosave drafts + Submit → thank-you + flower; private checkbox (public unless opted private); private docs hidden from public Commons/map but readable by session attendees + stream admins. Each person's reflection is its own document.
+2.  **Record** (Listens) — Browser mic (+ optional system/tab audio) → `listens-staging` → async diarized transcription → Commons `Transcript`. Soft ~3 hour cap. **Title is the recording title only** (does not create a session). Same **Connect** (Relate + Join code) as Reflect/Upload. Mobile = device mic.
+3.  **Upload** (Receives) — bring existing text/files into the Commons; same Connect pattern (Relate + Join code).
     *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap).
     *   **Add text** — rich-text editor (formatting visible; **stored as Markdown**); lives under Upload (not a fourth Add nav item).
     *   Upload and Add text are **mutually exclusive** on one submit (not both).
     *   After save: **view** formatted Markdown; **edit** with the same rich toolbar (Bold, Italic, Underline, Header, Subhead, Bullets, Numbered, Indent/Outdent, Link).
     *   Old `.doc` still lower priority / not planned.
-    *   **Audio file upload** *(Shipped 2026-08-05.)* Sync Whisper via Receives (~4MB / ~15 min), `Type: Transcript`. Longer meeting audio uses **Record / Listens v2** (Storage + async), not Receives.
+    *   **Audio file upload** *(Shipped 2026-08-05; speakers/timestamps 2026-08-10.)* Sync diarized transcription via Receives (~4MB / ~15 min), `Type: Transcript`. Longer meeting audio uses **Record / Listens v2** (Storage + async), not Receives.
 
-**What creates a session:** Creating a group reflection (Reflect) or using Create session on Record/Upload inserts a `sessions` row (name + optional seed/description + share token). Connecting only links the contribution — it does not create a session. Stand-alone Reflect may leave `session_id` null.
+**What creates a session:** Only **Add → Session**. Reflect / Record / Upload never create sessions. Nesting under a session requires a **join code** (or share/QR join link). Stand-alone Adds leave `session_id` null. **Relate** creates a user-described edge only — never nests.
+
+**Three connection kinds:** (1) Session parent/child — structural nesting; (2) User-described — Relate picker; (3) Auto-generated — OKF / Knowledge Map. Only (1) hides children under a parent in Commons/dashboard.
 
 ### 5.2 Commons (storage + repository UI)
 
 *   Body is always **Markdown** in `documents.content` (even when authored via WYSIWYG).
 *   Underline is not native Markdown; may persist as a small `<u>` tag inside the body.
 *   Always **stream-scoped** (`stream_id`).
-*   **Sessions are first-class** *(Shipped)*: a `sessions` table (event containers: `id`, `stream_id`, `name`, `occurred_at`, plus `seed_question` / `description` / `share_token` from Session Composer) backs session links — documents reference a real session (and may link 1–3 via `document_sessions`).
-*   **Repository UI** *(Shipped Phase 6):* one filterable/sortable Commons view of chats, recordings, uploads, and sessions. Private items are hidden from the public list but still visible to their owner (eye icon); **session attendees and stream admins can also read private docs linked to that session** (Reflect privacy decision 2026-08-06). Filters: element type, date, attended, my artifacts. Clicking an element opens a **detail popup** (minimize removed 2026-08-06). Session archive and "I Attended" are woven in.
+*   **Sessions are first-class** *(Shipped; IA v2 gathering model):* event containers (`name`, inquiry/`seed_question`, `share_token`, short `join_code`, soft-close `finalized_at` / synthesis Summary). Documents nest via `session_id` (+ `document_sessions`). User-described relates live in `document_links` (not nesting).
+*   **Repository UI** *(Shipped Phase 6; nesting IA v2):* default list shows **sessions + standalone Adds**; session children are hidden until the session is opened. Private items stay visible to owner (eye icon); **session attendees and stream admins can also read private docs linked to that session**. Filters: element type, date, attended, my artifacts. Detail popup (minimize removed).
 *   **Edit permissions** *(Decided):* author of the element, attendees of its linked session, and stream admins.
 *   **Comments** *(Decided, not yet built):* on documents and sessions. Show author display name, small photo (auth avatar or initials fallback), and timestamp. Author may edit or delete their own comments; edits show an "edited" marker and append to an **admin-visible audit log** (who edited, when).
 
@@ -172,14 +178,15 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Recent Commons Activity** (live query of `documents`).
 *   Jump-in cards may still link into Add / Synthesis surfaces; no redesign required in this IA pass.
 
-### 7.2 Add — Reflect / Record / Upload
-*   **Reflect** (`/add/chat`) — *(Shipped.)* CLara Chatbot renamed Reflect; Session Composer + autosave + Submit. Separate pipeline from Ask CLara.
-*   **Record** — *(Shipped as Listens v1.)* Under Add nav; mic → Whisper → Transcript; Session Composer shared with Reflect/Upload.
-*   **Upload** — *(Shipped as Receives.)* Under Add nav; Upload / Add text / PDF / DOCX / short audio → transcript; Session Composer shared.
-*   **Join link** — `/join/[token]` marks attendance and opens Reflect with the session pre-selected.
+### 7.2 Add — Session / Reflect / Record / Upload
+*   **Session** (`/add/session`) — *(IA v2.)* First in Add menu + FAB. Host live board, join code, mode-specific share/QR, counts, Finalize.
+*   **Reflect** (`/add/chat`) — Solo Add; Connect = Relate + Join code; autosave + Submit. Separate from Ask CLara.
+*   **Record** — Mic → Whisper → Transcript; recording title ≠ session; same Connect chrome.
+*   **Upload** — Upload / Add text / PDF / DOCX / short audio; same Connect chrome.
+*   **Join link** — `/join/[token]?mode=reflect|record|upload` marks attendance and opens the matching Add surface with the session pre-linked (works after Finalize).
 
 ### 7.3 Commons — repository
-*   **Filterable / sortable list** of stream elements: chats (saved reflections), recordings (transcripts), uploads (notes/files), and **sessions** (archive woven in — not a separate top-level nav item). Compact filter bar; **colour-coded by element type** with a legend (Chat / Record / Upload / Session / Other).
+*   **Filterable / sortable list:** top-level = sessions + **ungrouped** Adds; children appear when a session is opened. Colour-coded by element type (Chat / Record / Upload / Session / Other).
 *   Click → **detail popup** with view/edit (when permitted) and comments (minimize removed 2026-08-06). Edit form includes **Delete** for the same people who can edit (author, session attendees, stream admins). Apply migration `0020_document_delete_rls.sql`.
 *   Session popup: mark **"I Attended"** and comment. (Standalone **My harvest** export page removed 2026-08-07 — use Commons filters / session archive instead.)
 *   Private-to-owner visibility + eye icon; filters: type, date, attended, my artifacts.
@@ -197,6 +204,8 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Isolation** — toggle for `streams.isolation_enabled` (§4.2), previously database-only.
 *   **CLara prompts** *(2026-08-06):* view and edit the Reflect (Chatbot) and Ask CLara system prompts for the active stream. Overrides live on `streams.reflect_system_prompt` / `streams.ask_system_prompt` (NULL = product default in `src/lib/prompts/defaults.ts`). Reset clears the override. Admin-only for v1; pipelines stay separate.
 *   **Map themes** *(shipped 2026-08-07):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only). Apply **`0017_map_themes.sql`**.
+*   **Analytics** *(2026-08-10):* `/admin/analytics` — stream-scoped Commons / membership / graph aggregates (creations by type over time, summary cards). Site-wide pageviews via **Vercel Web Analytics** (not in-app). Ask question counts later.
+*   **Map & Dashboard layout** *(2026-08-10):* `/admin/map-layout` — tune force physics + node/label sizes; live preview; persist on `streams.map_layout_config` (`0022`). Applies to Dashboard map and Knowledge Map.
 *   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---

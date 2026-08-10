@@ -1,6 +1,15 @@
 /** Parse sessionIds from FormData (comma-separated or repeated keys). */
 export function parseSessionIdsFromFormData(formData: FormData): string[] {
-  const raw = formData.getAll("sessionIds");
+  return parseIdListFromFormData(formData, "sessionIds", 3);
+}
+
+/** Parse a comma-separated / repeated FormData id list. */
+export function parseIdListFromFormData(
+  formData: FormData,
+  key: string,
+  max = 8,
+): string[] {
+  const raw = formData.getAll(key);
   const ids: string[] = [];
   for (const value of raw) {
     if (typeof value !== "string") continue;
@@ -9,5 +18,5 @@ export function parseSessionIdsFromFormData(formData: FormData): string[] {
       if (id) ids.push(id);
     }
   }
-  return [...new Set(ids)].slice(0, 3);
+  return [...new Set(ids)].slice(0, max);
 }

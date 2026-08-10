@@ -4,12 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
+import { setDocumentLinks } from "@/lib/documents/set-document-links";
 import {
   inngest,
   CLARA_RECORDING_RECEIVED,
 } from "@/lib/inngest/client";
 import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
+import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
 
 const INNGEST_SEND_TIMEOUT_MS = 5_000;
 
@@ -98,6 +100,8 @@ export async function finalizeListensUpload(input: {
   fileExtension?: string;
   title?: string;
   sessionIds?: string[];
+  relatedDocumentIds?: string[];
+  relatedSessionIds?: string[];
 }): Promise<ListensResult> {
   const uploadedPaths: string[] = [];
 
@@ -169,6 +173,9 @@ export async function finalizeListensUpload(input: {
       `Recording — ${new Date().toLocaleString()}`;
     const sessionIds = (input.sessionIds ?? []).filter(Boolean);
     const primarySessionId = sessionIds[0] ?? null;
+    // Seed OKF participants from session attendees so the dashboard can show
+    // names while Whisper runs, and so diarize can map Speaker A/B → people.
+    const participants = await resolveSessionParticipantNames(sessionIds);
 
     const { document, error } = await createDocument({
       streamId: stream.id,
@@ -179,6 +186,7 @@ export async function finalizeListensUpload(input: {
       privacyStatus: "public",
       needsReview: true,
       sessionId: primarySessionId,
+      participants,
     });
 
     if (error || !document) {
@@ -192,6 +200,14 @@ export async function finalizeListensUpload(input: {
       await supabase.from("documents").delete().eq("id", document.id);
       return { ok: false, error: linkError.error };
     }
+
+    await setDocumentLinks({
+      streamId: stream.id,
+      sourceDocumentId: document.id,
+      createdBy: user.id,
+      targetDocumentIds: input.relatedDocumentIds,
+      targetSessionIds: input.relatedSessionIds,
+    });
 
     await enqueueRecordingTranscription({
       documentId: document.id,

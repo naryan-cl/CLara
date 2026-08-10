@@ -49,3 +49,14 @@ export type ClaraRecordingReceivedEvent = {
     fileExtension: string;
   };
 };
+
+/** Host Finalize on a gathering — synthesize submitted children into a Summary. */
+export const CLARA_SESSION_FINALIZED = "clara/session.finalized";
+
+export type ClaraSessionFinalizedEvent = {
+  name: typeof CLARA_SESSION_FINALIZED;
+  data: {
+    sessionId: string;
+    streamId: string;
+  };
+};

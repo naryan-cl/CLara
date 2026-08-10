@@ -17,6 +17,10 @@ import {
   seedSimNodes,
   type SimNode,
 } from "@/lib/graph/layout";
+import {
+  DEFAULT_MAP_LAYOUT_CONFIG,
+  type MapLayoutConfig,
+} from "@/lib/graph/map-layout-config";
 import { nodeSpriteUrl, spriteSizeFor } from "@/lib/graph/node-sprite";
 import {
   directionFromKey,
@@ -32,6 +36,11 @@ const NODE_COLOR: Record<string, string> = {
   Framework: "var(--horizon)",
   Theme: "var(--ember)",
   Atom: "var(--sage)",
+  // Dashboard Commons contribution types (IA v2)
+  Session: "var(--horizon)",
+  Chat: "var(--glow)",
+  Record: "var(--ember)",
+  Upload: "var(--sage)",
 };
 
 function colorFor(type: string): string {
@@ -88,6 +97,7 @@ export function KnowledgeMap({
   wallpaperTheme = null,
   wallpaperSeed,
   useSprites = false,
+  layoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
   className = "",
 }: {
   nodes: GraphNode[];
@@ -103,6 +113,8 @@ export function KnowledgeMap({
   wallpaperSeed?: string;
   /** Theme sprite icons (dashboard). False = type-colored circles (`/map`). */
   useSprites?: boolean;
+  /** Stream (or live admin preview) force + size knobs. */
+  layoutConfig?: MapLayoutConfig;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -189,6 +201,8 @@ export function KnowledgeMap({
     return () => observer.disconnect();
   }, []);
 
+  const layoutConfigKey = JSON.stringify(layoutConfig);
+
   // Live force simulation — pinned nodes keep fx/fy; others settle around them.
   // State publishes happen in the tick callback / microtask (external d3 system),
   // not synchronously in the effect body.
@@ -208,6 +222,7 @@ export function KnowledgeMap({
       edges,
       size.width,
       size.height,
+      layoutConfig,
     );
     simulation.on("tick", publishNodes);
     simRef.current = simulation;
@@ -217,7 +232,17 @@ export function KnowledgeMap({
       simulation.stop();
       simRef.current = null;
     };
-  }, [hasMounted, nodes, edges, size.width, size.height, publishNodes]);
+    // layoutConfigKey encodes equal knobs so parent re-renders don't restart the sim.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see layoutConfigKey
+  }, [
+    hasMounted,
+    nodes,
+    edges,
+    size.width,
+    size.height,
+    layoutConfigKey,
+    publishNodes,
+  ]);
 
   const nodeById = new Map(simNodes.map((node) => [node.id, node]));
   const selected =
@@ -423,12 +448,13 @@ export function KnowledgeMap({
                 const isLit = isSelected || isHovered;
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
-                const r = radiusFor(node.type);
+                const r = radiusFor(node.type, layoutConfig);
                 const spriteHref =
                   useSprites && wallpaperTheme
                     ? nodeSpriteUrl(wallpaperTheme, node.type, node.id)
                     : null;
-                const spriteSize = spriteSizeFor(r);
+                const spriteSize = spriteSizeFor(r, layoutConfig.spriteScale);
+                const labelMax = layoutConfig.labelMaxLength;
                 return (
                   <g
                     key={node.id}
@@ -587,12 +613,15 @@ export function KnowledgeMap({
                     <text
                       y={r + 18}
                       textAnchor="middle"
-                      className={`font-display text-[11px] font-medium select-none ${themePalette ? "" : "fill-paper"}`}
+                      className={`font-display font-medium select-none ${themePalette ? "" : "fill-paper"}`}
                       fill={themePalette ? labelFill : undefined}
-                      style={{ pointerEvents: "none" }}
+                      style={{
+                        pointerEvents: "none",
+                        fontSize: layoutConfig.labelFontSize,
+                      }}
                     >
-                      {node.label.length > 22
-                        ? `${node.label.slice(0, 21)}…`
+                      {node.label.length > labelMax
+                        ? `${node.label.slice(0, Math.max(1, labelMax - 1))}…`
                         : node.label}
                     </text>
                   </g>

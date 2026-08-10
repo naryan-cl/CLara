@@ -3,37 +3,33 @@
 import { useCallback, useState } from "react";
 import { ChatForm } from "@/components/ChatForm";
 import {
-  SessionComposer,
-  type SessionComposerSelection,
-  EMPTY_DRAFT,
-} from "@/components/SessionComposer";
-import {
-  addParticipantsToSession,
-  createGroupSession,
-} from "@/app/(app)/sessions/composer-actions";
+  ConnectPanel,
+  EMPTY_CONNECT,
+  type ConnectSelection,
+  type RelateTarget,
+} from "@/components/ConnectPanel";
 import type { SessionSummary } from "@/lib/sessions/types";
-import type { StreamPeer } from "@/lib/streams/list-stream-peers";
 
 type Props = {
   sessions: SessionSummary[];
-  peers: StreamPeer[];
+  relateTargets: RelateTarget[];
   initialSessionIds?: string[];
   loadError?: string | null;
 };
 
 export function ReflectPageClient({
   sessions,
-  peers,
+  relateTargets,
   initialSessionIds = [],
   loadError,
 }: Props) {
-  const [selection, setSelection] = useState<SessionComposerSelection>({
-    sessionIds: initialSessionIds,
+  const [selection, setSelection] = useState<ConnectSelection>({
+    ...EMPTY_CONNECT,
+    sessionIds: initialSessionIds.slice(0, 1),
     sessions: sessions.filter((s) => initialSessionIds.includes(s.id)),
-    draft: EMPTY_DRAFT,
   });
 
-  const onSelectionChange = useCallback((next: SessionComposerSelection) => {
+  const onSelectionChange = useCallback((next: ConnectSelection) => {
     setSelection(next);
   }, []);
 
@@ -42,29 +38,27 @@ export function ReflectPageClient({
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Reflect</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Explore your thinking with CLara. The chatbot will ask deepening
-          questions to draw out your reflection, surfacing more than just the
-          story. Connect this to a session/artifact or leave it as a stand-alone
-          reflection.
+          Explore your thinking with CLara. Connect with a join code to nest
+          under a Session, or Relate to other Commons elements — or leave this
+          as a stand-alone reflection.
         </p>
         {loadError ? (
           <p className="mt-2 text-sm text-danger">{loadError}</p>
         ) : null}
       </div>
 
-      <SessionComposer
+      <ConnectPanel
         sessions={sessions}
-        peers={peers}
+        relateTargets={relateTargets}
         initialSessionIds={initialSessionIds}
-        createLabel="Create group reflection"
         onSelectionChange={onSelectionChange}
-        onCreateSession={createGroupSession}
-        onAddParticipants={addParticipantsToSession}
       />
 
       <ChatForm
         sessionIds={selection.sessionIds}
         connectedSessions={selection.sessions}
+        relatedDocumentIds={selection.relatedDocumentIds}
+        relatedSessionIds={selection.relatedSessionIds}
       />
     </div>
   );

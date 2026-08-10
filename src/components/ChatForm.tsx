@@ -21,6 +21,8 @@ const SUBMIT_AFTER_USER_TURNS = 2;
 type Props = {
   sessionIds: string[];
   connectedSessions: SessionSummary[];
+  relatedDocumentIds?: string[];
+  relatedSessionIds?: string[];
 };
 
 function countUserTurns(messages: ChatMessage[]): number {
@@ -43,7 +45,12 @@ function buildSeedMessages(sessions: SessionSummary[]): ChatMessage[] {
   ];
 }
 
-export function ChatForm({ sessionIds, connectedSessions }: Props) {
+export function ChatForm({
+  sessionIds,
+  connectedSessions,
+  relatedDocumentIds = [],
+  relatedSessionIds = [],
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
@@ -155,6 +162,7 @@ export function ChatForm({ sessionIds, connectedSessions }: Props) {
       isPrivate ? "private" : "public",
       sessionIds,
       documentId,
+      { relatedDocumentIds, relatedSessionIds },
     );
     if (!result.ok) {
       setSaveError(result.error);

@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-07 (Phase 7 map themes B–D shipped in code)  
+**Last updated:** 2026-08-10 (Admin analytics Phase A + map layout playground)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Apply newer Supabase migrations if missing (`0011`–`0016`, **`0015_stream_system_prompts.sql`**, **`0017_map_themes.sql`** for dashboard themes/unlocks).
+5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022_map_layout_config.sql`** for admin map physics/sizes).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -77,9 +77,11 @@
 *   **`0017_map_themes.sql`** — stream default theme + unlock thresholds; member selected theme + unlock-seen; `documents.is_draft`; RPCs `set_my_map_theme` / `ack_map_theme_unlock`. **Required for dashboard Plant/Ocean/Desert themes.**
 *   **`0019_document_chunk_count.sql`** — `document_chunk_count(document_id)` + `list_documents_missing_embeddings(stream_id)` SECURITY DEFINER helpers for Ask index status + admin backfill. **Apply for scoped Ask “not indexed” UI and Admin → Ask index.**
 *   **`0020_document_delete_rls.sql`** — DELETE policies on `documents` for authors, stream admins, and session attendees (same gate as edit). **Required for Commons Edit → Delete.**
+*   **`0021_session_gathering.sql`** — Sessions IA v2: `join_code`, `finalized_at`, `synthesis_document_id`; `document_links` for user-described Relate edges. **Required for Add → Session live board + Connect.**
+*   **`0022_map_layout_config.sql`** — `streams.map_layout_config` jsonb (nullable). NULL = product defaults in `src/lib/graph/map-layout-config.ts`. **Required to persist Admin → Map layout knobs.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0017**, **0018**, **0019**, **0020** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0022** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -110,6 +112,8 @@
 | Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
+| Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
+| Admin map layout | `src/lib/graph/map-layout-config.ts`, `get-map-layout-config.ts`, `MapLayoutAdminPanel`, `/admin/map-layout`, migration `0022` — physics + sizes → Dashboard + `/map` |
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
 | Ask CLara embeddings (Module A) | `src/lib/embeddings/{chunk-text,store-document-embeddings,enqueue-document-created,get-document-embedding-status,list-missing-embeddings}.ts`, `src/lib/openai/embed.ts`, `src/lib/inngest/functions/embed-document.ts` — chunk → embed → `document_embeddings` on `clara/document.created` (+ re-enqueue on content save; admin backfill) |
 | Ask CLara retrieval + UI (Module B) | `src/lib/embeddings/search-commons.ts` (scoped min similarity 0), `src/app/(app)/ask/actions.ts` (`askClara` + index status), `src/components/AskForm.tsx`, `src/components/AskIndexPanel.tsx`, `src/app/(app)/ask/page.tsx` |
@@ -136,6 +140,7 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Admin analytics Phase A + map layout playground (2026-08-10, code shipped):** `@vercel/analytics` wired in root layout (site-wide pageviews in **Vercel** dashboard — not stream-scoped). In-app **`/admin/analytics`** aggregates existing Commons/membership/graph tables (creations-by-type stacked chart, docs/sessions/members/nodes timeseries, summary cards, node-type + theme breakdowns). Ranges 7d/30d/90d/all. No custom `page_views` table; Ask question counts deferred (count-only when added). **`/admin/map-layout`** — Festival-style physics + size knobs (charge, link distance/strength, collide padding, per-type radii, sprite scale, label size/length) with live `KnowledgeMap` preview; persists to `streams.map_layout_config` (migration **`0022`**). Dashboard + `/map` read the config. Links from `/admin` hub. **Manual test:** (1) run `0022` in Supabase; (2) Admin → Analytics → confirm counts/charts; (3) Admin → Map layout → tweak repulsion → preview moves → Save → Dashboard/`/map` reflect; (4) Reset restores defaults; (5) deploy + visit a few routes → Vercel Analytics shows pageviews within ~30s (disable blockers if empty).
 *   **Phase 2–5 complete** (ingestion, Ask + Chatbot, Knowledge Map, sessions/archive/harvest/admin). See shipped log below.
 *   **Phase 6 complete (2026-08-05):** Modules A–F shipped in code — nested nav + hamburger, Add page split, Commons repository (filters/sort/eye icon), minimizable detail popup, comments + edit audit log (`0011`), landing/dashboard copy. **Verified end-to-end by user 2026-08-05** (migration `0011` applied). Comments also on full document + session archive deep-link pages.
 *   **Ask CLara v2 Module A (follow-ups) shipped 2026-08-05:** in-session conversation history on `/ask` (client-held turns; `askClara(question, history)`); short follow-ups blend prior user question into retrieval; Chatbot pipeline stays separate.
@@ -159,6 +164,8 @@
 *   **Listens Record UX (2026-08-06):** Title label without “(optional)”; live mic level + frequency-bar waveform via Web Audio `AnalyserNode`; Pause/Resume (`MediaRecorder.pause`); Stop relabeled **Submit**; on success navigates to `/sessions/documents/[id]`.
 *   **Listens system/tab audio (2026-08-06):** Optional “Include system/tab audio” uses `getDisplayMedia` (video discarded; audio kept), mixed with mic via `AudioContext` → `MediaStreamDestination` for one Whisper blob. Separate **Mic** and **System** volume meters. Browser must share audio in the picker (tab audio or Windows system audio). If share ends mid-take, mic continues.
 
+*   **Listens share-audio reliability + choice UX (2026-08-10):** Picker now prefers **Chrome Tab** (`displaySurface: "browser"`, `preferCurrentTab: true`) instead of entire monitor — Mac’s reliable path is tab + “Share tab audio”; Windows can still pick screen + system audio. Errors map `DOMException` names (cancel vs blocked vs empty audio); Mac blocked copy mentions System Settings → Screen Recording and that **Chrome must be fully quit and reopened** (OS limitation — cannot bypass in-app). If share fails after mic succeeds, dialog offers **Continue with mic only** / **Retry share audio** / Cancel (no longer all-or-nothing abort). Checkbox label: “Include tab / system audio” with platform-aware hint.
+
 *   **Commons detail popup (2026-08-06):** removed Minimize/Restore — popup closes via ✕ or backdrop only; PRD/dev-plan Detail UX updated.
 
 *   **Listens v2 Module A (2026-08-06, code shipped — apply migration):** `0014_listens_staging_storage.sql` private bucket `listens-staging` (25MB, path `{stream_id}/{uuid}.{ext}`, member RLS insert/select/delete). Browser uploads audio via Supabase client → `prepareListensUpload` / `finalizeListensUpload` create placeholder Transcript → Inngest `clara/recording.received` → `clara-transcribe-recording` (Whisper → write content → delete object → `clara/document.created`). Soft UI cap ~60 min; hard size = Whisper 25MB. **Not yet Module B:** no MediaRecorder chunked upload / multi-segment stitch. **Manual test:** (1) run `0014` in Supabase; (2) `npm run inngest:dev` + `npm run dev`; (3) Record short clip → doc opens with pending placeholder → refresh shows transcript; (4) confirm Storage object deleted after job.
@@ -172,6 +179,10 @@
 *   **Record capture strip (2026-08-06):** Single Title lives in Session details (placeholder “What did you talk about?”); Inquiry/Description placeholder “What did you gather to explore together?”. Capture UI is mic / pause / stop / trash icons + waveform; system-audio checkbox under meters; **Submit** under Connections. Stop (or interrupt) keeps staged audio (“Saved — ready to submit”); Trash confirms and deletes staging, stays on Record. Submit while live opens a dialog: Stop & submit, or Save details & continue recording.
 
 *   **Record submit → dashboard celebration (2026-08-10):** After Listens finalize, show thank-you dialog + confetti (same gratitude beat as Reflect), then navigate to `/dashboard?select=document:{id}` with the new Record selected (List opens + Ask detail). Live status: **Transcribing…** while Whisper placeholder content, **Summarizing…** until OKF enrich settles `needs_review`, then ready / needs review. Polling via `pollDocumentProcessStatus`; Whisper keeps `needs_review: true` on success so the Summarizing stage is visible without a job-status column. **Manual test:** (1) `npm run inngest:dev` + `npm run dev`; (2) Record a short clip → Submit; (3) see popup + confetti; (4) land on dashboard with recording selected; (5) status flips Transcribing → Summarizing → transcript appears; (6) prefers-reduced-motion skips confetti.
+
+*   **Transcript quality — speakers + timestamps (2026-08-10):** Default `OPENAI_TRANSCRIPTION_MODEL` is **`gpt-4o-transcribe-diarize`** (`diarized_json` + `chunking_strategy: auto`). Helpers: `format-transcript.ts` (Markdown turns), `map-speakers.ts` (Session participants → rename A/B), `participant-names.ts`. Listens Inngest job shifts per-chunk clocks by audio duration, then maps names; seeds `documents.participants` on finalize. Receives short-audio path uses the same formatter. Whisper fallback (`whisper-1` + `verbose_json`) = timestamps only. **Cost:** ~same $0.006/min as Whisper; optional tiny chat tokens for multi-speaker name map. **Manual test:** (1) set `.env.local` model to `gpt-4o-transcribe-diarize` (or omit to use default); (2) Record with Session Participants filled → Submit; (3) transcript shows `**Name** · [M:SS]` paragraphs; (4) two-person conversation gets distinct speakers; (5) Upload short audio still works; (6) optional: set `whisper-1` and confirm timestamps without names.
+
+*   **Sessions as intentional gatherings — IA v2 (2026-08-10):** Product decision locked and implemented in code. **Session** = only nesting parent. **Add → Session** first in nav/FAB (`/add/session` live board: join code, mode share/QR, in-progress vs submitted counts, Finalize soft close → Summary via Inngest `clara/session.finalized`). Solo Reflect/Record/Upload: no create-session; **Connect** = Relate (`document_links`) + Join code. Record title ≠ session create. Commons/dashboard: top-level = sessions + ungrouped Adds; children hide until session open. Dashboard Commons map node types = Session/Chat/Record/Upload (not Atom/Concept/Framework/Theme). Apply migration **`0021_session_gathering.sql`**. **Manual test:** (1) run `0021`; (2) Add → Session → save → board shows code + three share icons; (3) join Reflect/Record/Upload via link; (4) counts move draft→submitted; (5) Finalize → confetti → dashboard session open + Summary; (6) late Add still joins; (7) solo Reflect with Relate only (no nest); (8) Join code nests under session; (9) Commons list hides children until session opened.
 
 *   **Admin CLara prompts (2026-08-06, code shipped — apply migration):** `0015_stream_system_prompts.sql` adds nullable `streams.reflect_system_prompt` + `streams.ask_system_prompt`. Product defaults live in `src/lib/prompts/defaults.ts`. `sendChatMessage` / `askClara` load the effective prompt per stream (override or default; fail soft to default if read fails). `/admin` **CLara prompts** section (`PromptsPanel`) lets stream admins view, edit, save, and reset each prompt independently. Saving text identical to the default clears the override (NULL). **Decision:** admin-only for v1; participant prompt transparency later. Reflect ≠ Ask remain separate columns and call sites. **Manual test:** (1) run `0015` in Supabase; (2) Admin → see both current prompts; (3) edit Reflect → Save → send a Reflect message and confirm tone changed; (4) Reset Reflect → confirm default restored; (5) edit Ask independently and confirm Reflect unchanged; (6) non-admin still cannot open Admin prompts.
 
@@ -290,6 +301,7 @@
 *   Reference: Festival + Old Clara folders (see below).
 *   Listens **v2 Module A+B** (2026-08-06): Storage staging + async Whisper; Module B restarts MediaRecorder ~every 12 min and joins segment transcripts (~3 hour soft cap). Audio not retained after Whisper.
 *   **Map themes (2026-08-07):** Plant / Ocean / Desert generative topo wallpapers on the **dashboard** (pan/zoom with graph; contrast per theme; themed sprites). **`/map` stays circles on dark canvas.** Stream admin default + contribution unlocks; per-user theme pick. **Unlock unit:** authored Public non-draft Commons docs (`is_draft`). **Default thresholds:** Plant free; Ocean @ 5; Desert @ 10. Apply `0017_map_themes.sql`. See Progress log.
+*   **Admin analytics v1 (2026-08-10):** Phase A only — domain aggregates from existing tables on `/admin/analytics`. Vercel Web Analytics for site pageviews (separate). Ask question counts later (count only). Map layout knobs: physics + sizes only (no layout lock / edge-build params yet).
 
 ### Reference projects
 *   **Festival** — `C:\Users\narya\OneDrive\Documents\WEAll Can\Festival` — Inngest, Ask/RAG, graph, embeddings, PDF/DOCX convert (`unpdf` / markitdown).
@@ -309,13 +321,15 @@
 *   **PRD naming:** Input/Output → Add/Synthesis in product docs (architecture flow unchanged).
 
 ### Next up (pick one module at a time)
+0.  **Apply `0022_map_layout_config.sql`** in Supabase, then verify Admin → Map layout Save + Dashboard/`/map`.
+0b. **Apply `0021_session_gathering.sql`** in Supabase, then verify Add → Session live board + Finalize + Commons nesting.
 1.  **Apply `0017_map_themes.sql`** in Supabase, then verify dashboard themes + Admin thresholds end-to-end.
 2.  **Commit curated `public/map-sprites`** (+ extract/pipeline docs). Flood-fill alpha + cull reprocess done 2026-08-07; see `Sprites/README.md`.
 3.  **Apply `0018_theme_unlock_seen_backfill.sql`** so members who already met Ocean/Desert thresholds before themes shipped do not get a surprise unlock popup.
 4.  **Apply `0019_document_chunk_count.sql`**, then Admin → Ask index → re-index any missing Summaries/docs so scoped Ask works.
 5.  **Prod migrations check** — confirm `0011`–`0019` (and embeddings/graph `0008`–`0010` if needed) are applied on the shared Supabase used by Vercel.
 6.  **Knowledge Map empty on `/map`:** expected until `clara-extract-graph` has written `nodes`/`edges` from Public docs (dashboard Commons map ≠ extraction map). Empty-state copy clarified 2026-08-07. If dashboard has items but `/map` stays empty, verify Inngest + OpenAI in production and re-submit a Public doc (or replay `clara/document.created`).
-6.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks).
+6.  **Listens polish** — optional live partial transcript UI, or `save_audio` retention (out of scope unless product asks). Speakers + timestamps shipped 2026-08-10.
 7.  **Tune Ask cutoff** if 0.28 feels too strict/loose after real camp questions.
 8.  Next product priority outside Phase 7 (ask owner).
 

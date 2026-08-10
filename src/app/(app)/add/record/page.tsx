@@ -1,8 +1,14 @@
 import { AddWithSessionComposer } from "@/components/AddWithSessionComposer";
 import { loadSessionComposerData } from "@/app/(app)/sessions/composer-actions";
 
-export default async function AddRecordPage() {
+type Props = {
+  searchParams?: Promise<{ session?: string }>;
+};
+
+export default async function AddRecordPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : {};
   const bootstrap = await loadSessionComposerData();
+  const initialSessionIds = params.session ? [params.session] : [];
 
   return (
     <div className="flex flex-col gap-10">
@@ -10,14 +16,15 @@ export default async function AddRecordPage() {
         <h1 className="font-display text-2xl font-medium text-ink">Record</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Record dialogue with your mic and/or system audio. CLara
-          transcribes, summarizes, and adds it to the commons.
+          transcribes, summarizes, and adds it to the Commons. Use Connect to
+          join a Session or relate to other elements.
         </p>
       </div>
 
       <AddWithSessionComposer
         sessions={bootstrap.sessions}
-        peers={bootstrap.peers}
-        createLabel="Create session"
+        relateTargets={bootstrap.relateTargets}
+        initialSessionIds={initialSessionIds}
         loadError={bootstrap.error}
         mode="record"
       />

@@ -7,6 +7,7 @@ import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
+import { setDocumentLinks } from "@/lib/documents/set-document-links";
 import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
 
 export type ChatMessage = {
@@ -112,6 +113,8 @@ export async function saveChatConversation(
     titlePrefix?: string;
     sessionIds?: string[];
     documentId?: string | null;
+    relatedDocumentIds?: string[];
+    relatedSessionIds?: string[];
   },
 ): Promise<SaveChatResult> {
   if (messages.length === 0) {
@@ -141,6 +144,21 @@ export async function saveChatConversation(
   const content = formatMessages(messages);
   const sessionIds = (options?.sessionIds ?? []).slice(0, 3);
   const primarySessionId = sessionIds[0] ?? null;
+  const relatedDocumentIds = options?.relatedDocumentIds ?? [];
+  const relatedSessionIds = options?.relatedSessionIds ?? [];
+
+  async function persistLinks(documentId: string) {
+    const linkError = await linkDocumentSessions(documentId, sessionIds);
+    if (linkError.error) return linkError.error;
+    const relateError = await setDocumentLinks({
+      streamId: stream!.id,
+      sourceDocumentId: documentId,
+      createdBy: user!.id,
+      targetDocumentIds: relatedDocumentIds,
+      targetSessionIds: relatedSessionIds,
+    });
+    return relateError.error;
+  }
 
   if (options?.documentId) {
     const { data, error } = await supabase
@@ -161,9 +179,9 @@ export async function saveChatConversation(
       return { ok: false, error: error?.message ?? "Could not update draft." };
     }
 
-    const linkError = await linkDocumentSessions(data.id, sessionIds);
-    if (linkError.error) {
-      return { ok: false, error: linkError.error };
+    const linkErr = await persistLinks(data.id);
+    if (linkErr) {
+      return { ok: false, error: linkErr };
     }
 
     if (privacy === "public") {
@@ -196,9 +214,9 @@ export async function saveChatConversation(
     return { ok: false, error: error ?? "Save failed." };
   }
 
-  const linkError = await linkDocumentSessions(document.id, sessionIds);
-  if (linkError.error) {
-    return { ok: false, error: linkError.error };
+  const linkErr = await persistLinks(document.id);
+  if (linkErr) {
+    return { ok: false, error: linkErr };
   }
 
   if (privacy === "public") {
@@ -311,10 +329,16 @@ export async function submitReflectConversation(
   privacyStatus: "public" | "private",
   sessionIds: string[],
   documentId: string | null,
+  related?: {
+    relatedDocumentIds?: string[];
+    relatedSessionIds?: string[];
+  },
 ): Promise<SaveChatResult> {
   return saveChatConversation(messages, privacyStatus, {
     titlePrefix: "Reflection",
     sessionIds,
     documentId,
+    relatedDocumentIds: related?.relatedDocumentIds,
+    relatedSessionIds: related?.relatedSessionIds,
   });
 }

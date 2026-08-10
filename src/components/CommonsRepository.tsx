@@ -9,6 +9,7 @@ import {
 import {
   DEFAULT_COMMONS_FILTERS,
   filterCommonsItems,
+  topLevelCommonsItems,
   type CommonsFilterState,
   type CommonsListItem,
 } from "@/lib/commons/types";
@@ -60,7 +61,10 @@ export function CommonsRepository({
   const [selected, setSelected] = useState<CommonsListItem | null>(null);
 
   const visible = useMemo(
-    () => filterCommonsItems(items, filters, currentUserId),
+    () =>
+      topLevelCommonsItems(
+        filterCommonsItems(items, filters, currentUserId),
+      ),
     [items, filters, currentUserId],
   );
 

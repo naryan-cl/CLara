@@ -58,13 +58,17 @@ export function AddFab({
           role="menu"
           aria-label="Add to Commons"
         >
-          <Link href="/add/record" className={actionClass} role="menuitem">
-            <MicIcon />
-            Record
+          <Link href="/add/session" className={actionClass} role="menuitem">
+            <SessionIcon />
+            Session
           </Link>
           <Link href="/add/chat" className={actionClass} role="menuitem">
             <PencilIcon />
             Reflect
+          </Link>
+          <Link href="/add/record" className={actionClass} role="menuitem">
+            <MicIcon />
+            Record
           </Link>
           <Link href="/add/upload" className={actionClass} role="menuitem">
             <UploadIcon />
@@ -73,6 +77,27 @@ export function AddFab({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SessionIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="16" cy="9" r="2.5" />
+      <path d="M3 19c0-2.5 2.5-4.5 6-4.5s6 2 6 4.5" />
+      <path d="M14 14.5c2.2.3 4 1.8 4 4.5" />
+    </svg>
   );
 }
 

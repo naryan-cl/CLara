@@ -42,6 +42,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
   {
     label: "Add",
     children: [
+      { href: "/add/session", label: "Session" },
       { href: "/add/chat", label: "Reflect" },
       { href: "/add/record", label: "Record" },
       { href: "/add/upload", label: "Upload" },

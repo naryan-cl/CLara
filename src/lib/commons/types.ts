@@ -181,3 +181,15 @@ export function filterCommonsItems(
     return filters.sort === "oldest" ? diff : -diff;
   });
 }
+
+/**
+ * Top-level Commons rows: sessions + Adds with no primary session.
+ * Nested children appear when the session parent is opened.
+ */
+export function topLevelCommonsItems(
+  items: CommonsListItem[],
+): CommonsListItem[] {
+  return items.filter(
+    (item) => item.kind === "session" || !item.session_id,
+  );
+}

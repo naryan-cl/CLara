@@ -4,11 +4,9 @@ import type { MapThemeId } from "@/lib/map-theme";
 /**
  * Theme-scoped sprite pools for the dashboard Knowledge Map.
  *
- * Plant / Ocean / Desert each map Atom → Concept → Framework → Theme
- * to a nature icon pool. Stable hash(node.id) picks within the pool so
- * refresh / re-layout keeps the same look for a given theme.
- *
- * `/map` uses circles (no sprites) — only the dashboard passes a theme.
+ * Sprite folders on disk remain Atom / Concept / Framework / Theme.
+ * Dashboard Commons contribution types (Session / Chat / Record / Upload)
+ * alias into those pools so `/map` keeps the extraction vocabulary.
  */
 
 type ThemeSpriteManifest = Record<string, Record<string, string[]>>;
@@ -17,6 +15,26 @@ const SPRITE_MANIFEST = manifest as ThemeSpriteManifest;
 
 const FALLBACK_TYPE = "Atom";
 const FALLBACK_THEME: MapThemeId = "plant";
+
+/** Map contribution / graph types onto sprite folder names. */
+function spritePoolType(type: string): string {
+  switch (type) {
+    case "Session":
+    case "Framework":
+      return "Framework";
+    case "Chat":
+    case "Concept":
+      return "Concept";
+    case "Record":
+    case "Theme":
+      return "Theme";
+    case "Upload":
+    case "Atom":
+      return "Atom";
+    default:
+      return FALLBACK_TYPE;
+  }
+}
 
 /** FNV-1a 32-bit — deterministic, no Math.random, SSR-safe. */
 export function stableIndex(id: string, n: number): number {
@@ -32,7 +50,8 @@ export function stableIndex(id: string, n: number): number {
 function poolFor(theme: MapThemeId, type: string): string[] {
   const themePools = SPRITE_MANIFEST[theme] ?? SPRITE_MANIFEST[FALLBACK_THEME];
   if (!themePools) return [];
-  const direct = themePools[type];
+  const poolKey = spritePoolType(type);
+  const direct = themePools[poolKey];
   if (direct && direct.length > 0) return direct;
   return themePools[FALLBACK_TYPE] ?? [];
 }
@@ -52,7 +71,7 @@ export function nodeSpriteUrl(
   return path ? `/map-sprites/${path}` : null;
 }
 
-/** Draw size in SVG units — roughly 2× layout radius so icons fill the node. */
-export function spriteSizeFor(radius: number): number {
-  return Math.max(28, Math.round(radius * 2.1));
+/** Draw size in SVG units — roughly radius × scale so icons fill the node. */
+export function spriteSizeFor(radius: number, spriteScale = 2.1): number {
+  return Math.max(28, Math.round(radius * spriteScale));
 }

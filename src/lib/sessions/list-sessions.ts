@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { SESSION_SELECT, type SessionSummary } from "@/lib/sessions/types";
+import {
+  coerceSession,
+  isMissingJoinCodeSchemaError,
+  SESSION_SELECT,
+  SESSION_SELECT_LEGACY,
+  type SessionSummary,
+} from "@/lib/sessions/types";
 
 /**
  * Sessions visible to the current member in a stream (RLS-scoped).
@@ -10,15 +16,39 @@ export async function listSessions(
 ): Promise<{ sessions: SessionSummary[]; error: string | null }> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .eq("stream_id", streamId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return { sessions: [], error: error.message };
+  if (!primary.error) {
+    return {
+      sessions: (primary.data ?? []).map((row) =>
+        coerceSession(row as Record<string, unknown>),
+      ),
+      error: null,
+    };
   }
 
-  return { sessions: (data ?? []) as SessionSummary[], error: null };
+  if (!isMissingJoinCodeSchemaError(primary.error.message)) {
+    return { sessions: [], error: primary.error.message };
+  }
+
+  const legacy = await supabase
+    .from("sessions")
+    .select(SESSION_SELECT_LEGACY)
+    .eq("stream_id", streamId)
+    .order("created_at", { ascending: false });
+
+  if (legacy.error) {
+    return { sessions: [], error: legacy.error.message };
+  }
+
+  return {
+    sessions: (legacy.data ?? []).map((row) =>
+      coerceSession(row as Record<string, unknown>),
+    ),
+    error: null,
+  };
 }

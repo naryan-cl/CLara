@@ -7,6 +7,10 @@ import {
   type Simulation,
 } from "d3-force";
 import type { GraphEdge, GraphNode } from "./types";
+import {
+  DEFAULT_MAP_LAYOUT_CONFIG,
+  type MapLayoutConfig,
+} from "./map-layout-config";
 
 export type LaidOutNode = GraphNode & { x: number; y: number };
 
@@ -22,15 +26,23 @@ export type SimNode = GraphNode & {
 
 const SIMULATION_TICKS = 300;
 
+/** @deprecated Prefer radiusFor(type, config) — kept for older call sites. */
 export const NODE_RADIUS: Record<string, number> = {
-  Concept: 26,
-  Framework: 24,
-  Theme: 22,
-  Atom: 16,
+  Concept: DEFAULT_MAP_LAYOUT_CONFIG.radii.Concept,
+  Framework: DEFAULT_MAP_LAYOUT_CONFIG.radii.Framework,
+  Theme: DEFAULT_MAP_LAYOUT_CONFIG.radii.Theme,
+  Atom: DEFAULT_MAP_LAYOUT_CONFIG.radii.Atom,
 };
 
-export function radiusFor(type: string): number {
-  return NODE_RADIUS[type] ?? 18;
+export function radiusFor(
+  type: string,
+  config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
+): number {
+  if (type === "Concept" || type === "Chat") return config.radii.Concept;
+  if (type === "Framework" || type === "Session") return config.radii.Framework;
+  if (type === "Theme" || type === "Record") return config.radii.Theme;
+  if (type === "Atom" || type === "Upload") return config.radii.Atom;
+  return config.radii.fallback;
 }
 
 export function clamp(value: number, min: number, max: number): number {
@@ -85,6 +97,7 @@ export function createGraphSimulation(
   edges: GraphEdge[],
   width: number,
   height: number,
+  config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
 ): Simulation<SimNode, undefined> {
   const simLinks = edges.map((edge) => ({
     source: edge.sourceNodeId,
@@ -96,14 +109,17 @@ export function createGraphSimulation(
       "link",
       forceLink(simLinks)
         .id((d) => (d as SimNode).id)
-        .distance(140)
-        .strength(0.25),
+        .distance(config.linkDistance)
+        .strength(config.linkStrength),
     )
-    .force("charge", forceManyBody().strength(-260))
+    .force("charge", forceManyBody().strength(config.chargeStrength))
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide((d) => radiusFor((d as SimNode).type) + 14),
+      forceCollide(
+        (d) =>
+          radiusFor((d as SimNode).type, config) + config.collidePadding,
+      ),
     );
 }
 
@@ -120,6 +136,7 @@ export function computeGraphLayout(
   edges: GraphEdge[],
   width: number,
   height: number,
+  config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
 ): LaidOutNode[] {
   const simNodes: SeedNode[] = seedSimNodes(nodes, width, height);
 
@@ -133,14 +150,17 @@ export function computeGraphLayout(
       "link",
       forceLink(simLinks)
         .id((d) => (d as SeedNode).id)
-        .distance(140)
-        .strength(0.25),
+        .distance(config.linkDistance)
+        .strength(config.linkStrength),
     )
-    .force("charge", forceManyBody().strength(-260))
+    .force("charge", forceManyBody().strength(config.chargeStrength))
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide((d) => radiusFor((d as SeedNode).type) + 14),
+      forceCollide(
+        (d) =>
+          radiusFor((d as SeedNode).type, config) + config.collidePadding,
+      ),
     )
     .stop();
 

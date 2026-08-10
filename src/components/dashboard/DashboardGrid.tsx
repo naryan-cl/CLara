@@ -14,7 +14,12 @@ import { KnowledgeMap } from "@/components/KnowledgeMap";
 import type { AskScope } from "@/lib/ask/scope";
 import { findCommonsItemForGraphNode } from "@/lib/commons/graph-node";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
+import { topLevelCommonsItems } from "@/lib/commons/types";
 import type { CommonsListItem } from "@/lib/commons/types";
+import {
+  DEFAULT_MAP_LAYOUT_CONFIG,
+  type MapLayoutConfig,
+} from "@/lib/graph/map-layout-config";
 import type { GraphNode } from "@/lib/graph/types";
 import { paletteFor, type MapThemeId } from "@/lib/map-theme";
 import {
@@ -47,6 +52,7 @@ export function DashboardGrid({
   unlockedThemes = ["plant"],
   pendingUnlock = null,
   initialSelect = null,
+  layoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
 }: {
   items: CommonsListItem[];
   streamId: string;
@@ -58,6 +64,7 @@ export function DashboardGrid({
   pendingUnlock?: "ocean" | "desert" | null;
   /** Deep-link from Record submit (`?select=document:uuid`). */
   initialSelect?: InitialSelect | null;
+  layoutConfig?: MapLayoutConfig;
 }) {
   const router = useRouter();
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -95,6 +102,11 @@ export function DashboardGrid({
   const { nodes, edges } = useMemo(
     () => commonsItemsToGraph(displayItems, streamId),
     [displayItems, streamId],
+  );
+
+  const listItems = useMemo(
+    () => topLevelCommonsItems(displayItems),
+    [displayItems],
   );
 
   const selectedItemFromMap = useMemo(
@@ -278,8 +290,8 @@ export function DashboardGrid({
               <p className="mt-2 text-sm text-ink/60">
                 If this mentions missing tables or columns, apply Commons
                 migrations through{" "}
-                <span className="font-mono text-xs">0017_map_themes</span> in
-                Supabase, then refresh.
+                <span className="font-mono text-xs">0021_session_gathering</span>{" "}
+                in Supabase, then refresh.
               </p>
             </div>
           </div>
@@ -294,8 +306,9 @@ export function DashboardGrid({
                 The Commons is waiting for its first contribution
               </p>
               <p className="relative mt-2 text-sm leading-6 text-ink/60">
-                Use Add (+) to Record, Reflect, or Upload — items show up on
-                the map and in List as soon as they land in this stream.
+                Use Add (+) to start a Session, or Reflect / Record / Upload —
+                gatherings and stand-alone Adds show on the map; session
+                children appear when you open the gathering.
               </p>
             </div>
           </div>
@@ -310,6 +323,7 @@ export function DashboardGrid({
             wallpaperTheme={mapTheme}
             wallpaperSeed={`stream:${streamId}`}
             useSprites
+            layoutConfig={layoutConfig}
             className="h-full w-full rounded-none border-0"
           />
         )}
@@ -330,7 +344,7 @@ export function DashboardGrid({
           </div>
           {listOpen ? (
             <CommonsListPanel
-              items={displayItems}
+              items={listItems}
               error={error}
               selectedId={
                 selectedItem

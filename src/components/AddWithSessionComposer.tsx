@@ -9,43 +9,36 @@ import {
 } from "@/components/ListensRecorder";
 import { ReceiveUploadForm } from "@/components/ReceiveUploadForm";
 import {
-  EMPTY_DRAFT,
-  SessionComposer,
-  type SessionComposerSelection,
-} from "@/components/SessionComposer";
-import {
-  addParticipantsToSession,
-  createGroupSession,
-} from "@/app/(app)/sessions/composer-actions";
+  ConnectPanel,
+  EMPTY_CONNECT,
+  type ConnectSelection,
+  type RelateTarget,
+} from "@/components/ConnectPanel";
 import type { SessionSummary } from "@/lib/sessions/types";
-import type { StreamPeer } from "@/lib/streams/list-stream-peers";
 
 type Props = {
   sessions: SessionSummary[];
-  peers: StreamPeer[];
-  createLabel: string;
+  relateTargets: RelateTarget[];
+  initialSessionIds?: string[];
   loadError?: string | null;
-  /** Which Add capture UI to show. */
   mode: "record" | "upload";
 };
 
 /**
- * Shared Add shell for Record / Upload.
- *
- * Record: capture strip first, Session details below with Submit.
- * Upload: Connect/Create buttons above the upload form.
+ * Shared Add shell for Record / Upload with uniform Connect
+ * (Relate + Join code). Record title is document-only — never creates a session.
  */
 export function AddWithSessionComposer({
   sessions,
-  peers,
-  createLabel,
+  relateTargets,
+  initialSessionIds = [],
   loadError,
   mode,
 }: Props) {
-  const [selection, setSelection] = useState<SessionComposerSelection>({
-    sessionIds: [],
-    sessions: [],
-    draft: EMPTY_DRAFT,
+  const [selection, setSelection] = useState<ConnectSelection>({
+    ...EMPTY_CONNECT,
+    sessionIds: initialSessionIds.slice(0, 1),
+    sessions: sessions.filter((s) => initialSessionIds.includes(s.id)),
   });
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
@@ -55,48 +48,16 @@ export function AddWithSessionComposer({
   const [submitWhileRecordingOpen, setSubmitWhileRecordingOpen] =
     useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [savingDetails, setSavingDetails] = useState(false);
-  /** Avoid creating duplicate sessions on repeated “save details”. */
-  const savedSessionIdRef = useRef<string | null>(null);
 
-  const onSelectionChange = useCallback((next: SessionComposerSelection) => {
+  const onSelectionChange = useCallback((next: ConnectSelection) => {
     setSelection(next);
   }, []);
 
-  /**
-   * Create a session from Session details Title (once), merge Connections.
-   * Used by finalize and by “Save details and continue recording”.
-   */
   const resolveSessionIds = useCallback(async () => {
-    const { sessionIds, draft } = selectionRef.current;
-    let ids = [...sessionIds];
-
-    if (savedSessionIdRef.current) {
-      ids = [...new Set([savedSessionIdRef.current, ...ids])].slice(0, 3);
-      return { ok: true as const, sessionIds: ids };
-    }
-
-    if (draft.name.trim()) {
-      const result = await createGroupSession({
-        name: draft.name,
-        inquiry: draft.inquiry,
-        participantUserIds: draft.participantUserIds,
-      });
-      if (!result.ok) {
-        return { ok: false as const, error: result.error };
-      }
-      savedSessionIdRef.current = result.session.id;
-      ids = [...new Set([result.session.id, ...ids])].slice(0, 3);
-      setSelection((prev) => ({
-        ...prev,
-        sessionIds: ids,
-        sessions: prev.sessions.some((s) => s.id === result.session.id)
-          ? prev.sessions
-          : [result.session, ...prev.sessions],
-      }));
-    }
-
-    return { ok: true as const, sessionIds: ids };
+    return {
+      ok: true as const,
+      sessionIds: selectionRef.current.sessionIds,
+    };
   }, []);
 
   async function handleSubmitClick() {
@@ -120,43 +81,25 @@ export function AddWithSessionComposer({
     setSubmitError("Record something first, then Submit.");
   }
 
-  async function saveDetailsAndContinue() {
-    setSavingDetails(true);
-    setSubmitError(null);
-    const result = await resolveSessionIds();
-    setSavingDetails(false);
-    if (!result.ok) {
-      setSubmitError(result.error);
-      return;
-    }
-    if (!selectionRef.current.draft.name.trim() && !savedSessionIdRef.current) {
-      setSubmitError("Add a Title in Session details to save a session.");
-      return;
-    }
-    setSubmitWhileRecordingOpen(false);
-  }
-
   function stopRecordingAndSubmit() {
     setSubmitWhileRecordingOpen(false);
     recorderRef.current?.stopAndSubmit();
   }
 
-  const composer = (
-    <SessionComposer
+  const connect = (
+    <ConnectPanel
       sessions={sessions}
-      peers={peers}
-      createLabel={createLabel}
-      variant={mode === "record" ? "details" : "buttons"}
+      relateTargets={relateTargets}
+      initialSessionIds={initialSessionIds}
+      showDocumentTitle={mode === "record"}
       onSelectionChange={onSelectionChange}
-      onCreateSession={createGroupSession}
-      onAddParticipants={addParticipantsToSession}
       footer={
         mode === "record" ? (
           <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={() => void handleSubmitClick()}
-              disabled={capturePhase === "finalizing" || savingDetails}
+              disabled={capturePhase === "finalizing"}
               className="btn-primary w-full rounded-md bg-forest px-4 py-2.5 text-sm font-medium text-paper disabled:opacity-60 sm:w-auto"
             >
               {capturePhase === "finalizing" ? "Submitting…" : "Submit"}
@@ -178,20 +121,18 @@ export function AddWithSessionComposer({
         <>
           <ListensRecorder
             ref={recorderRef}
-            documentTitle={selection.draft.name}
+            documentTitle={selection.documentTitle}
             resolveSessionIds={resolveSessionIds}
+            relatedDocumentIds={selection.relatedDocumentIds}
+            relatedSessionIds={selection.relatedSessionIds}
             onPhaseChange={setCapturePhase}
           />
-          {composer}
+          {connect}
           {submitWhileRecordingOpen ? (
             <ConfirmDialog
               title="Recording still in progress"
-              body="Stop and send this take to Commons, or save the session details and keep recording."
+              body="Stop and send this take to Commons, or keep recording."
               confirmLabel="Stop recording and submit"
-              secondaryLabel={
-                savingDetails ? "Saving…" : "Save details and continue"
-              }
-              onSecondary={() => void saveDetailsAndContinue()}
               onConfirm={stopRecordingAndSubmit}
               onCancel={() => setSubmitWhileRecordingOpen(false)}
             />
@@ -199,8 +140,12 @@ export function AddWithSessionComposer({
         </>
       ) : (
         <>
-          {composer}
-          <ReceiveUploadForm sessionIds={selection.sessionIds} />
+          {connect}
+          <ReceiveUploadForm
+            sessionIds={selection.sessionIds}
+            relatedDocumentIds={selection.relatedDocumentIds}
+            relatedSessionIds={selection.relatedSessionIds}
+          />
         </>
       )}
     </div>

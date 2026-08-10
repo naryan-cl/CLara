@@ -2,17 +2,33 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionByShareToken } from "@/lib/sessions/get-session-by-share-token";
 import { markAttended } from "@/lib/sessions/attendance";
+import type { JoinMode } from "@/lib/sessions/types";
 
 type Props = {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ mode?: string }>;
 };
 
+function resolveMode(raw: string | undefined): JoinMode {
+  if (raw === "record" || raw === "upload" || raw === "reflect") return raw;
+  return "reflect";
+}
+
+function addHref(mode: JoinMode, sessionId: string): string {
+  if (mode === "record") return `/add/record?session=${sessionId}`;
+  if (mode === "upload") return `/add/upload?session=${sessionId}`;
+  return `/add/chat?session=${sessionId}`;
+}
+
 /**
- * Share/QR entry: resolve session by share_token, mark the visitor as a
- * participant, then open Reflect with that session pre-selected.
+ * Share/QR entry: resolve session by share_token, mark attendance,
+ * open Reflect / Record / Upload with the session pre-linked.
  */
-export default async function JoinSessionPage({ params }: Props) {
+export default async function JoinSessionPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const { mode: modeParam } = await searchParams;
+  const mode = resolveMode(modeParam);
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,10 +51,10 @@ export default async function JoinSessionPage({ params }: Props) {
           stream.
         </p>
         <a
-          href="/add/chat"
+          href="/add/session"
           className="mt-6 inline-block text-sm text-horizon underline"
         >
-          Go to Reflect
+          Create a session
         </a>
       </div>
     );
@@ -46,5 +62,5 @@ export default async function JoinSessionPage({ params }: Props) {
 
   await markAttended(session.id, user.id);
 
-  redirect(`/add/chat?session=${session.id}`);
+  redirect(addHref(mode, session.id));
 }

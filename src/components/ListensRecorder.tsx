@@ -56,11 +56,13 @@ export type ListensRecorderHandle = {
 };
 
 type ListensRecorderProps = {
-  /** Transcript + session title from Session details (single Title field). */
+  /** Transcript document title (not a session name). */
   documentTitle?: string;
   resolveSessionIds?: () => Promise<
     { ok: true; sessionIds: string[] } | { ok: false; error: string }
   >;
+  relatedDocumentIds?: string[];
+  relatedSessionIds?: string[];
   onPhaseChange?: (phase: CapturePhase) => void;
 };
 
@@ -109,6 +111,65 @@ function barsFromFrequency(data: Uint8Array): number[] {
   return nextBars;
 }
 
+function isMacPlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const nav = navigator as Navigator & {
+    userAgentData?: { platform?: string };
+  };
+  const platform = nav.userAgentData?.platform ?? navigator.platform ?? "";
+  if (/mac/i.test(platform)) return true;
+  return /Mac OS X|Macintosh/i.test(navigator.userAgent);
+}
+
+/** Checkbox hint — Mac tab audio vs Windows system-audio wording. */
+function tabSystemAudioHint(): string {
+  if (isMacPlatform()) {
+    return 'Only works with Chrome or Edge — pick a Chrome Tab and turn on “Share tab audio”. If Chrome asks for System Settings → Screen Recording, enable Chrome, then quit Chrome completely and reopen.';
+  }
+  return 'Only works with Chrome or Edge — select a tab or screen and enable “Also share system audio”.';
+}
+
+function mapMicCaptureError(err: unknown): string {
+  const name = err instanceof DOMException ? err.name : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Mic access was blocked. Allow microphone for this site in your browser settings, then try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone was found. Connect a mic and try again.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Your microphone is in use by another app. Close it and try again.";
+  }
+  return "Could not access the microphone. Check your browser's site permissions and try again.";
+}
+
+function mapDisplayCaptureError(err: unknown): string {
+  const name = err instanceof DOMException ? err.name : "";
+  if (name === "AbortError") {
+    return "Share was cancelled.";
+  }
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    if (isMacPlatform()) {
+      return "Screen/audio share was blocked. On Mac: System Settings → Privacy & Security → Screen Recording → enable Chrome, then quit Chrome completely (all windows) and reopen before retrying.";
+    }
+    return "Screen/audio share was blocked. Allow screen sharing for this site in your browser, then try again.";
+  }
+  if (name === "NotFoundError") {
+    return "No shareable tab or screen was available. Try again and pick a Chrome Tab.";
+  }
+  if (name === "NotSupportedError") {
+    return "Tab/system audio isn’t supported in this browser. Try Chrome or Edge.";
+  }
+  return "Tab/system audio share failed. Try again, or continue with mic only.";
+}
+
+function emptyShareAudioError(): string {
+  if (isMacPlatform()) {
+    return 'No audio track came back. Pick a Chrome Tab and turn on “Share tab audio” (entire screen often has no audio on Mac).';
+  }
+  return 'No audio track came back. Select a tab or screen and enable “Also share system audio”.';
+}
+
 async function requestSystemTabAudio(): Promise<
   { ok: true; stream: MediaStream } | { ok: false; error: string }
 > {
@@ -116,7 +177,7 @@ async function requestSystemTabAudio(): Promise<
     return {
       ok: false,
       error:
-        "System audio isn’t supported in this browser. Try Chrome or Edge.",
+        "Tab/system audio isn’t supported in this browser. Try Chrome or Edge.",
     };
   }
 
@@ -137,17 +198,19 @@ async function requestSystemTabAudio(): Promise<
   }
 
   try {
+    // Prefer Chrome Tab (reliable audio on macOS). Windows can still pick
+    // entire screen + system audio when the OS/browser offers it.
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        displaySurface: "monitor",
+        displaySurface: "browser",
         frameRate: 1,
         width: 16,
         height: 16,
       },
       audio: true,
       systemAudio: "include",
-      preferCurrentTab: false,
-      selfBrowserSurface: "exclude",
+      preferCurrentTab: true,
+      selfBrowserSurface: "include",
       monitorTypeSurfaces: "include",
     } as DisplayMediaStreamOptions);
 
@@ -160,19 +223,25 @@ async function requestSystemTabAudio(): Promise<
       for (const track of display.getTracks()) track.stop();
       return {
         ok: false,
-        error:
-          "No audio track came back. Select a tab/window and enable “Also share system audio”.",
+        error: emptyShareAudioError(),
       };
     }
 
     return { ok: true, stream: new MediaStream(audioTracks) };
-  } catch {
+  } catch (err) {
     return {
       ok: false,
-      error: "System audio share was cancelled or blocked.",
+      error: mapDisplayCaptureError(err),
     };
   }
 }
+
+type PendingCaptureStart = {
+  micStream: MediaStream;
+  mimeType: string;
+  streamId: string;
+  recordingId: string;
+};
 
 /**
  * Capture strip for Listens v2: record / pause / stop / trash + meters.
@@ -182,7 +251,7 @@ export const ListensRecorder = forwardRef<
   ListensRecorderHandle,
   ListensRecorderProps
 >(function ListensRecorder(
-  { documentTitle = "", resolveSessionIds, onPhaseChange },
+  { documentTitle = "", resolveSessionIds, relatedDocumentIds = [], relatedSessionIds = [], onPhaseChange },
   ref,
 ) {
   const router = useRouter();
@@ -192,12 +261,24 @@ export const ListensRecorder = forwardRef<
   const [error, setError] = useState<string | null>(null);
   const [includeSystemAudio, setIncludeSystemAudio] = useState(true);
   const [systemAudioActive, setSystemAudioActive] = useState(false);
+  const [systemAudioSkippedNote, setSystemAudioSkippedNote] = useState(false);
+  const [systemAudioPrompt, setSystemAudioPrompt] = useState<string | null>(
+    null,
+  );
   const [micLevel, setMicLevel] = useState(0);
   const [systemLevel, setSystemLevel] = useState(0);
   const [bars, setBars] = useState<number[]>(quietBars);
   const [segmentUploading, setSegmentUploading] = useState(false);
   const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
+  /** Set after mount so SSR/hydration don’t disagree on Mac vs Windows copy. */
+  const [audioHint, setAudioHint] = useState(
+    'Only works with Chrome or Edge — pick a Chrome Tab and enable share audio (“Share tab audio” on Mac, or “Also share system audio” on Windows).',
+  );
+
+  useEffect(() => {
+    setAudioHint(tabSystemAudioHint());
+  }, []);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -218,12 +299,18 @@ export const ListensRecorder = forwardRef<
   const segmentElapsedRef = useRef(0);
   const stopReasonRef = useRef<StopReason | null>(null);
   const rotatingRef = useRef(false);
+  /** Mic + prepare ids held while the share-audio choice dialog is open. */
+  const pendingStartRef = useRef<PendingCaptureStart | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const documentTitleRef = useRef(documentTitle);
   documentTitleRef.current = documentTitle;
   const resolveSessionIdsRef = useRef(resolveSessionIds);
   resolveSessionIdsRef.current = resolveSessionIds;
+  const relatedDocumentIdsRef = useRef(relatedDocumentIds);
+  relatedDocumentIdsRef.current = relatedDocumentIds;
+  const relatedSessionIdsRef = useRef(relatedSessionIds);
+  relatedSessionIdsRef.current = relatedSessionIds;
   const onPhaseChangeRef = useRef(onPhaseChange);
   onPhaseChangeRef.current = onPhaseChange;
 
@@ -311,6 +398,14 @@ export const ListensRecorder = forwardRef<
 
   const resetAll = useCallback(() => {
     teardownLiveCapture();
+    if (pendingStartRef.current) {
+      pendingStartRef.current.micStream
+        .getTracks()
+        .forEach((track) => track.stop());
+      pendingStartRef.current = null;
+    }
+    setSystemAudioPrompt(null);
+    setSystemAudioSkippedNote(false);
     streamIdRef.current = null;
     recordingIdRef.current = null;
     segmentIndexRef.current = 0;
@@ -321,7 +416,18 @@ export const ListensRecorder = forwardRef<
     updatePhase("idle");
   }, [teardownLiveCapture, updatePhase]);
 
-  useEffect(() => () => teardownLiveCapture(), [teardownLiveCapture]);
+  useEffect(
+    () => () => {
+      teardownLiveCapture();
+      if (pendingStartRef.current) {
+        pendingStartRef.current.micStream
+          .getTracks()
+          .forEach((track) => track.stop());
+        pendingStartRef.current = null;
+      }
+    },
+    [teardownLiveCapture],
+  );
 
   const buildCaptureGraph = useCallback(
     (micStream: MediaStream, systemStream: MediaStream | null) => {
@@ -437,6 +543,8 @@ export const ListensRecorder = forwardRef<
         fileExtension,
         title: titleForUpload || undefined,
         sessionIds: sessionsForFinalize,
+        relatedDocumentIds: relatedDocumentIdsRef.current,
+        relatedSessionIds: relatedSessionIdsRef.current,
       });
 
       if (!result.ok) {
@@ -633,8 +741,103 @@ export const ListensRecorder = forwardRef<
     return () => clearInterval(interval);
   }, [phase, requestStop]);
 
+  function attachMicEndedHandlers(micStream: MediaStream) {
+    micStream.getAudioTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        if (
+          phaseRef.current === "recording" ||
+          phaseRef.current === "paused"
+        ) {
+          requestStop("stop");
+        }
+      });
+    });
+  }
+
+  function attachSystemEndedHandlers(systemStream: MediaStream) {
+    systemStream.getAudioTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        systemAnalyserRef.current = null;
+        setSystemAudioActive(false);
+        setSystemLevel(0);
+      });
+    });
+  }
+
+  function beginCapture(
+    pending: PendingCaptureStart,
+    systemStream: MediaStream | null,
+  ) {
+    pendingStartRef.current = null;
+    setSystemAudioPrompt(null);
+
+    if (systemStream) {
+      attachSystemEndedHandlers(systemStream);
+    }
+
+    micStreamRef.current = pending.micStream;
+    systemStreamRef.current = systemStream;
+    mimeTypeRef.current = pending.mimeType;
+    streamIdRef.current = pending.streamId;
+    recordingIdRef.current = pending.recordingId;
+    segmentIndexRef.current = 0;
+    uploadedCountRef.current = 0;
+    segmentElapsedRef.current = 0;
+
+    const recordStream = buildCaptureGraph(pending.micStream, systemStream);
+    recordStreamRef.current = recordStream;
+
+    setSystemAudioActive(Boolean(systemStream));
+    setElapsedSeconds(0);
+    updatePhase("recording");
+    startSegmentRecorder();
+  }
+
+  function dismissSystemAudioPrompt() {
+    const pending = pendingStartRef.current;
+    pendingStartRef.current = null;
+    setSystemAudioPrompt(null);
+    pending?.micStream.getTracks().forEach((track) => track.stop());
+  }
+
+  function continueWithMicOnly() {
+    const pending = pendingStartRef.current;
+    if (!pending) {
+      setSystemAudioPrompt(null);
+      return;
+    }
+    setSystemAudioSkippedNote(true);
+    setError(null);
+    beginCapture(pending, null);
+  }
+
+  async function retrySystemAudioShare() {
+    const pending = pendingStartRef.current;
+    if (!pending) {
+      setSystemAudioPrompt(null);
+      return;
+    }
+    setError(null);
+    const systemResult = await requestSystemTabAudio();
+    if (!systemResult.ok) {
+      // Keep mic + prepare ids; refresh the dialog message.
+      setSystemAudioPrompt(systemResult.error);
+      return;
+    }
+    setSystemAudioSkippedNote(false);
+    beginCapture(pending, systemResult.stream);
+  }
+
   async function startRecording() {
     setError(null);
+    setSystemAudioSkippedNote(false);
+    setSystemAudioPrompt(null);
+    if (pendingStartRef.current) {
+      pendingStartRef.current.micStream
+        .getTracks()
+        .forEach((track) => track.stop());
+      pendingStartRef.current = null;
+    }
 
     if (phase === "stopped" && uploadedCountRef.current > 0) {
       setError("Trash the saved take first, or Submit it below.");
@@ -658,59 +861,34 @@ export const ListensRecorder = forwardRef<
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1 },
       });
-    } catch {
-      setError(
-        "Mic access was blocked. Check your browser's site permissions and try again.",
-      );
+    } catch (err) {
+      setError(mapMicCaptureError(err));
       return;
     }
 
     // If the mic dies mid-take, treat it like Stop — keep what we have.
-    micStream.getAudioTracks().forEach((track) => {
-      track.addEventListener("ended", () => {
-        if (
-          phaseRef.current === "recording" ||
-          phaseRef.current === "paused"
-        ) {
-          requestStop("stop");
-        }
-      });
-    });
+    attachMicEndedHandlers(micStream);
 
-    let systemStream: MediaStream | null = null;
+    const pending: PendingCaptureStart = {
+      micStream,
+      mimeType,
+      streamId: prepared.streamId,
+      recordingId: prepared.recordingId,
+    };
+
     if (includeSystemAudio) {
       const systemResult = await requestSystemTabAudio();
       if (!systemResult.ok) {
-        micStream.getTracks().forEach((track) => track.stop());
-        setError(systemResult.error);
+        // Hold the mic open and let the user continue, retry, or cancel.
+        pendingStartRef.current = pending;
+        setSystemAudioPrompt(systemResult.error);
         return;
       }
-      systemStream = systemResult.stream;
-      systemStream.getAudioTracks().forEach((track) => {
-        track.addEventListener("ended", () => {
-          systemAnalyserRef.current = null;
-          setSystemAudioActive(false);
-          setSystemLevel(0);
-        });
-      });
+      beginCapture(pending, systemResult.stream);
+      return;
     }
 
-    micStreamRef.current = micStream;
-    systemStreamRef.current = systemStream;
-    mimeTypeRef.current = mimeType;
-    streamIdRef.current = prepared.streamId;
-    recordingIdRef.current = prepared.recordingId;
-    segmentIndexRef.current = 0;
-    uploadedCountRef.current = 0;
-    segmentElapsedRef.current = 0;
-
-    const recordStream = buildCaptureGraph(micStream, systemStream);
-    recordStreamRef.current = recordStream;
-
-    setSystemAudioActive(Boolean(systemStream));
-    setElapsedSeconds(0);
-    updatePhase("recording");
-    startSegmentRecorder();
+    beginCapture(pending, null);
   }
 
   async function confirmTrash() {
@@ -759,6 +937,7 @@ export const ListensRecorder = forwardRef<
 
   const isLive = phase === "recording" || phase === "paused";
   const busy = phase === "finalizing";
+  const awaitingSystemAudioChoice = systemAudioPrompt != null;
   const showViz = isLive || busy || segmentUploading || phase === "stopped";
   const canTrash =
     isLive || phase === "stopped" || uploadedCountRef.current > 0;
@@ -771,7 +950,12 @@ export const ListensRecorder = forwardRef<
           <RecordButton
             active={phase === "recording"}
             paused={phase === "paused"}
-            disabled={busy || segmentUploading || phase === "stopped"}
+            disabled={
+              busy ||
+              segmentUploading ||
+              phase === "stopped" ||
+              awaitingSystemAudioChoice
+            }
             onClick={() => {
               if (phase === "idle") void startRecording();
             }}
@@ -866,7 +1050,9 @@ export const ListensRecorder = forwardRef<
           </div>
         ) : (
           <p className="text-center text-sm text-ink/50">
-            Tap the mic to start capturing
+            {awaitingSystemAudioChoice
+              ? "Choose how to continue — mic only, or retry share audio"
+              : "Tap the mic to start capturing"}
           </p>
         )}
       </div>
@@ -876,17 +1062,24 @@ export const ListensRecorder = forwardRef<
           type="checkbox"
           className="mt-1"
           checked={includeSystemAudio}
-          disabled={isLive || busy || phase === "stopped"}
+          disabled={
+            isLive || busy || phase === "stopped" || awaitingSystemAudioChoice
+          }
           onChange={(event) => setIncludeSystemAudio(event.target.checked)}
         />
         <span>
-          <span className="font-medium text-ink">Include system audio</span>
+          <span className="font-medium text-ink">Include tab / system audio</span>
           <span className="mt-0.5 block text-ink/55">
-            Only works with Chrome or Edge — select a tab/window and select
-            &ldquo;Also share system audio&rdquo;.
+            {audioHint}
           </span>
         </span>
       </label>
+
+      {systemAudioSkippedNote && isLive ? (
+        <p className="text-sm text-ink/55">
+          Recording with mic only — tab/system audio was skipped.
+        </p>
+      ) : null}
 
       {busy ? (
         <div className="flex items-center justify-center gap-2 text-sm text-ink/70">
@@ -905,6 +1098,19 @@ export const ListensRecorder = forwardRef<
           danger
           onCancel={() => setTrashConfirmOpen(false)}
           onConfirm={() => void confirmTrash()}
+        />
+      ) : null}
+
+      {systemAudioPrompt ? (
+        <ConfirmDialog
+          title="Tab / system audio unavailable"
+          body={`${systemAudioPrompt} You can continue with your microphone only, or try the share dialog again.`}
+          confirmLabel="Continue with mic only"
+          secondaryLabel="Retry share audio"
+          cancelLabel="Cancel"
+          onCancel={dismissSystemAudioPrompt}
+          onSecondary={() => void retrySystemAudioShare()}
+          onConfirm={continueWithMicOnly}
         />
       ) : null}
 
