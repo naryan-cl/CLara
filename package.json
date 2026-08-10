@@ -20,6 +20,7 @@
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
     "@types/turndown": "^5.0.6",
+    "@vercel/analytics": "^2.0.1",
     "canvas-confetti": "^1.9.4",
     "d3-force": "^3.0.0",
     "inngest": "^4.13.0",

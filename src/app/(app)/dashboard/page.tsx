@@ -2,6 +2,7 @@ import { listCommonsItems } from "@/lib/commons/list-items";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getThemeUnlockState } from "@/lib/map-theme/theme-state";
+import { getStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 
 type Props = {
@@ -39,6 +40,10 @@ export default async function DashboardPage({ searchParams }: Props) {
     stream && user
       ? await getThemeUnlockState(stream.id, user.id)
       : { state: null, error: null };
+
+  const layoutResult = stream
+    ? await getStreamMapLayoutConfig(stream.id)
+    : { config: null, error: null };
 
   if (!stream || !user) {
     return (
@@ -81,6 +86,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       unlockedThemes={unlockedThemes}
       pendingUnlock={pendingUnlock}
       initialSelect={initialSelect}
+      layoutConfig={layoutResult.config ?? undefined}
     />
   );
 }

@@ -4,6 +4,7 @@ import { IsolationToggle } from "@/components/IsolationToggle";
 import { PromptsPanel } from "@/components/PromptsPanel";
 import { MapThemesPanel } from "@/components/MapThemesPanel";
 import { AskIndexPanel } from "@/components/AskIndexPanel";
+import Link from "next/link";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listNeedsReviewDocuments } from "@/lib/documents/list-needs-review";
 import { listStreamMembers } from "@/lib/streams/list-members";
@@ -65,6 +66,20 @@ export default async function AdminPage() {
           Membership, isolation, map themes, Ask index, CLara prompts, and the
           metadata review queue for {stream.name}.
         </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/admin/analytics"
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-sm text-ink hover:border-ink/40"
+          >
+            Analytics →
+          </Link>
+          <Link
+            href="/admin/map-layout"
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-sm text-ink hover:border-ink/40"
+          >
+            Map &amp; Dashboard layout →
+          </Link>
+        </div>
       </div>
 
       <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">

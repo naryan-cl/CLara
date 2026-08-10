@@ -1,4 +1,5 @@
 import { KnowledgeMap } from "@/components/KnowledgeMap";
+import { getStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
 import { listGraph } from "@/lib/graph/list-graph";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 
@@ -7,6 +8,9 @@ export default async function MapPage() {
   const { nodes, edges, error } = stream
     ? await listGraph(stream.id)
     : { nodes: [], edges: [], error: null };
+  const { config: layoutConfig } = stream
+    ? await getStreamMapLayoutConfig(stream.id)
+    : { config: undefined };
 
   return (
     <div className="flex flex-col gap-10">
@@ -53,7 +57,11 @@ export default async function MapPage() {
         </div>
       ) : (
         <div className="h-[min(70vh,640px)] min-h-[320px]">
-          <KnowledgeMap nodes={nodes} edges={edges} />
+          <KnowledgeMap
+            nodes={nodes}
+            edges={edges}
+            layoutConfig={layoutConfig}
+          />
         </div>
       )}
     </div>

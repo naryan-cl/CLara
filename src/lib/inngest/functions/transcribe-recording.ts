@@ -6,8 +6,19 @@ import {
   type ClaraRecordingReceivedEvent,
 } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { transcribeAudio } from "@/lib/openai/transcribe";
+import {
+  shiftTranscriptClocks,
+  transcribeAudio,
+} from "@/lib/openai/transcribe";
 import { LISTENS_FAILURE_PLACEHOLDER } from "@/lib/listens/placeholders";
+import { mapTranscriptSpeakersToNames } from "@/lib/listens/map-speakers";
+import {
+  asParticipantNames,
+  resolveSessionParticipantNames,
+} from "@/lib/listens/participant-names";
+
+/** Fallback when the API omits duration (keeps multi-chunk clocks roughly aligned). */
+const FALLBACK_SEGMENT_SECONDS = 12 * 60;
 
 type RecordingPayload = ClaraRecordingReceivedEvent["data"];
 
@@ -35,7 +46,8 @@ function readRecordingPayload(event: unknown): RecordingPayload {
 }
 
 /**
- * Listens v2 Module B: Whisper each staged segment in order, join text,
+ * Listens v2 Module B: diarize/Whisper each staged segment in order, shift
+ * clocks so the full take is continuous, map Speaker A/B → session names,
  * write Transcript, delete staging objects, fan out clara/document.created.
  */
 export const transcribeRecordingFn = inngest.createFunction(
@@ -56,10 +68,11 @@ export const transcribeRecordingFn = inngest.createFunction(
     const ext = fileExtension === "m4a" ? "m4a" : "webm";
 
     const parts: string[] = [];
+    let timeOffsetSeconds = 0;
 
     for (let i = 0; i < segmentCount; i++) {
       const storagePath = `${streamId}/${recordingId}/${i}.${ext}`;
-      const text = await step.run(`transcribe-segment-${i}`, async () => {
+      const chunk = await step.run(`transcribe-segment-${i}`, async () => {
         // Surface env gaps clearly in the Inngest run UI.
         if (!process.env.SUPABASE_SECRET_KEY?.trim()) {
           throw new Error(
@@ -97,15 +110,60 @@ export const transcribeRecordingFn = inngest.createFunction(
           // Fail the step so Inngest shows the Whisper error (not a silent empty doc).
           throw new Error(`Whisper segment ${i}: ${result.error}`);
         }
-        return result.text;
+        return {
+          text: result.text,
+          durationSeconds: result.durationSeconds,
+          hasSpeakers: result.hasSpeakers,
+        };
       });
 
-      if (text?.trim()) {
-        parts.push(text.trim());
+      if (chunk?.text?.trim()) {
+        parts.push(shiftTranscriptClocks(chunk.text.trim(), timeOffsetSeconds));
+        timeOffsetSeconds +=
+          chunk.durationSeconds > 0
+            ? chunk.durationSeconds
+            : FALLBACK_SEGMENT_SECONDS;
       }
     }
 
-    const transcript = parts.join("\n\n");
+    let transcript = parts.join("\n\n");
+
+    const participantNames = await step.run(
+      "resolve-participant-names",
+      async () => {
+        const admin = createAdminClient();
+        const { data: doc, error } = await admin
+          .from("documents")
+          .select("participants, session_id")
+          .eq("id", documentId)
+          .maybeSingle();
+        if (error) {
+          throw new Error(`resolve-participant-names: ${error.message}`);
+        }
+
+        const seeded = asParticipantNames(doc?.participants);
+        if (seeded.length > 0) return seeded;
+
+        const sessionIds: string[] = [];
+        if (doc?.session_id) sessionIds.push(doc.session_id as string);
+
+        const { data: links } = await admin
+          .from("document_sessions")
+          .select("session_id")
+          .eq("document_id", documentId);
+        for (const row of links ?? []) {
+          if (row.session_id) sessionIds.push(row.session_id as string);
+        }
+
+        return resolveSessionParticipantNames(sessionIds, admin);
+      },
+    );
+
+    if (transcript.trim() && participantNames.length > 0) {
+      transcript = await step.run("map-speaker-names", async () => {
+        return mapTranscriptSpeakersToNames(transcript, participantNames);
+      });
+    }
 
     await step.run("apply-transcript", async () => {
       const admin = createAdminClient();
@@ -114,12 +172,17 @@ export const transcribeRecordingFn = inngest.createFunction(
       // Keep needs_review true on success until OKF enrich settles metadata.
       // Why: the dashboard can show “Summarizing…” between Whisper and OKF
       // without a separate job-status column.
+      const patch: Record<string, unknown> = {
+        content: success ? transcript : LISTENS_FAILURE_PLACEHOLDER,
+        needs_review: true,
+      };
+      if (participantNames.length > 0) {
+        patch.participants = participantNames;
+      }
+
       const { error } = await admin
         .from("documents")
-        .update({
-          content: success ? transcript : LISTENS_FAILURE_PLACEHOLDER,
-          needs_review: true,
-        })
+        .update(patch)
         .eq("id", documentId);
 
       if (error) throw new Error(`apply-transcript: ${error.message}`);
@@ -152,6 +215,7 @@ export const transcribeRecordingFn = inngest.createFunction(
       transcribed: Boolean(transcript.trim()),
       segmentCount,
       partsWithSpeech: parts.length,
+      participantCount: participantNames.length,
     };
   },
 );

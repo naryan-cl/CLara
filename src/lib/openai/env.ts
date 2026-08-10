@@ -8,8 +8,15 @@ export function getOpenAiChatModel(): string {
   return process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o-mini";
 }
 
+/**
+ * Default: diarize model (speaker labels + segment clocks). Set to
+ * `whisper-1` for timestamp-only transcripts without speakers.
+ */
 export function getOpenAiTranscriptionModel(): string {
-  return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || "whisper-1";
+  return (
+    process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() ||
+    "gpt-4o-transcribe-diarize"
+  );
 }
 
 export function getOpenAiEmbeddingModel(): string {

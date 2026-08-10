@@ -13,6 +13,11 @@ import { updateStreamThemeSettings } from "@/lib/map-theme/theme-state";
 import { isMapThemeId, type MapThemeId } from "@/lib/map-theme";
 import { listDocumentsMissingEmbeddings } from "@/lib/embeddings/list-missing-embeddings";
 import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
+import {
+  parseMapLayoutConfig,
+  type MapLayoutConfig,
+} from "@/lib/graph/map-layout-config";
+import { updateStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -206,4 +211,41 @@ export async function backfillMissingEmbeddings(): Promise<BackfillResult> {
 
   revalidatePath("/admin");
   return { ok: true, queued: documents.length };
+}
+
+/** Persist stream map physics + size knobs (Dashboard + Knowledge Map). */
+export async function saveMapLayoutConfig(
+  raw: MapLayoutConfig,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const config = parseMapLayoutConfig(raw);
+  const { error } = await updateStreamMapLayoutConfig(auth.streamId, config);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/map-layout");
+  revalidatePath("/dashboard");
+  revalidatePath("/map");
+  return { ok: true };
+}
+
+/** Clear overrides so product defaults apply again. */
+export async function resetMapLayoutConfig(): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const { error } = await updateStreamMapLayoutConfig(auth.streamId, null);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/map-layout");
+  revalidatePath("/dashboard");
+  revalidatePath("/map");
+  return { ok: true };
 }

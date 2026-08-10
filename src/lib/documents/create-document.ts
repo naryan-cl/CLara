@@ -14,6 +14,8 @@ export type CreateDocumentInput = {
   sessionId?: string | null;
   privacyStatus?: DocumentPrivacy;
   tags?: string[];
+  /** Display names (e.g. session attendees) for OKF / transcript attribution. */
+  participants?: string[];
   needsReview?: boolean;
   /** Reflect autosave = true until Submit. Default false. */
   isDraft?: boolean;
@@ -44,7 +46,7 @@ export async function createDocument(
       session_id: input.sessionId ?? null,
       privacy_status: input.privacyStatus ?? "public",
       tags: input.tags ?? [],
-      participants: [],
+      participants: input.participants ?? [],
       needs_review: needsReview,
       is_draft: input.isDraft ?? false,
     })
