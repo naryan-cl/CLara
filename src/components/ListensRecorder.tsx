@@ -10,14 +10,19 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import {
   discardListensStaging,
   finalizeListensUpload,
   prepareListensRecording,
 } from "@/app/(app)/sessions/listens-actions";
+import { FlowerMark } from "@/components/FlowerMark";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
+
+/** Brief celebration before handing off to the dashboard (matches Reflect). */
+const THANKS_NAV_MS = 2400;
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
 
@@ -192,6 +197,7 @@ export const ListensRecorder = forwardRef<
   const [bars, setBars] = useState<number[]>(quietBars);
   const [segmentUploading, setSegmentUploading] = useState(false);
   const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const [showThanks, setShowThanks] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -439,9 +445,29 @@ export const ListensRecorder = forwardRef<
         return;
       }
 
+      // Celebrate first, then land on the dashboard with this recording selected.
+      // Why: contributors get a clear “it worked” moment, and the map/list can
+      // show live Transcribing → Summarizing status instead of a raw doc page.
       resetAll();
-      router.replace(`/sessions/documents/${result.documentId}`);
-      router.refresh();
+      setShowThanks(true);
+      const prefersReducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!prefersReducedMotion) {
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.65 },
+          colors: ["#7A9B76", "#C4A574", "#D4B896", "#F5F0E8", "#4a6741"],
+        });
+      }
+      const documentId = result.documentId;
+      window.setTimeout(() => {
+        router.push(
+          `/dashboard?select=document:${documentId}&fresh=1`,
+        );
+        router.refresh();
+      }, THANKS_NAV_MS);
     } catch (err) {
       console.error("finalizeListensUpload client error:", err);
       setError(
@@ -880,6 +906,29 @@ export const ListensRecorder = forwardRef<
           onCancel={() => setTrashConfirmOpen(false)}
           onConfirm={() => void confirmTrash()}
         />
+      ) : null}
+
+      {showThanks ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6 animate-fade-rise motion-reduce:animate-none"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="record-thanks-title"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-4 rounded-lg border border-cloud bg-paper p-8 text-center shadow-soft">
+            <FlowerMark className="h-24 w-24" />
+            <h2
+              id="record-thanks-title"
+              className="font-display text-xl font-medium text-ink"
+            >
+              Thank you for contributing to our Commons!
+            </h2>
+            <p className="text-sm text-ink/55">
+              Taking you to the dashboard — CLara is transcribing your
+              recording…
+            </p>
+          </div>
+        </div>
       ) : null}
     </div>
   );

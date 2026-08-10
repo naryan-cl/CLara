@@ -1,5 +1,6 @@
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
+import { recordingProcessLabel } from "@/lib/listens/process-status";
 
 function nodeTypeFor(item: CommonsListItem): string {
   if (item.kind === "session") return "Framework";
@@ -13,7 +14,10 @@ function descriptionFor(item: CommonsListItem): string {
   if (item.kind === "session") return "Session in the Commons";
   const bits = [item.type ?? "Document"];
   if (item.privacy_status === "private") bits.push("private");
-  if (item.needs_review) bits.push("needs review");
+  if (item.kind === "document") {
+    const label = recordingProcessLabel(item.processStatus);
+    if (label) bits.push(label.replace("…", "").toLowerCase());
+  }
   return bits.join(" · ");
 }
 

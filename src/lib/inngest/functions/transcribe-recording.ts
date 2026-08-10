@@ -111,11 +111,14 @@ export const transcribeRecordingFn = inngest.createFunction(
       const admin = createAdminClient();
       const success = Boolean(transcript.trim());
 
+      // Keep needs_review true on success until OKF enrich settles metadata.
+      // Why: the dashboard can show “Summarizing…” between Whisper and OKF
+      // without a separate job-status column.
       const { error } = await admin
         .from("documents")
         .update({
           content: success ? transcript : LISTENS_FAILURE_PLACEHOLDER,
-          needs_review: !success,
+          needs_review: true,
         })
         .eq("id", documentId);
 

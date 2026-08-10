@@ -199,8 +199,17 @@ export function CommonsRepository({
                     </div>
                     <p className="font-mono text-[11px] text-ink/45">
                       <span className={colour.textClass}>{elementLabel(item)}</span>
-                      {item.kind === "document" && item.needs_review
-                        ? " · needs review"
+                      {item.kind === "document" &&
+                      item.processStatus !== "ready"
+                        ? ` · ${
+                            item.processStatus === "transcribing"
+                              ? "transcribing"
+                              : item.processStatus === "summarizing"
+                                ? "summarizing"
+                                : item.processStatus === "failed"
+                                  ? "transcription failed"
+                                  : "needs review"
+                          }`
                         : ""}
                       {item.attending ? " · attended" : ""}
                       {" · "}

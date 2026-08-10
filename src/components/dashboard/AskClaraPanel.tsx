@@ -47,6 +47,7 @@ export function AskClaraPanel({
   onAskAbout,
   forceConversation = false,
   mapTheme = null,
+  watchProcessing = false,
 }: {
   formKey?: string;
   scope?: AskScope | null;
@@ -63,6 +64,8 @@ export function AskClaraPanel({
   forceConversation?: boolean;
   /** Active dashboard map theme — tints Ask chrome. */
   mapTheme?: MapThemeId | null;
+  /** Poll detail while Listens Whisper/OKF is still running. */
+  watchProcessing?: boolean;
 } = {}) {
   const rootRef = useRef<HTMLElement>(null);
   const [conversationOpen, setConversationOpen] = useState(
@@ -252,6 +255,7 @@ export function AskClaraPanel({
               onEditingChange={setEditing}
               onCanEditChange={setCanEdit}
               onDetailKindChange={setDetailKind}
+              watchProcessing={watchProcessing}
               onDeleted={() => {
                 setEditing(false);
                 onCloseDetail?.();

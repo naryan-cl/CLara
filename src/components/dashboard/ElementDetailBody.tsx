@@ -4,12 +4,20 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   loadCommonsDetail,
+  pollDocumentProcessStatus,
   type DetailPayload,
 } from "@/app/(app)/commons/actions";
 import { DocumentEditor } from "@/components/DocumentEditor";
 import { MarkdownView } from "@/components/MarkdownView";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { CommonsDocument } from "@/lib/documents/types";
+import {
+  isRecordingProcessing,
+  recordingProcessLabel,
+  recordingProcessStatus,
+} from "@/lib/listens/process-status";
+
+const DETAIL_POLL_MS = 2800;
 
 function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
@@ -29,9 +37,23 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
-function MetaPill({ children }: { children: React.ReactNode }) {
+function MetaPill({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "live" | "danger";
+}) {
+  const toneClass =
+    tone === "live"
+      ? "border-horizon/50 text-horizon"
+      : tone === "danger"
+        ? "border-danger/40 text-danger"
+        : "border-sage/40 text-sage";
   return (
-    <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
+    <span
+      className={`rounded-pill border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -65,6 +87,14 @@ function DocumentBody({
   const participants = asStringList(document.participants);
   const tags = asStringList(document.tags);
   const date = formatDate(document.created_at);
+  const processStatus = recordingProcessStatus(document);
+  const processLabel = recordingProcessLabel(processStatus);
+  const processTone =
+    processStatus === "failed"
+      ? "danger"
+      : isRecordingProcessing(processStatus)
+        ? "live"
+        : "default";
 
   return (
     <div className="flex flex-col gap-5">
@@ -74,7 +104,9 @@ function DocumentBody({
           {document.privacy_status === "private" ? (
             <MetaPill>Private</MetaPill>
           ) : null}
-          {document.needs_review ? <MetaPill>Needs review</MetaPill> : null}
+          {processLabel ? (
+            <MetaPill tone={processTone}>{processLabel}</MetaPill>
+          ) : null}
         </div>
         {!hideTitle ? (
           <h2 className="font-display text-xl font-medium text-ink">
@@ -84,6 +116,13 @@ function DocumentBody({
         {date ? (
           <p className="font-mono text-[11px] tracking-wide text-ink/45">
             {date}
+          </p>
+        ) : null}
+        {isRecordingProcessing(processStatus) ? (
+          <p className="text-sm text-ink/55" aria-live="polite">
+            {processStatus === "transcribing"
+              ? "CLara is turning your audio into a transcript…"
+              : "CLara is summarizing themes and participants…"}
           </p>
         ) : null}
       </header>
@@ -262,6 +301,7 @@ export function ElementDetailBody({
   onCanEditChange,
   onDetailKindChange,
   onDeleted,
+  watchProcessing = false,
 }: {
   item: CommonsListItem;
   editing?: boolean;
@@ -270,6 +310,8 @@ export function ElementDetailBody({
   onDetailKindChange?: (kind: "document" | "session" | null) => void;
   /** After document delete — parent clears selection. */
   onDeleted?: () => void;
+  /** Keep reloading document content while Whisper/OKF run. */
+  watchProcessing?: boolean;
 }) {
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -304,6 +346,41 @@ export function ElementDetailBody({
     // Intentionally omit callbacks — parent setters are stable enough; avoid reload loops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.kind, item.id]);
+
+  // While processing, refresh document fields so transcript/status appear live.
+  useEffect(() => {
+    if (item.kind !== "document" || !watchProcessing) return;
+
+    let cancelled = false;
+    let timer: number | null = null;
+
+    async function tick() {
+      const result = await pollDocumentProcessStatus(item.id);
+      if (cancelled) return;
+      if (!result.ok) {
+        timer = window.setTimeout(() => {
+          void tick();
+        }, DETAIL_POLL_MS);
+        return;
+      }
+      setDetail((prev) =>
+        prev && prev.kind === "document"
+          ? { ...prev, document: result.document }
+          : prev,
+      );
+      if (isRecordingProcessing(result.processStatus)) {
+        timer = window.setTimeout(() => {
+          void tick();
+        }, DETAIL_POLL_MS);
+      }
+    }
+
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [item.kind, item.id, watchProcessing]);
 
   const openHref =
     item.kind === "session"

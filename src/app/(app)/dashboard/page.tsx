@@ -4,7 +4,26 @@ import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getThemeUnlockState } from "@/lib/map-theme/theme-state";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 
-export default async function DashboardPage() {
+type Props = {
+  searchParams?: Promise<{ select?: string; fresh?: string }>;
+};
+
+function parseSelectParam(
+  raw: string | undefined,
+): { kind: "document" | "session"; id: string } | null {
+  if (!raw) return null;
+  const match = /^(document|session):([0-9a-f-]{36})$/i.exec(raw.trim());
+  if (!match) return null;
+  return {
+    kind: match[1]!.toLowerCase() as "document" | "session",
+    id: match[2]!,
+  };
+}
+
+export default async function DashboardPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : {};
+  const initialSelect = parseSelectParam(params.select);
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,6 +80,7 @@ export default async function DashboardPage() {
       mapTheme={mapTheme}
       unlockedThemes={unlockedThemes}
       pendingUnlock={pendingUnlock}
+      initialSelect={initialSelect}
     />
   );
 }

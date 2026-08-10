@@ -24,6 +24,10 @@ import { isAttending } from "@/lib/sessions/attendance";
 import { listSessions } from "@/lib/sessions/list-sessions";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
+import {
+  recordingProcessStatus,
+  type RecordingProcessStatus,
+} from "@/lib/listens/process-status";
 
 export type CommentWithAuthor = CommonsComment & {
   author: UserPublicProfile;
@@ -238,5 +242,42 @@ export async function loadCommentAuditLog(
       ...e,
       editor_name: byId.get(e.editor_id) ?? "Member",
     })),
+  };
+}
+
+/**
+ * Lightweight poll for Listens pipeline status on the dashboard.
+ * Why: after Record submit we keep the selected item live while Whisper/OKF run,
+ * without reloading the full Commons detail payload every few seconds.
+ */
+export async function pollDocumentProcessStatus(
+  documentId: string,
+): Promise<
+  | {
+      ok: true;
+      document: CommonsDocument;
+      processStatus: RecordingProcessStatus;
+    }
+  | { ok: false; error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in required." };
+
+  const { stream } = await getActiveStream();
+  if (!stream) return { ok: false, error: "No active stream." };
+
+  const { document, error } = await getDocumentById(documentId);
+  if (error) return { ok: false, error };
+  if (!document || document.stream_id !== stream.id) {
+    return { ok: false, error: "Document not found." };
+  }
+
+  return {
+    ok: true,
+    document,
+    processStatus: recordingProcessStatus(document),
   };
 }

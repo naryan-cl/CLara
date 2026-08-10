@@ -1,4 +1,8 @@
 import type { CommonsDocument } from "@/lib/documents/types";
+import {
+  recordingProcessStatus,
+  type RecordingProcessStatus,
+} from "@/lib/listens/process-status";
 import type { SessionSummary } from "@/lib/sessions/types";
 
 /** Unified row in the Commons repository list. */
@@ -10,12 +14,15 @@ export type CommonsDocumentItem = {
   privacy_status: "public" | "private";
   needs_review: boolean;
   created_at: string;
+  updated_at: string;
   created_by: string | null;
   session_id: string | null;
   /** True when the doc's session is one the current user attended. */
   attending: boolean;
   /** Coarse bucket for filters: chat / record / upload / other */
   elementType: "chat" | "record" | "upload" | "other";
+  /** Listens (and similar) async pipeline label source. */
+  processStatus: RecordingProcessStatus;
 };
 
 export type CommonsSessionItem = {
@@ -84,10 +91,12 @@ export function toDocumentItem(
     privacy_status: doc.privacy_status,
     needs_review: doc.needs_review,
     created_at: doc.created_at,
+    updated_at: doc.updated_at,
     created_by: doc.created_by,
     session_id: doc.session_id,
     attending,
     elementType: documentElementType(doc.type),
+    processStatus: recordingProcessStatus(doc),
   };
 }
 

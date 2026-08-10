@@ -4,6 +4,10 @@ import Link from "next/link";
 import { FadeRise } from "@/components/motion/FadeRise";
 import { useResizablePanel } from "@/components/dashboard/useResizablePanel";
 import type { CommonsListItem } from "@/lib/commons/types";
+import {
+  isRecordingProcessing,
+  recordingProcessLabel,
+} from "@/lib/listens/process-status";
 
 function elementLabel(item: CommonsListItem) {
   if (item.kind === "session") return "Session";
@@ -11,6 +15,18 @@ function elementLabel(item: CommonsListItem) {
   if (item.elementType === "record") return "Record";
   if (item.elementType === "upload") return "Upload";
   return item.type ?? "Document";
+}
+
+function statusBits(item: CommonsListItem): string {
+  const bits: string[] = [];
+  if (item.kind === "document" && item.privacy_status === "private") {
+    bits.push("Private");
+  }
+  if (item.kind === "document") {
+    const label = recordingProcessLabel(item.processStatus);
+    if (label) bits.push(label);
+  }
+  return bits.length ? `${bits.join(" · ")} · ` : "";
 }
 
 /** Card min width used for auto-fill columns as the pane grows. */
@@ -127,11 +143,12 @@ export function CommonsListPanel({
                 gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_MIN}px, 1fr))`,
               }}
             >
-              {items.map((item, index) => {
-                const isPrivate =
-                  item.kind === "document" && item.privacy_status === "private";
+              {              items.map((item, index) => {
                 const id = `${item.kind}-${item.id}`;
                 const selected = selectedId === id;
+                const processing =
+                  item.kind === "document" &&
+                  isRecordingProcessing(item.processStatus);
                 return (
                   <button
                     key={id}
@@ -152,11 +169,13 @@ export function CommonsListPanel({
                         {elementLabel(item)}
                       </span>
                     </div>
-                    <p className="mt-1.5 font-mono text-[11px] tracking-wide text-ink/45">
-                      {isPrivate ? "Private · " : ""}
-                      {item.kind === "document" && item.needs_review
-                        ? "Needs review · "
-                        : ""}
+                    <p
+                      className={`mt-1.5 font-mono text-[11px] tracking-wide ${
+                        processing ? "text-horizon" : "text-ink/45"
+                      }`}
+                      aria-live={processing ? "polite" : undefined}
+                    >
+                      {statusBits(item)}
                       {new Date(
                         item.kind === "session" && item.occurred_at
                           ? item.occurred_at
