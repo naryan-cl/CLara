@@ -48,6 +48,7 @@ export function AskClaraPanel({
   forceConversation = false,
   mapTheme = null,
   watchProcessing = false,
+  onItemTitleChange,
 }: {
   formKey?: string;
   scope?: AskScope | null;
@@ -66,6 +67,8 @@ export function AskClaraPanel({
   mapTheme?: MapThemeId | null;
   /** Poll detail while Listens Whisper/OKF is still running. */
   watchProcessing?: boolean;
+  /** After an in-pane rename so the map/list can update immediately. */
+  onItemTitleChange?: (title: string) => void;
 } = {}) {
   const rootRef = useRef<HTMLElement>(null);
   const [conversationOpen, setConversationOpen] = useState(
@@ -79,6 +82,9 @@ export function AskClaraPanel({
   );
   const [detailDraft, setDetailDraft] = useState("");
   const [detailAskError, setDetailAskError] = useState<string | null>(null);
+  const [detailTitleOverride, setDetailTitleOverride] = useState<string | null>(
+    null,
+  );
 
   const { size, dragging, startDrag } = useResizablePanel({
     storageKey: "clara.dashboard.askPanel",
@@ -102,6 +108,7 @@ export function AskClaraPanel({
       setDetailKind(null);
       setDetailDraft("");
       setDetailAskError(null);
+      setDetailTitleOverride(null);
     });
   }, [selectedItem?.id, selectedItem?.kind, selectedNode?.id]);
 
@@ -134,7 +141,10 @@ export function AskClaraPanel({
   }, [inDetail, hasConversation, conversationOpen]);
 
   const detailTitle =
-    selectedItem?.title ?? selectedNode?.label ?? "Details";
+    detailTitleOverride ??
+    selectedItem?.title ??
+    selectedNode?.label ??
+    "Details";
 
   function buildScope(): AskScope | null {
     if (!selectedItem) return null;
@@ -162,9 +172,8 @@ export function AskClaraPanel({
 
   const showEdit =
     mode === "detail" &&
-    selectedItem?.kind === "document" &&
     canEdit &&
-    detailKind === "document";
+    (detailKind === "document" || detailKind === "session");
 
   const panelWidth = Math.min(size.width, typeof window !== "undefined" ? window.innerWidth - 32 : size.width);
   const panelHeight =
@@ -224,7 +233,13 @@ export function AskClaraPanel({
                 type="button"
                 onClick={() => setEditing((value) => !value)}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-cloud text-ink/55 transition-colors hover:border-horizon/40 hover:text-horizon"
-                aria-label={editing ? "Stop editing" : "Edit document"}
+                aria-label={
+                  editing
+                    ? "Stop editing"
+                    : detailKind === "session"
+                      ? "Edit session"
+                      : "Edit document"
+                }
                 aria-pressed={editing}
               >
                 <EditIcon />
@@ -256,6 +271,10 @@ export function AskClaraPanel({
               onCanEditChange={setCanEdit}
               onDetailKindChange={setDetailKind}
               watchProcessing={watchProcessing}
+              onTitleChange={(title) => {
+                setDetailTitleOverride(title);
+                onItemTitleChange?.(title);
+              }}
               onDeleted={() => {
                 setEditing(false);
                 onCloseDetail?.();

@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-10 (Admin analytics + map layout playground)  
+**Last updated:** 2026-08-13 (Dashboard session edit + map nest/Relate lines)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -39,7 +39,8 @@
 *   **Commons polish (2026-08-07):** Compact filter bar; element-type colour coding (Chat/Record/Upload/Session/Other) + legend; **Delete** in Edit for anyone with edit access (author / attendees / admins) — apply **`0020_document_delete_rls.sql`**. **My harvest** page + Markdown export removed (attendance toggle + “Attended” filter remain).
 *   **Transcript quality (2026-08-10):** Record / Upload audio transcripts are no longer a flat text blob. Default model is **`gpt-4o-transcribe-diarize`** (speakers + segment clocks). Commons Markdown looks like `**Name** · [M:SS]` turns; Session details participants seed `documents.participants` and rename Speaker A/B when possible (solo → that person; multi → light LLM map). Multi-chunk Listens shifts clocks so the full take stays continuous. Set `OPENAI_TRANSCRIPTION_MODEL=whisper-1` for timestamp-only (no speakers). Cost stays ~$0.006/min audio.
 *   **Admin analytics + map layout (2026-08-10):** `/admin/analytics` (stream Commons/graph/membership aggregates; Phase A). Site pageviews via Vercel Web Analytics. `/admin/map-layout` tunes Dashboard/Knowledge Map physics + sizes (`0022_map_layout_config.sql`). See §7.5.
-*   **Sessions as intentional gatherings (IA v2, 2026-08-10):** **Session** is the only nesting parent for multi-person contribution. **Add → Session** is first in the Add menu (`/add/session`): host creates a gathering (name, inquiry, short join code + share links), stays on a **live board** with Reflect/Record/Upload share icons (copy link + QR), live in-progress vs submitted counts, and **Finalize** (soft close — synthesizes current children into a Summary; late Adds still allowed; optional refresh synthesis). Solo Reflect / Record / Upload create **one Add** with no session create UI. **Connect** = **Relate** (user-described edge to another element) and/or **Join code** (only path to nest under a Session). Three connection kinds stay distinct: session parent/child (nesting), user-described links, auto-generated (OKF/map). Commons / dashboard hide session children until the parent is opened. Dashboard Commons map uses Reflect/Record/Upload/Session visuals — not Atom/Concept/Framework/Theme (those stay on `/map`). Apply migration **`0021_session_gathering.sql`**.
+*   **Sessions as intentional gatherings (IA v2, 2026-08-10):** **Session** is the only nesting parent for multi-person contribution. **Add → Session** is first in the Add menu (`/add/session`): host creates a gathering (name, inquiry, short join code + share links), stays on a **live board** with Reflect/Record/Upload share icons (copy link + QR), live in-progress vs submitted counts, and **Finalize** (soft close — synthesizes current children into a Summary; late Adds still allowed; optional refresh synthesis). Solo Reflect / Record / Upload create **one Add** with no session create UI. **Connect** = **Relate** (user-described edge to another element) and/or **Join code** (only path to nest under a Session). Three connection kinds stay distinct: session parent/child (nesting), user-described links, auto-generated (OKF/map). Commons list hides session children until the parent is opened. Dashboard map keeps the same top-level set; **selecting a session expands its children with nest lines**; Relate lines draw among visible nodes. Dashboard Commons map uses Reflect/Record/Upload/Session visuals — not Atom/Concept/Framework/Theme (those stay on `/map`). Apply migration **`0021_session_gathering.sql`**.
+*   **Dashboard session edit (2026-08-13):** Ask-pane pencil edits **sessions** (title, date, inquiry, description) for host, attendees, stream admins, and authors of nested documents. Apply **`0023_session_edit_rls.sql`**. OKF no longer auto-creates a gathering whose name is a UUID.
 
 ---
 
@@ -152,7 +153,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 **How OKF gets filled:**
 *   **Manual:** Title (optional), Type, Privacy (default Public) at Receive time; Session is editable on document edit (pick from the stream's existing sessions, or create by name inline). Owner can mark their own items Private to hide them from public Commons views (owner still sees them + eye icon).
-*   **Automatic** *(Shipped)*: on every new document, an Inngest job asks an LLM to propose Session / Tags / Participants. It never overwrites a field a human already set, and sets `needs_review = true` only when the model wasn't confident it found real signal in the text — not merely because a field is empty.
+*   **Automatic** *(Shipped)*: on every new document, an Inngest job asks an LLM to propose Session / Tags / Participants. It never overwrites a field a human already set, and sets `needs_review = true` only when the model wasn't confident it found real signal in the text — not merely because a field is empty. Proposed session names that look like UUIDs are ignored (unless they match an existing session id).
 *   **Admin Queue** *(Shipped)*: humans fix `needs_review` docs via `/admin` — never blocks ingestion. See §7.5.
 
 ### 5.3 Synthesis (meaning-making)
@@ -174,9 +175,8 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 7.1 Dashboard
 *   Active stream context from DB.
-*   Placeholder conceptual anchors.
-*   **Recent Commons Activity** (live query of `documents`).
-*   Jump-in cards may still link into Add / Synthesis surfaces; no redesign required in this IA pass.
+*   Full-bleed Commons map (contribution types) with floating Ask / Add / List.
+*   Map shows sessions + ungrouped Adds; **select a session to expand children and nest lines**. Relate lines among visible nodes. Ask pane pencil edits documents **and sessions** when permitted.
 
 ### 7.2 Add — Session / Reflect / Record / Upload
 *   **Session** (`/add/session`) — *(IA v2.)* First in Add menu + FAB. Host live board, join code, mode-specific share/QR, counts, Finalize.
@@ -188,7 +188,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ### 7.3 Commons — repository
 *   **Filterable / sortable list:** top-level = sessions + **ungrouped** Adds; children appear when a session is opened. Colour-coded by element type (Chat / Record / Upload / Session / Other).
 *   Click → **detail popup** with view/edit (when permitted) and comments (minimize removed 2026-08-06). Edit form includes **Delete** for the same people who can edit (author, session attendees, stream admins). Apply migration `0020_document_delete_rls.sql`.
-*   Session popup: mark **"I Attended"** and comment. (Standalone **My harvest** export page removed 2026-08-07 — use Commons filters / session archive instead.)
+*   Session popup: mark **"I Attended"** and comment. Dashboard Ask pane also has **Edit** for sessions (title / date / inquiry / description) when permitted. Apply **`0023_session_edit_rls.sql`**. (Standalone **My harvest** export page removed 2026-08-07 — use Commons filters / session archive instead.)
 *   Private-to-owner visibility + eye icon; filters: type, date, attended, my artifacts.
 *   **Comments** + admin audit log — see §5.2.
 *   Existing document routes (`/sessions/documents/[id]`, archive pages) can remain as deep links until the popup UX replaces them.

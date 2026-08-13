@@ -48,25 +48,69 @@ export function coerceSession(row: Record<string, unknown>): SessionSummary {
 
 export type JoinMode = "reflect" | "record" | "upload";
 
+/** Unambiguous alphabet for join codes (no 0/O/1/I). */
+export const JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export const JOIN_CODE_MIN_LENGTH = 4;
+export const JOIN_CODE_MAX_LENGTH = 8;
+
+/** Short share/QR path using the human join code (not the UUID share_token). */
 export function joinPathForSession(
-  shareToken: string,
+  joinCode: string,
   mode: JoinMode = "reflect",
 ): string {
-  return `/join/${shareToken}?mode=${mode}`;
+  const code = normalizeJoinCode(joinCode);
+  return `/join/${encodeURIComponent(code)}?mode=${mode}`;
+}
+
+/** True for a dashed UUID (session ids, share tokens, document ids). */
+export function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim(),
+  );
+}
+
+/** True when a /join/[token] segment looks like a legacy share_token UUID. */
+export function looksLikeShareToken(token: string): boolean {
+  return looksLikeUuid(token);
 }
 
 /** 6-char uppercase alphanumeric join code (no ambiguous 0/O/1/I). */
 export function generateJoinCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i += 1) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    code += JOIN_CODE_ALPHABET[Math.floor(Math.random() * JOIN_CODE_ALPHABET.length)];
   }
   return code;
 }
 
 export function normalizeJoinCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Validate a host-chosen join code: 4–8 chars from the unambiguous alphabet.
+ * Returns normalized code or an error message.
+ */
+export function validateJoinCode(
+  raw: string,
+): { ok: true; code: string } | { ok: false; error: string } {
+  const code = normalizeJoinCode(raw);
+  if (code.length < JOIN_CODE_MIN_LENGTH || code.length > JOIN_CODE_MAX_LENGTH) {
+    return {
+      ok: false,
+      error: `Join code must be ${JOIN_CODE_MIN_LENGTH}–${JOIN_CODE_MAX_LENGTH} characters.`,
+    };
+  }
+  for (const ch of code) {
+    if (!JOIN_CODE_ALPHABET.includes(ch)) {
+      return {
+        ok: false,
+        error:
+          "Use letters and numbers only (no 0, O, 1, or I — those look alike).",
+      };
+    }
+  }
+  return { ok: true, code };
 }
 
 export function isMissingJoinCodeSchemaError(

@@ -1,8 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionByShareToken } from "@/lib/sessions/get-session-by-share-token";
+import { getSessionByJoinCode } from "@/lib/sessions/get-session-by-join-code";
 import { markAttended } from "@/lib/sessions/attendance";
-import type { JoinMode } from "@/lib/sessions/types";
+import {
+  looksLikeShareToken,
+  type JoinMode,
+} from "@/lib/sessions/types";
 
 type Props = {
   params: Promise<{ token: string }>;
@@ -21,8 +25,8 @@ function addHref(mode: JoinMode, sessionId: string): string {
 }
 
 /**
- * Share/QR entry: resolve session by share_token, mark attendance,
- * open Reflect / Record / Upload with the session pre-linked.
+ * Share/QR entry: resolve by short join code (preferred) or legacy share_token,
+ * mark attendance, open Reflect / Record / Upload with the session pre-linked.
  */
 export default async function JoinSessionPage({ params, searchParams }: Props) {
   const { token } = await params;
@@ -38,7 +42,11 @@ export default async function JoinSessionPage({ params, searchParams }: Props) {
     redirect("/login");
   }
 
-  const { session, error } = await getSessionByShareToken(token);
+  const resolved = looksLikeShareToken(token)
+    ? await getSessionByShareToken(token)
+    : await getSessionByJoinCode(token);
+
+  const { session, error } = resolved;
 
   if (error || !session) {
     return (

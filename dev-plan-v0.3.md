@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-10 (Admin analytics Phase A + map layout playground)  
+**Last updated:** 2026-08-13 (Dashboard session edit + map nest/Relate lines)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022_map_layout_config.sql`** for admin map physics/sizes).
+5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022_map_layout_config.sql`** for admin map physics/sizes, **`0023_session_edit_rls.sql`** for session rename by attendees / nested authors).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -140,6 +140,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Dashboard session edit + map lines + OKF UUID guard (2026-08-13):** Ask pane pencil now works for **sessions** (name, date, inquiry, description) — same people as document edit (host, attendees, stream admins) plus authors of nested documents so OKF-created gatherings with null `created_by` can be renamed. Apply **`0023_session_edit_rls.sql`**. Map: top-level stays sessions + ungrouped Adds; **click a session (or a nested child) expands children with nest lines**; **Relate** (`document_links`) lines draw among visible nodes. OKF `findOrCreateSessionByName` never creates a session whose name is a UUID (if the string is an existing session id, attach; otherwise skip) and stamps `created_by` from the source document. **Manual test:** (1) run `0023`; (2) open a session on the dashboard → pencil → rename → map/list/header update; (3) click session → child sprites + dashed lines appear; click away → children hide; (4) Relate two ungrouped Adds → line between them; (5) upload without a session should not mint a UUID-titled gathering.
+*   **Short join-code links + host-editable codes (2026-08-13):** Share/QR paths use the human `join_code` (`/join/K7M2QX?mode=reflect`) instead of the UUID `share_token`. Legacy UUID `/join/<uuid>` links still resolve. Session host can **Edit code** on the live board (custom 4–8 char code from the unambiguous alphabet, or Randomize); unique per stream; old code links break after change. Helpers: `validateJoinCode` / `updateSessionJoinCode`. **Manual test:** create session → copy Reflect link is short → open join; edit code → new link works, old code fails; duplicate code in stream shows clear error.
 *   **Admin analytics Phase A + map layout playground (2026-08-10, code shipped):** `@vercel/analytics` wired in root layout (site-wide pageviews in **Vercel** dashboard — not stream-scoped). In-app **`/admin/analytics`** aggregates existing Commons/membership/graph tables (creations-by-type stacked chart, docs/sessions/members/nodes timeseries, summary cards, node-type + theme breakdowns). Ranges 7d/30d/90d/all. No custom `page_views` table; Ask question counts deferred (count-only when added). **`/admin/map-layout`** — Festival-style physics + size knobs (charge, link distance/strength, collide padding, per-type radii, sprite scale, label size/length) with live `KnowledgeMap` preview; persists to `streams.map_layout_config` (migration **`0022`**). Dashboard + `/map` read the config. Links from `/admin` hub. **Manual test:** (1) run `0022` in Supabase; (2) Admin → Analytics → confirm counts/charts; (3) Admin → Map layout → tweak repulsion → preview moves → Save → Dashboard/`/map` reflect; (4) Reset restores defaults; (5) deploy + visit a few routes → Vercel Analytics shows pageviews within ~30s (disable blockers if empty).
 *   **Phase 2–5 complete** (ingestion, Ask + Chatbot, Knowledge Map, sessions/archive/harvest/admin). See shipped log below.
 *   **Phase 6 complete (2026-08-05):** Modules A–F shipped in code — nested nav + hamburger, Add page split, Commons repository (filters/sort/eye icon), minimizable detail popup, comments + edit audit log (`0011`), landing/dashboard copy. **Verified end-to-end by user 2026-08-05** (migration `0011` applied). Comments also on full document + session archive deep-link pages.

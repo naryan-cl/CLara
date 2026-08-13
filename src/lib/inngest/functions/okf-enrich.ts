@@ -23,7 +23,11 @@ const OKF_SCHEMA = {
   properties: {
     tags: { type: "array", items: { type: "string" } },
     participants: { type: "array", items: { type: "string" } },
-    sessionId: { type: ["string", "null"] },
+    sessionId: {
+      type: ["string", "null"],
+      description:
+        "Human-readable session / gathering name from the text, or null. Never a UUID.",
+    },
     confident: {
       type: "boolean",
       description:
@@ -53,9 +57,10 @@ async function proposeOkf(content: string): Promise<OkfProposal> {
           "for collective thinking at Cultivating Leadership. Given a Commons " +
           "document's Markdown content, propose: short topical tags (3-6 words " +
           "each, lowercase, no leading #), any named participants mentioned as " +
-          "speakers/authors, and a short session identifier slug if the text " +
-          "clearly references a specific session/event (otherwise null). Only " +
-          "set confident=true if you found real signal in the text, not guesses.",
+          "speakers/authors, and a short human-readable session name if the text " +
+          "clearly references a specific session/event (otherwise null). Never " +
+          "return a UUID or other opaque id as the session name. Only set " +
+          "confident=true if you found real signal in the text, not guesses.",
       },
       { role: "user", content: truncated },
     ],
@@ -96,7 +101,7 @@ export const okfEnrichFn = inngest.createFunction(
       const admin = createAdminClient();
       const { data, error } = await admin
         .from("documents")
-        .select("id, stream_id, content, tags, participants, session_id")
+        .select("id, stream_id, created_by, content, tags, participants, session_id")
         .eq("id", documentId)
         .maybeSingle();
 
@@ -120,6 +125,7 @@ export const okfEnrichFn = inngest.createFunction(
             const { sessionId } = await findOrCreateSessionByName(
               doc.stream_id,
               proposal.sessionId as string,
+              typeof doc.created_by === "string" ? doc.created_by : null,
             );
             return sessionId;
           })

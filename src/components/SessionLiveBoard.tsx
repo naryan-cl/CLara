@@ -10,8 +10,13 @@ import {
   finalizeSessionGathering,
   loadSessionLiveBoard,
   pollSessionLiveCounts,
+  updateSessionJoinCodeAction,
 } from "@/app/(app)/sessions/composer-actions";
-import type { JoinMode, SessionSummary } from "@/lib/sessions/types";
+import {
+  generateJoinCode,
+  type JoinMode,
+  type SessionSummary,
+} from "@/lib/sessions/types";
 import type { StreamPeer } from "@/lib/streams/list-stream-peers";
 
 type Props = {
@@ -53,6 +58,9 @@ export function SessionLiveBoard({
   const [copied, setCopied] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
+  const [editingCode, setEditingCode] = useState(false);
+  const [codeDraft, setCodeDraft] = useState("");
+  const [codePending, setCodePending] = useState(false);
 
   const loadBoard = useCallback(async (sessionId: string) => {
     const result = await loadSessionLiveBoard(sessionId);
@@ -186,6 +194,36 @@ export function SessionLiveBoard({
     window.setTimeout(() => {
       router.push(`/dashboard?select=session:${session.id}`);
     }, 2800);
+  }
+
+  function startEditCode() {
+    if (!session) return;
+    setCodeDraft(session.join_code);
+    setEditingCode(true);
+    setError(null);
+  }
+
+  function cancelEditCode() {
+    setEditingCode(false);
+    setCodeDraft("");
+    setError(null);
+  }
+
+  async function saveJoinCode() {
+    if (!session) return;
+    setCodePending(true);
+    setError(null);
+    const result = await updateSessionJoinCodeAction(session.id, codeDraft);
+    setCodePending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSession(result.session);
+    setJoinPaths(result.joinPaths);
+    setEditingCode(false);
+    setCodeDraft("");
+    setActiveShare(null);
   }
 
   if (showThanks) {
@@ -324,13 +362,67 @@ export function SessionLiveBoard({
         <p className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
           Join code
         </p>
-        <p className="mt-1 font-mono text-3xl tracking-[0.2em] text-forest">
-          {session.join_code}
-        </p>
-        <p className="mt-2 text-xs text-ink/50">
-          Others can enter this code under Connect on Reflect, Record, or
-          Upload — or use the share links below.
-        </p>
+        {editingCode ? (
+          <div className="mt-2 flex flex-col gap-3">
+            <input
+              value={codeDraft}
+              onChange={(e) => setCodeDraft(e.target.value.toUpperCase())}
+              maxLength={8}
+              autoFocus
+              className="rounded-md border border-cloud bg-sand px-3 py-2 font-mono text-2xl tracking-[0.15em] text-forest outline-none focus:border-horizon"
+              aria-label="Join code"
+            />
+            <p className="text-xs text-ink/50">
+              4–8 characters. Letters and numbers only (no 0, O, 1, or I).
+              Changing the code breaks old join-code links.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void saveJoinCode()}
+                disabled={codePending || codeDraft.trim().length < 4}
+                className="btn-primary rounded-md bg-forest px-3 py-1.5 text-sm font-medium text-paper disabled:opacity-60"
+              >
+                {codePending ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodeDraft(generateJoinCode())}
+                disabled={codePending}
+                className="rounded-md border border-cloud bg-sand/30 px-3 py-1.5 text-sm text-ink hover:border-horizon disabled:opacity-60"
+              >
+                Randomize
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditCode}
+                disabled={codePending}
+                className="rounded-md border border-cloud px-3 py-1.5 text-sm text-ink/70 hover:border-horizon disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="mt-1 font-mono text-3xl tracking-[0.2em] text-forest">
+              {session.join_code}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={startEditCode}
+                className="text-sm text-horizon underline-offset-2 hover:underline"
+              >
+                Edit code
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-ink/50">
+              Others can enter this code under Connect on Reflect, Record, or
+              Upload — or use the short share links below.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="rounded-lg border border-cloud bg-paper p-5 shadow-soft">

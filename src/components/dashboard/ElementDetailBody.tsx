@@ -8,6 +8,7 @@ import {
   type DetailPayload,
 } from "@/app/(app)/commons/actions";
 import { DocumentEditor } from "@/components/DocumentEditor";
+import { SessionEditor } from "@/components/SessionEditor";
 import { MarkdownView } from "@/components/MarkdownView";
 import type { CommonsListItem } from "@/lib/commons/types";
 import type { CommonsDocument } from "@/lib/documents/types";
@@ -302,6 +303,7 @@ export function ElementDetailBody({
   onDetailKindChange,
   onDeleted,
   watchProcessing = false,
+  onTitleChange,
 }: {
   item: CommonsListItem;
   editing?: boolean;
@@ -312,6 +314,8 @@ export function ElementDetailBody({
   onDeleted?: () => void;
   /** Keep reloading document content while Whisper/OKF run. */
   watchProcessing?: boolean;
+  /** After session rename — parent header/list can update immediately. */
+  onTitleChange?: (title: string) => void;
 }) {
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -335,9 +339,7 @@ export function ElementDetailBody({
       }
       setDetail(result.detail);
       setLoading(false);
-      onCanEditChange?.(
-        result.detail.kind === "document" ? result.detail.canEdit : false,
-      );
+      onCanEditChange?.(result.detail.canEdit);
       onDetailKindChange?.(result.detail.kind);
     });
     return () => {
@@ -409,6 +411,24 @@ export function ElementDetailBody({
         onDeleted={() => {
           onEditingChange?.(false);
           onDeleted?.();
+        }}
+      />
+    );
+  }
+
+  if (editing && detail.kind === "session") {
+    return (
+      <SessionEditor
+        key={`edit-${detail.session.id}-${detail.session.updated_at}`}
+        session={detail.session}
+        forceEditing
+        onCancelEditing={() => onEditingChange?.(false)}
+        onSaved={(session) => {
+          setDetail((prev) =>
+            prev && prev.kind === "session" ? { ...prev, session } : prev,
+          );
+          onTitleChange?.(session.name);
+          onEditingChange?.(false);
         }}
       />
     );

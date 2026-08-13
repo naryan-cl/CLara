@@ -20,6 +20,7 @@ import type {
 import { getDocumentById } from "@/lib/documents/get-document";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
 import { getSessionById } from "@/lib/sessions/get-session";
+import { canEditSession } from "@/lib/sessions/can-edit-session";
 import { isAttending } from "@/lib/sessions/attendance";
 import { listSessions } from "@/lib/sessions/list-sessions";
 import type { CommonsDocument } from "@/lib/documents/types";
@@ -47,6 +48,7 @@ export type SessionDetailPayload = {
   session: SessionSummary;
   documents: CommonsDocument[];
   attending: boolean;
+  canEdit: boolean;
   comments: CommentWithAuthor[];
   isAdmin: boolean;
 };
@@ -135,12 +137,21 @@ export async function loadCommonsDetail(
     listComments(stream.id, "session", id),
   ]);
 
+  const canEdit = canEditSession({
+    userId: user.id,
+    createdBy: session.created_by,
+    isAdmin,
+    attending: attendingResult.attending === true,
+    nestedAuthorIds: documents.map((doc) => doc.created_by),
+  });
+
   return {
     detail: {
       kind: "session",
       session,
       documents: documents,
       attending: attendingResult.attending,
+      canEdit,
       comments: await attachAuthors(commentsResult.comments),
       isAdmin,
     },

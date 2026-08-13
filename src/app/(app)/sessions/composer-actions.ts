@@ -18,6 +18,7 @@ import {
   type SessionSummary,
 } from "@/lib/sessions/types";
 import { markAttended } from "@/lib/sessions/attendance";
+import { updateSessionJoinCode } from "@/lib/sessions/update-join-code";
 import { inngest, CLARA_SESSION_FINALIZED } from "@/lib/inngest/client";
 
 export type SessionComposerBootstrap = {
@@ -177,7 +178,7 @@ export async function createGroupSession(input: {
   return {
     ok: true,
     session,
-    joinPath: joinPathForSession(session.share_token, "reflect"),
+    joinPath: joinPathForSession(session.join_code, "reflect"),
     warning: warnings.length > 0 ? warnings.join(" ") : undefined,
   };
 }
@@ -259,9 +260,9 @@ export async function loadSessionLiveBoard(
     session,
     counts,
     joinPaths: {
-      reflect: joinPathForSession(session.share_token, "reflect"),
-      record: joinPathForSession(session.share_token, "record"),
-      upload: joinPathForSession(session.share_token, "upload"),
+      reflect: joinPathForSession(session.join_code, "reflect"),
+      record: joinPathForSession(session.join_code, "record"),
+      upload: joinPathForSession(session.join_code, "upload"),
     },
   };
 }
@@ -281,6 +282,14 @@ export async function pollSessionLiveCounts(sessionId: string): Promise<{
     finalizedAt: sessionResult.session?.finalized_at ?? null,
     error: error ?? sessionResult.error,
   };
+}
+
+/** Host-only: set a custom short join code; refreshes share paths. */
+export async function updateSessionJoinCodeAction(
+  sessionId: string,
+  joinCode: string,
+) {
+  return updateSessionJoinCode(sessionId, joinCode);
 }
 
 /**

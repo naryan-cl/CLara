@@ -14,8 +14,8 @@ import { KnowledgeMap } from "@/components/KnowledgeMap";
 import type { AskScope } from "@/lib/ask/scope";
 import { findCommonsItemForGraphNode } from "@/lib/commons/graph-node";
 import { commonsItemsToGraph } from "@/lib/commons/to-graph";
-import { topLevelCommonsItems } from "@/lib/commons/types";
-import type { CommonsListItem } from "@/lib/commons/types";
+import { topLevelCommonsItems, type CommonsListItem } from "@/lib/commons/types";
+import type { DocumentLink } from "@/lib/documents/list-document-links";
 import {
   DEFAULT_MAP_LAYOUT_CONFIG,
   type MapLayoutConfig,
@@ -53,6 +53,7 @@ export function DashboardGrid({
   pendingUnlock = null,
   initialSelect = null,
   layoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
+  documentLinks = [],
 }: {
   items: CommonsListItem[];
   streamId: string;
@@ -65,6 +66,8 @@ export function DashboardGrid({
   /** Deep-link from Record submit (`?select=document:uuid`). */
   initialSelect?: InitialSelect | null;
   layoutConfig?: MapLayoutConfig;
+  /** Relate edges for the map (only drawn when both ends are visible). */
+  documentLinks?: DocumentLink[];
 }) {
   const router = useRouter();
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -76,6 +79,9 @@ export function DashboardGrid({
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, RecordingProcessStatus>
   >({});
+  const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>(
+    {},
+  );
   // Capture deep-link once — URL is cleaned after select so refresh
   // does not keep re-forcing the same recording.
   const [pendingSelect] = useState(initialSelect);
@@ -85,24 +91,25 @@ export function DashboardGrid({
   const themePalette = paletteFor(mapTheme);
 
   const displayItems = useMemo(() => {
-    if (Object.keys(statusOverrides).length === 0) return items;
     return items.map((item) => {
-      if (item.kind !== "document") return item;
-      const override = statusOverrides[item.id];
-      if (!override) return item;
+      const overrideTitle = titleOverrides[`${item.kind}:${item.id}`];
+      const withTitle =
+        overrideTitle && overrideTitle !== item.title
+          ? { ...item, title: overrideTitle }
+          : item;
+      if (withTitle.kind !== "document") return withTitle;
+      const override = statusOverrides[withTitle.id];
+      if (!override) return withTitle;
       return {
-        ...item,
+        ...withTitle,
         processStatus: override,
         needs_review:
-          override === "ready" ? false : override === "failed" || item.needs_review,
+          override === "ready"
+            ? false
+            : override === "failed" || withTitle.needs_review,
       };
     });
-  }, [items, statusOverrides]);
-
-  const { nodes, edges } = useMemo(
-    () => commonsItemsToGraph(displayItems, streamId),
-    [displayItems, streamId],
-  );
+  }, [items, statusOverrides, titleOverrides]);
 
   const listItems = useMemo(
     () => topLevelCommonsItems(displayItems),
@@ -134,6 +141,22 @@ export function DashboardGrid({
     };
   }, [selectedItemBase, statusOverrides]);
 
+  const expandedSessionId =
+    selectedItem?.kind === "session"
+      ? selectedItem.id
+      : selectedItem?.kind === "document"
+        ? selectedItem.session_id
+        : null;
+
+  const { nodes, edges } = useMemo(
+    () =>
+      commonsItemsToGraph(displayItems, streamId, {
+        expandedSessionId,
+        links: documentLinks,
+      }),
+    [displayItems, streamId, expandedSessionId, documentLinks],
+  );
+
   // Deep-link: select the recording from Record submit and open List for context.
   useEffect(() => {
     if (!pendingSelect) return;
@@ -160,12 +183,15 @@ export function DashboardGrid({
         item.kind === selectedListItem.kind && item.id === selectedListItem.id,
     );
     if (!next) return;
+    if (next.title !== selectedListItem.title) {
+      setSelectedListItem(next);
+      return;
+    }
     if (
       next.kind === "document" &&
       selectedListItem.kind === "document" &&
       (next.processStatus !== selectedListItem.processStatus ||
-        next.needs_review !== selectedListItem.needs_review ||
-        next.title !== selectedListItem.title)
+        next.needs_review !== selectedListItem.needs_review)
     ) {
       setSelectedListItem(next);
     }
@@ -383,6 +409,17 @@ export function DashboardGrid({
             onAskAbout={onAskAbout}
             mapTheme={mapTheme}
             watchProcessing={watchProcessing}
+            onItemTitleChange={(title) => {
+              if (selectedItem) {
+                setTitleOverrides((prev) => ({
+                  ...prev,
+                  [`${selectedItem.kind}:${selectedItem.id}`]: title,
+                }));
+              }
+              setSelectedListItem((prev) =>
+                prev ? { ...prev, title } : prev,
+              );
+            }}
           />
         </div>
       </div>
