@@ -123,7 +123,7 @@ export default function GuidePage() {
             items={[
               "Go to the CLara sign-in page and choose Google SSO or CL email + password. There is no magic-link option.",
               "Access is controlled primarily by CL email domains, with an admin exception list for externals.",
-              "After signing in, your Commons access depends on which streams you belong to — being logged in to CLara is not the same as belonging to Camp CLAI.",
+              "After signing in, new accounts are added to the Camp CLAI stream automatically. Commons access still follows stream membership — later streams will not be automatic.",
             ]}
           />
           <H3>The Dashboard</H3>
@@ -296,7 +296,7 @@ export default function GuidePage() {
               ],
               [
                 "Membership",
-                "Add an existing account by email, promote/demote, remove. Never creates accounts or sends invites.",
+                "New accounts join Camp CLAI automatically. Admins can still add an existing account by email, promote/demote, or remove. Never creates accounts or sends invites.",
               ],
               ["Isolation", "Toggle whether the stream's Commons is visible from other streams."],
               ["CLara prompts", "Edit the Reflect and Ask CLara system prompts for this stream."],

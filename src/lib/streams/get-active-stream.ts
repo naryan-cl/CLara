@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { ensureCampClaiMembership } from "@/lib/streams/ensure-camp-clai-membership";
 import {
   DEFAULT_STREAM_SLUG,
   type StreamSummary,
@@ -38,7 +39,7 @@ export const getActiveStream = cache(async (): Promise<{
     return { stream: null, streams: [], error: "Not signed in." };
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("stream_members")
     .select("role, streams ( id, slug, name, isolation_enabled )")
     .eq("user_id", user.id);
@@ -49,6 +50,22 @@ export const getActiveStream = cache(async (): Promise<{
       streams: [],
       error: error.message,
     };
+  }
+
+  // For now, new accounts join Camp CLAI automatically. If this user has no
+  // membership yet (signed up before the trigger, or trigger missed), attach
+  // one and re-read. If migration 0024 is not applied, the RPC fails softly.
+  if ((data ?? []).length === 0) {
+    const { error: ensureError } = await ensureCampClaiMembership();
+    if (!ensureError) {
+      const retry = await supabase
+        .from("stream_members")
+        .select("role, streams ( id, slug, name, isolation_enabled )")
+        .eq("user_id", user.id);
+      if (!retry.error) {
+        data = retry.data;
+      }
+    }
   }
 
   const streams: StreamSummary[] = (data ?? [])

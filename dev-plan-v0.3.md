@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-13 (Dashboard session edit + map nest/Relate lines)  
+**Last updated:** 2026-08-14 (auto-join Camp CLAI on signup)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -16,8 +16,8 @@
 1. Pull latest `main` (repo may be **public**; never commit `.env.local` or secrets).
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
-4. Confirm you are in `stream_members` for Camp CLAI (admins: see migrations `0001` / `0002`).
-5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022_map_layout_config.sql`** for admin map physics/sizes, **`0023_session_edit_rls.sql`** for session rename by attendees / nested authors).
+4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
+5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022_map_layout_config.sql`** for admin map physics/sizes, **`0023_session_edit_rls.sql`** for session rename by attendees / nested authors, **`0024_auto_join_camp_clai.sql`** so new/pending registrants join Camp CLAI).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -79,9 +79,11 @@
 *   **`0020_document_delete_rls.sql`** — DELETE policies on `documents` for authors, stream admins, and session attendees (same gate as edit). **Required for Commons Edit → Delete.**
 *   **`0021_session_gathering.sql`** — Sessions IA v2: `join_code`, `finalized_at`, `synthesis_document_id`; `document_links` for user-described Relate edges. **Required for Add → Session live board + Connect.**
 *   **`0022_map_layout_config.sql`** — `streams.map_layout_config` jsonb (nullable). NULL = product defaults in `src/lib/graph/map-layout-config.ts`. **Required to persist Admin → Map layout knobs.**
+*   **`0023_session_edit_rls.sql`** — session UPDATE for attendees + nested document authors. **Required for dashboard session rename.**
+*   **`0024_auto_join_camp_clai.sql`** — new `auth.users` auto-join Camp CLAI as `member`; backfill existing accounts; `ensure_my_camp_clai_membership()` self-heal RPC. **Required so new colleagues are not stuck with "no active stream".**
 
 ### Not yet migrated
-*   (ensure **0012**–**0022** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0024** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -110,7 +112,7 @@
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
 | Commons repository | `src/app/(app)/commons/*`, `src/components/CommonsRepository.tsx`, `src/lib/commons/{types,element-colours,list-items}.ts` — filters, type colours + legend, detail popup |
 | Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
-| Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
+| Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation,ensure-camp-clai-membership}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
 | Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
 | Admin map layout | `src/lib/graph/map-layout-config.ts`, `get-map-layout-config.ts`, `MapLayoutAdminPanel`, `/admin/map-layout`, migration `0022` — physics + sizes → Dashboard + `/map` |
@@ -140,6 +142,7 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Auto-join Camp CLAI (2026-08-14):** Product decision for now: every new CLara account is inserted into `stream_members` for `camp-clai` as `member` at signup (trigger on `auth.users`), and all existing accounts that were not yet members are backfilled. Role stays `member` — existing admins are untouched (`ON CONFLICT DO NOTHING`). App self-heal: `getActiveStream` calls `ensure_my_camp_clai_membership` when the user has zero memberships (no-ops if `0024` is not applied yet). Isolation stays on; this is membership, not cross-stream access. Revisit when other streams are populated or invite-only is required. **Manual test:** (1) run `0024` in the Supabase SQL editor; (2) colleague who already registered refreshes — header badge should read **Camp CLAI**, no "join an active stream" banner; (3) create a brand-new test account → lands in Camp CLAI without an admin add; (4) Admin → Members still lists them as member (not admin).
 *   **Map pinch-to-zoom (2026-08-13):** Dashboard and `/map` share `KnowledgeMap`. **Touch:** two-finger pinch zooms around the pinch center; one finger pans (including after lifting one pinch finger); tap a node to select. **Mouse:** wheel still zooms (now toward the cursor); drag empty canvas to pan; drag a node to pin. Helpers in `src/lib/graph/view-transform.ts`. `touch-none` on the canvas so the page does not pinch-zoom instead. **Manual test:** (1) phone/tablet dashboard — pinch in/out, one-finger drag pans even over sprites; (2) tap a sprite → Ask/detail still opens; (3) `/map` same gestures + hint text; (4) desktop wheel + drag + node-pin still work.
 *   **Dashboard session edit + map lines + OKF UUID guard (2026-08-13):** Ask pane pencil now works for **sessions** (name, date, inquiry, description) — same people as document edit (host, attendees, stream admins) plus authors of nested documents so OKF-created gatherings with null `created_by` can be renamed. Apply **`0023_session_edit_rls.sql`**. Map: top-level stays sessions + ungrouped Adds; **click a session (or a nested child) expands children with nest lines**; **Relate** (`document_links`) lines draw among visible nodes. OKF `findOrCreateSessionByName` never creates a session whose name is a UUID (if the string is an existing session id, attach; otherwise skip) and stamps `created_by` from the source document. **Manual test:** (1) run `0023`; (2) open a session on the dashboard → pencil → rename → map/list/header update; (3) click session → child sprites + dashed lines appear; click away → children hide; (4) Relate two ungrouped Adds → line between them; (5) upload without a session should not mint a UUID-titled gathering.
 *   **Short join-code links + host-editable codes (2026-08-13):** Share/QR paths use the human `join_code` (`/join/K7M2QX?mode=reflect`) instead of the UUID `share_token`. Legacy UUID `/join/<uuid>` links still resolve. Session host can **Edit code** on the live board (custom 4–8 char code from the unambiguous alphabet, or Randomize); unique per stream; old code links break after change. Helpers: `validateJoinCode` / `updateSessionJoinCode`. **Manual test:** create session → copy Reflect link is short → open join; edit code → new link works, old code fails; duplicate code in stream shows clear error.

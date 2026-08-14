@@ -84,8 +84,8 @@ export function MembersPanel({
         </button>
       </form>
       <p className="text-xs text-ink/40">
-        Only works for people who&apos;ve already signed in to CLara at least
-        once — this doesn&apos;t send an invite email.
+        New accounts join Camp CLAI automatically. Use this to add someone who
+        already signed in once (no invite email) or to manage other streams later.
       </p>
 
       {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
