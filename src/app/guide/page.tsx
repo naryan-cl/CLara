@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
   title: "User Guide — CLara",
@@ -16,7 +17,17 @@ const SECTIONS = [
   { id: "reference", label: "Quick Reference" },
 ];
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  // This page stays public either way — the check is only to decide which
+  // header CTA to show. An already-signed-in visitor must never see "Login
+  // with CL Account": clicking it re-runs the full sign-in flow and can
+  // present a fresh Google/password prompt even though their session was
+  // still fine, which reads as "the site randomly signed me out."
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <div className="flex flex-1 flex-col bg-sand">
       <header className="border-b border-cloud bg-paper">
@@ -24,12 +35,21 @@ export default function GuidePage() {
           <Link href="/" className="font-display text-lg font-medium text-ink">
             CLara
           </Link>
-          <Link
-            href="/login"
-            className="rounded-full bg-forest px-4 py-2 text-xs font-medium text-paper shadow-soft transition-colors hover:bg-forest-deep"
-          >
-            Login with CL Account
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-cloud bg-paper px-4 py-2 text-xs font-medium text-ink transition-colors hover:border-sage/50 hover:text-forest"
+            >
+              Back to Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-full bg-forest px-4 py-2 text-xs font-medium text-paper shadow-soft transition-colors hover:bg-forest-deep"
+            >
+              Login with CL Account
+            </Link>
+          )}
         </div>
       </header>
 
