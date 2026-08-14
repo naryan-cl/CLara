@@ -11,7 +11,6 @@ import { MapWallpaper } from "@/components/map/MapWallpaper";
 import { NodeDetailPanel } from "@/components/NodeDetailPanel";
 import { curvedPath, edgeEndpoints } from "@/lib/graph/curves";
 import {
-  clamp,
   createGraphSimulation,
   radiusFor,
   seedSimNodes,
@@ -27,9 +26,41 @@ import {
   findNearestInDirection,
 } from "@/lib/graph/spatial-nav";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
+import {
+  pairFromPoints,
+  pinchView,
+  zoomAroundPoint,
+  type PinchPair,
+  type ViewTransform,
+} from "@/lib/graph/view-transform";
 import { paletteFor, type MapThemeId } from "@/lib/map-theme";
 
-type ViewTransform = { x: number; y: number; k: number };
+type PointerPos = { x: number; y: number; clientX: number; clientY: number };
+type PanGesture = {
+  pointerId: number;
+  lastX: number;
+  lastY: number;
+  /** False until the finger/mouse has moved — lets a touch still count as a tap. */
+  armed: boolean;
+};
+type TouchTap = {
+  nodeId: string;
+  pointerId: number;
+  x: number;
+  y: number;
+};
+
+const TAP_MAX_PX = 8;
+const PAN_START_PX = 4;
+
+function isMapNodeTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest("[data-km-node]"));
+}
+
+function nodeIdFromTarget(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null;
+  return target.closest("[data-km-node]")?.getAttribute("data-km-node") ?? null;
+}
 
 const NODE_COLOR: Record<string, string> = {
   Concept: "var(--glow)",
@@ -76,8 +107,10 @@ function getMountedServerSnapshot() {
 
 /**
  * Knowledge Map canvas (DESIGN_GUIDE.md "Knowledge Map" + Festival harvest
- * patterns): curved edges, scroll-zoom / drag-pan, drag-to-pin nodes with
- * live force adjust for unpinned peers.
+ * patterns): curved edges, scroll-zoom / pinch-zoom, one-finger or drag pan,
+ * drag-to-pin nodes with live force adjust for unpinned peers. Touch: pinch
+ * zooms, one finger pans (tap a node to select). Mouse: wheel zoom, drag pan,
+ * drag a node to pin.
  *
  * Optional `wallpaperTheme` (Phase 7): generative topo under the graph that
  * pans/zooms with nodes. Contrast tokens come from the theme palette.
@@ -124,14 +157,17 @@ export function KnowledgeMap({
   const simRef = useRef<ReturnType<typeof createGraphSimulation> | null>(null);
   const nodeRefs = useRef<Map<string, SVGGElement>>(new Map());
   const dragRef = useRef<{
-    type: "pan" | "node";
-    id?: string;
-    pointerId?: number;
+    id: string;
+    pointerId: number;
     lastX: number;
     lastY: number;
   } | null>(null);
   const nodeDragMovedRef = useRef(false);
   const viewRef = useRef<ViewTransform>({ x: 0, y: 0, k: 1 });
+  const pointersRef = useRef(new Map<number, PointerPos>());
+  const pinchRef = useRef<{ last: PinchPair } | null>(null);
+  const panRef = useRef<PanGesture | null>(null);
+  const touchTapRef = useRef<TouchTap | null>(null);
 
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [view, setView] = useState<ViewTransform>({ x: 0, y: 0, k: 1 });
@@ -281,6 +317,196 @@ export function KnowledgeMap({
     return nodesRef.current.find((n) => n.id === id);
   }
 
+  function viewPointFromClient(clientX: number, clientY: number): PointerPos {
+    const svg = svgRef.current;
+    if (!svg) return { x: clientX, y: clientY, clientX, clientY };
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      clientX,
+      clientY,
+    };
+  }
+
+  function twoPointerPair(): PinchPair | null {
+    const points = [...pointersRef.current.values()];
+    if (points.length < 2) return null;
+    return pairFromPoints(points[0]!, points[1]!);
+  }
+
+  function capturePointer(element: HTMLElement, pointerId: number) {
+    try {
+      if (!element.hasPointerCapture(pointerId)) {
+        element.setPointerCapture(pointerId);
+      }
+    } catch {
+      // Pointer already released (finger lifted mid-gesture).
+    }
+  }
+
+  function releasePointer(element: HTMLElement, pointerId: number) {
+    try {
+      if (element.hasPointerCapture(pointerId)) {
+        element.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // Already released.
+    }
+  }
+
+  function cancelNodeDragForPinch() {
+    if (!dragRef.current) return;
+    const live = findSimNode(dragRef.current.id);
+    if (live && !nodeDragMovedRef.current) {
+      live.fx = null;
+      live.fy = null;
+      publishNodes();
+    }
+    simRef.current?.alphaTarget(0);
+    dragRef.current = null;
+  }
+
+  function beginPinch(element: HTMLElement) {
+    touchTapRef.current = null;
+    panRef.current = null;
+    cancelNodeDragForPinch();
+    const pair = twoPointerPair();
+    if (!pair) return;
+    pinchRef.current = { last: pair };
+    for (const id of pointersRef.current.keys()) {
+      capturePointer(element, id);
+    }
+  }
+
+  function onViewportPointerDownCapture(
+    event: React.PointerEvent<HTMLDivElement>,
+  ) {
+    pointersRef.current.set(
+      event.pointerId,
+      viewPointFromClient(event.clientX, event.clientY),
+    );
+
+    if (pointersRef.current.size >= 2) {
+      event.preventDefault();
+      event.stopPropagation();
+      beginPinch(event.currentTarget);
+      return;
+    }
+
+    const isTouch = event.pointerType === "touch";
+    const nodeId = nodeIdFromTarget(event.target);
+    if (isTouch && nodeId) {
+      touchTapRef.current = {
+        nodeId,
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      };
+    }
+
+    // One finger (touch anywhere) or mouse on empty canvas → pan.
+    // Mouse on a node stays a node-drag (handled on the node itself).
+    if (isTouch || !isMapNodeTarget(event.target)) {
+      panRef.current = {
+        pointerId: event.pointerId,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        armed: !isTouch,
+      };
+      if (!isTouch) capturePointer(event.currentTarget, event.pointerId);
+    }
+  }
+
+  function onViewportPointerMoveCapture(
+    event: React.PointerEvent<HTMLDivElement>,
+  ) {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(
+      event.pointerId,
+      viewPointFromClient(event.clientX, event.clientY),
+    );
+
+    if (pointersRef.current.size >= 2) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!pinchRef.current) beginPinch(event.currentTarget);
+      const next = twoPointerPair();
+      const prev = pinchRef.current?.last;
+      if (!next || !prev) return;
+      pinchRef.current = { last: next };
+      setView((current) => pinchView(current, prev, next));
+      return;
+    }
+
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== event.pointerId || pinchRef.current) return;
+
+    const dx = event.clientX - pan.lastX;
+    const dy = event.clientY - pan.lastY;
+    if (!pan.armed) {
+      if (Math.hypot(dx, dy) < PAN_START_PX) return;
+      pan.armed = true;
+      touchTapRef.current = null;
+      capturePointer(event.currentTarget, event.pointerId);
+    }
+
+    event.preventDefault();
+    pan.lastX = event.clientX;
+    pan.lastY = event.clientY;
+    setView((current) => ({
+      ...current,
+      x: current.x + dx,
+      y: current.y + dy,
+    }));
+  }
+
+  function onViewportPointerUpCapture(
+    event: React.PointerEvent<HTMLDivElement>,
+  ) {
+    const wasPinching = pinchRef.current != null;
+    const tap = touchTapRef.current;
+    pointersRef.current.delete(event.pointerId);
+    releasePointer(event.currentTarget, event.pointerId);
+
+    if (pointersRef.current.size < 2) {
+      pinchRef.current = null;
+    }
+
+    if (wasPinching && pointersRef.current.size === 1) {
+      const remaining = [...pointersRef.current.entries()][0];
+      if (remaining) {
+        const [remainingId, pos] = remaining;
+        panRef.current = {
+          pointerId: remainingId,
+          lastX: pos.clientX,
+          lastY: pos.clientY,
+          armed: true,
+        };
+        capturePointer(event.currentTarget, remainingId);
+      }
+    } else if (panRef.current?.pointerId === event.pointerId) {
+      panRef.current = null;
+    }
+
+    if (pointersRef.current.size === 0) {
+      pinchRef.current = null;
+      panRef.current = null;
+    }
+
+    if (
+      tap &&
+      tap.pointerId === event.pointerId &&
+      !wasPinching &&
+      Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < TAP_MAX_PX
+    ) {
+      selectNode(tap.nodeId);
+    }
+    if (tap?.pointerId === event.pointerId) {
+      touchTapRef.current = null;
+    }
+  }
+
   function onNodeKeyDown(
     event: React.KeyboardEvent<SVGGElement>,
     nodeId: string,
@@ -321,15 +547,19 @@ export function KnowledgeMap({
     >
       {hideChrome ? null : (
         <p className="shrink-0 font-mono text-[11px] text-ink/45">
-          Scroll to zoom · drag background to pan · drag a node to pin it ·
+          Scroll or pinch to zoom · drag to pan · drag a node to pin it ·
           double-click a pin to release · Tab/arrows for keyboard
         </p>
       )}
 
       <div
         ref={containerRef}
-        className={`relative min-h-0 flex-1 overflow-hidden touch-none ${hideChrome ? "" : "rounded-lg"}`}
+        className={`relative min-h-0 flex-1 overflow-hidden overscroll-none touch-none ${hideChrome ? "" : "rounded-lg"}`}
         style={{ background: canvasFill }}
+        onPointerDownCapture={onViewportPointerDownCapture}
+        onPointerMoveCapture={onViewportPointerMoveCapture}
+        onPointerUpCapture={onViewportPointerUpCapture}
+        onPointerCancelCapture={onViewportPointerUpCapture}
       >
         {!ready ? (
           <div className="flex h-full min-h-[220px] items-center justify-center">
@@ -346,17 +576,22 @@ export function KnowledgeMap({
             width={size.width}
             height={size.height}
             role="img"
-            aria-label="Knowledge Map. Scroll to zoom, drag to pan, drag nodes to pin."
-            className="block h-full w-full cursor-grab active:cursor-grabbing"
+            aria-label="Knowledge Map. Scroll or pinch to zoom, drag to pan, drag nodes to pin."
+            className="block h-full w-full touch-none cursor-grab active:cursor-grabbing"
             onWheel={(event) => {
               event.preventDefault();
               const intensity = Math.min(Math.abs(event.deltaY), 100) / 100;
               const step = 0.008 + intensity * 0.01;
               const factor = event.deltaY > 0 ? 1 - step : 1 + step;
-              setView((current) => ({
-                ...current,
-                k: clamp(current.k * factor, 0.4, 2.5),
-              }));
+              const point = viewPointFromClient(event.clientX, event.clientY);
+              setView((current) =>
+                zoomAroundPoint(
+                  current,
+                  point.x,
+                  point.y,
+                  current.k * factor,
+                ),
+              );
             }}
           >
             {/* Hit target uses theme base; wallpaper lives inside the transform. */}
@@ -364,39 +599,6 @@ export function KnowledgeMap({
               width="100%"
               height="100%"
               fill={canvasFill}
-              onPointerDown={(event) => {
-                if (event.button !== 0) return;
-                dragRef.current = {
-                  type: "pan",
-                  pointerId: event.pointerId,
-                  lastX: event.clientX,
-                  lastY: event.clientY,
-                };
-                event.currentTarget.setPointerCapture(event.pointerId);
-              }}
-              onPointerMove={(event) => {
-                if (
-                  dragRef.current?.type !== "pan" ||
-                  dragRef.current.pointerId !== event.pointerId
-                ) {
-                  return;
-                }
-                const dx = event.clientX - dragRef.current.lastX;
-                const dy = event.clientY - dragRef.current.lastY;
-                dragRef.current.lastX = event.clientX;
-                dragRef.current.lastY = event.clientY;
-                setView((current) => ({
-                  ...current,
-                  x: current.x + dx,
-                  y: current.y + dy,
-                }));
-              }}
-              onPointerUp={(event) => {
-                if (dragRef.current?.pointerId === event.pointerId) {
-                  dragRef.current = null;
-                }
-                event.currentTarget.releasePointerCapture(event.pointerId);
-              }}
             />
 
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
@@ -458,6 +660,7 @@ export function KnowledgeMap({
                 return (
                   <g
                     key={node.id}
+                    data-km-node={node.id}
                     ref={(el) => {
                       if (el) nodeRefs.current.set(node.id, el);
                       else nodeRefs.current.delete(node.id);
@@ -482,8 +685,11 @@ export function KnowledgeMap({
                       }
                     }}
                     onPointerDown={(event) => {
-                      event.stopPropagation();
                       if (event.button !== 0) return;
+                      // Touch: one finger pans the map; tap-to-select is handled
+                      // on the canvas. Mouse/pen still drag-to-pin.
+                      if (event.pointerType === "touch") return;
+                      event.stopPropagation();
                       const live = findSimNode(node.id);
                       if (!live) return;
                       const point = clientToGraph(event.clientX, event.clientY);
@@ -491,7 +697,6 @@ export function KnowledgeMap({
                       live.fy = point.y;
                       nodeDragMovedRef.current = false;
                       dragRef.current = {
-                        type: "node",
                         id: live.id,
                         pointerId: event.pointerId,
                         lastX: event.clientX,
@@ -502,8 +707,7 @@ export function KnowledgeMap({
                     }}
                     onPointerMove={(event) => {
                       if (
-                        dragRef.current?.type !== "node" ||
-                        dragRef.current.id !== node.id ||
+                        dragRef.current?.id !== node.id ||
                         dragRef.current.pointerId !== event.pointerId
                       ) {
                         return;
@@ -524,8 +728,7 @@ export function KnowledgeMap({
                     }}
                     onPointerUp={(event) => {
                       if (
-                        dragRef.current?.type !== "node" ||
-                        dragRef.current.id !== node.id ||
+                        dragRef.current?.id !== node.id ||
                         dragRef.current.pointerId !== event.pointerId
                       ) {
                         return;
