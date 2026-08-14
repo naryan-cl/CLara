@@ -56,5 +56,6 @@ export const APP_NAV_ITEMS: NavItem[] = [
       { href: "/map", label: "Knowledge Map" },
     ],
   },
+  { href: "/guide", label: "Guide" },
   { href: "/admin", label: "Admin" },
 ];
