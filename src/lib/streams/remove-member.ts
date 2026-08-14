@@ -6,11 +6,23 @@ export async function removeStreamMember(
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("stream_members")
     .delete()
     .eq("stream_id", streamId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("user_id");
 
-  return { error: error?.message ?? null };
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (!data?.length) {
+    return {
+      error:
+        "Could not remove that member. Apply migration 0025 in Supabase if this keeps happening.",
+    };
+  }
+
+  return { error: null };
 }

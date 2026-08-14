@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  APP_NAV_ITEMS,
   isNavGroup,
   isNavGroupActive,
   isNavLinkActive,
+  visibleAppNavItems,
   type NavGroup,
   type NavLink,
 } from "@/lib/nav/app-nav";
@@ -20,12 +20,21 @@ import {
  * `key={pathname}` remounts the inner nav on navigation so open menus reset
  * without calling setState inside an effect (React Compiler / eslint rule).
  */
-export function AppNav() {
+export function AppNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
-  return <AppNavInner key={pathname} pathname={pathname} />;
+  return (
+    <AppNavInner key={pathname} pathname={pathname} isAdmin={isAdmin} />
+  );
 }
 
-function AppNavInner({ pathname }: { pathname: string }) {
+function AppNavInner({
+  pathname,
+  isAdmin,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+}) {
+  const items = visibleAppNavItems(isAdmin);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
@@ -81,7 +90,7 @@ function AppNavInner({ pathname }: { pathname: string }) {
         className="relative hidden items-center gap-1 sm:flex"
         aria-label="Main"
       >
-        {APP_NAV_ITEMS.map((item) =>
+        {items.map((item) =>
           isNavGroup(item) ? (
             <DesktopNavGroup
               key={item.label}
@@ -125,7 +134,7 @@ function AppNavInner({ pathname }: { pathname: string }) {
               className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),18rem)] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-lg border border-cloud bg-paper p-3 shadow-soft animate-fade-rise motion-reduce:animate-none"
             >
               <ul className="flex flex-col gap-1">
-                {APP_NAV_ITEMS.map((item) =>
+                {items.map((item) =>
                   isNavGroup(item) ? (
                     <li key={item.label}>
                       <button

@@ -46,7 +46,7 @@ export default async function AppLayout({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <AppNav />
+            <AppNav isAdmin={stream?.role === "admin"} />
             <span className="hidden text-sm text-ink/60 sm:inline">
               {user.email}
             </span>

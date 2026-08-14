@@ -59,3 +59,13 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { href: "/guide", label: "Guide" },
   { href: "/admin", label: "Admin" },
 ];
+
+function isAdminNavItem(item: NavItem): boolean {
+  return !isNavGroup(item) && item.href === "/admin";
+}
+
+/** Full nav for stream admins; everyone else omits Admin. */
+export function visibleAppNavItems(isAdmin: boolean): NavItem[] {
+  if (isAdmin) return APP_NAV_ITEMS;
+  return APP_NAV_ITEMS.filter((item) => !isAdminNavItem(item));
+}
