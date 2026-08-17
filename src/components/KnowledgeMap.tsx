@@ -57,6 +57,13 @@ function isMapNodeTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("[data-km-node]"));
 }
 
+/** Detail overlay lives inside the canvas; pan/pinch must not steal its clicks. */
+function isDetailPanelTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && Boolean(target.closest("[data-km-detail]"))
+  );
+}
+
 function nodeIdFromTarget(target: EventTarget | null): string | null {
   if (!(target instanceof Element)) return null;
   return target.closest("[data-km-node]")?.getAttribute("data-km-node") ?? null;
@@ -404,6 +411,11 @@ export function KnowledgeMap({
   function onViewportPointerDownCapture(
     event: React.PointerEvent<HTMLDivElement>,
   ) {
+    // Close / source-document links sit on top of the canvas. Capturing the
+    // pointer here would retarget pointerup to the map, so the button never
+    // gets a click (and Next.js <Link> never navigates).
+    if (isDetailPanelTarget(event.target)) return;
+
     pointersRef.current.set(
       event.pointerId,
       viewPointFromClient(event.clientX, event.clientY),
@@ -576,7 +588,7 @@ export function KnowledgeMap({
 
       <div
         ref={containerRef}
-        className={`relative min-h-0 flex-1 overflow-hidden overscroll-none touch-none ${hideChrome ? "" : "rounded-lg"}`}
+        className={`relative min-h-0 flex-1 overflow-hidden overscroll-none ${hideChrome ? "" : "rounded-lg"}`}
         style={{ background: canvasFill }}
         onPointerDownCapture={onViewportPointerDownCapture}
         onPointerMoveCapture={onViewportPointerMoveCapture}
@@ -599,7 +611,7 @@ export function KnowledgeMap({
             height={size.height}
             role="img"
             aria-label="Knowledge Map. Scroll or pinch to zoom, drag to pan, drag nodes to pin."
-            className="block h-full w-full touch-none cursor-grab active:cursor-grabbing"
+            className="relative z-0 block h-full w-full touch-none cursor-grab active:cursor-grabbing"
             onWheel={(event) => {
               event.preventDefault();
               const intensity = Math.min(Math.abs(event.deltaY), 100) / 100;
@@ -869,7 +881,7 @@ export function KnowledgeMap({
           <NodeDetailPanel
             node={selected}
             onClose={() => selectNode(null)}
-            className="absolute inset-x-3 bottom-3 top-auto z-10 max-h-[min(50vh,24rem)] w-auto overflow-y-auto shadow-lg sm:inset-y-3 sm:bottom-auto sm:left-auto sm:right-3 sm:max-h-none sm:w-[min(100%-1.5rem,18rem)]"
+            className="absolute inset-x-3 bottom-3 top-auto z-20 max-h-[min(50vh,24rem)] w-auto overflow-y-auto shadow-lg touch-auto sm:inset-y-3 sm:bottom-auto sm:left-auto sm:right-3 sm:max-h-none sm:w-[min(100%-1.5rem,18rem)]"
           />
         ) : null}
       </div>

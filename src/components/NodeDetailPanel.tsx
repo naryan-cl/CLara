@@ -16,8 +16,11 @@ export function NodeDetailPanel({
 }) {
   return (
     <aside
-      className={`flex flex-col rounded-lg border border-cloud bg-paper p-6 shadow-soft animate-panel-slide-in motion-reduce:animate-none ${className}`.trim()}
+      data-km-detail
+      className={`pointer-events-auto flex flex-col rounded-lg border border-cloud bg-paper p-6 shadow-soft animate-panel-slide-in motion-reduce:animate-none ${className}`.trim()}
       aria-label={`${node.type}: ${node.label}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
