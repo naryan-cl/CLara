@@ -22,7 +22,7 @@ const ASK_MIN_HEIGHT = 280;
 const ASK_MAX_HEIGHT = 900;
 const ASK_DEFAULT_WIDTH = 416;
 const ASK_DEFAULT_HEIGHT = 640;
-const ASK_MINIMIZED_HEIGHT = 148;
+const ASK_MINIMIZED_HEIGHT = 168;
 
 /**
  * Floating Ask CLara host (top-right over the map on desktop;
@@ -37,6 +37,8 @@ const ASK_MINIMIZED_HEIGHT = 148;
  *
  * Clicking away re-minimizes when there is no active conversation (and no
  * open element detail). Expanded panes are resizable (left + bottom grips).
+ * On desktop the Ask button floats on the blob’s bottom edge so the organic
+ * radius does not clip it.
  */
 export function AskClaraPanel({
   formKey = "default",
@@ -80,7 +82,7 @@ export function AskClaraPanel({
   /** Fires when Ask leaves minimized (conversation or detail) so List can close. */
   onExpand?: () => void;
 } = {}) {
-  const rootRef = useRef<HTMLElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const onExpandRef = useRef(onExpand);
   useEffect(() => {
     onExpandRef.current = onExpand;
@@ -236,10 +238,19 @@ export function AskClaraPanel({
   const iconBtnClass =
     "flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-ink/55 transition-colors hover:border-ink/30 hover:text-ink";
 
+  // Desktop: overflow-visible so the Ask button can sit on the blob instead
+  // of being clipped by the organic radius. Phone keeps overflow-hidden.
   return (
-    <section
+    <div
       ref={rootRef}
-      className={`organic-ask relative flex min-h-0 min-w-0 flex-col overflow-hidden border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
+      className={
+        fillOverlay
+          ? "relative flex h-full min-h-0 w-full flex-col"
+          : "relative sm:pb-6"
+      }
+    >
+    <section
+      className={`organic-ask relative flex min-h-0 min-w-0 flex-col overflow-hidden border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm sm:overflow-visible ${
         mode === "minimized"
           ? "max-sm:!h-auto max-sm:!max-h-none"
           : mode === "detail"
@@ -365,7 +376,7 @@ export function AskClaraPanel({
           </div>
           <form
             onSubmit={onDetailAskSubmit}
-            className="flex shrink-0 flex-col gap-2 border-t border-horizon/25 px-5 py-4"
+            className="flex shrink-0 flex-col gap-2 border-t border-horizon/25 px-5 py-4 sm:pb-5"
           >
             <label htmlFor="ask-host-detail-question" className="sr-only">
               Ask about this element
@@ -389,8 +400,8 @@ export function AskClaraPanel({
               type="submit"
               className={
                 mapTheme
-                  ? "btn-primary organic-ask-btn min-h-11 self-start px-4 py-2 text-sm font-medium"
-                  : "btn-primary organic-ask-btn min-h-11 self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30"
+                  ? "btn-primary organic-ask-btn min-h-11 self-start px-4 py-2 text-sm font-medium sm:absolute sm:bottom-0 sm:left-5 sm:z-20 sm:translate-y-1/2 sm:shadow-soft"
+                  : "btn-primary organic-ask-btn min-h-11 self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 sm:absolute sm:bottom-0 sm:left-5 sm:z-20 sm:translate-y-1/2 sm:shadow-soft"
               }
               style={mapTheme ? themeAccentButtonStyle(mapTheme) : undefined}
             >
@@ -428,7 +439,7 @@ export function AskClaraPanel({
       ) : null}
 
       {mode !== "detail" ? (
-        <div className="flex min-h-0 flex-1 flex-col px-5 pb-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-visible px-5 pb-4 sm:pb-5">
           <AskForm
             key={formKey}
             embedded
@@ -448,6 +459,7 @@ export function AskClaraPanel({
         </div>
       ) : null}
     </section>
+    </div>
   );
 }
 

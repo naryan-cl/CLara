@@ -325,14 +325,24 @@ export function AskForm({
           className="rounded-md border border-cloud bg-sand/40 p-3 text-base text-ink outline-none focus:border-horizon sm:text-sm"
         />
         {error ? <p className="text-sm text-danger">{error}</p> : null}
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          className={
+            embedded
+              ? "flex flex-wrap items-center gap-2 sm:absolute sm:bottom-0 sm:left-5 sm:z-20 sm:translate-y-1/2"
+              : "flex flex-wrap items-center gap-2"
+          }
+        >
           <button
             type="submit"
             disabled={pending}
             className={
               accentTheme
-                ? "btn-primary organic-ask-btn min-h-11 px-4 py-2 text-sm font-medium disabled:opacity-60"
-                : "btn-primary organic-ask-btn min-h-11 bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
+                ? embedded
+                  ? "btn-primary organic-ask-btn min-h-11 px-4 py-2 text-sm font-medium disabled:opacity-60 sm:shadow-soft"
+                  : "btn-primary organic-ask-btn min-h-11 px-4 py-2 text-sm font-medium disabled:opacity-60"
+                : embedded
+                  ? "btn-primary organic-ask-btn min-h-11 bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60 sm:shadow-soft"
+                  : "btn-primary organic-ask-btn min-h-11 bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
             }
             style={
               accentTheme ? themeAccentButtonStyle(accentTheme) : undefined
@@ -345,7 +355,11 @@ export function AskForm({
               type="button"
               onClick={onClear}
               disabled={pending}
-              className="organic-ask-btn border border-cloud px-4 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60"
+              className={
+                embedded
+                  ? "organic-ask-btn border border-cloud bg-paper px-4 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60 sm:shadow-soft"
+                  : "organic-ask-btn border border-cloud px-4 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60"
+              }
             >
               Clear thread
             </button>

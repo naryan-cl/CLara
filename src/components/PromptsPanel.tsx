@@ -19,6 +19,7 @@ type PromptEditorProps = {
   initialValue: string;
   /** True when a DB override is stored (not the product default). */
   isCustom: boolean;
+  rows?: number;
 };
 
 function PromptEditor({
@@ -27,6 +28,7 @@ function PromptEditor({
   description,
   initialValue,
   isCustom,
+  rows = 8,
 }: PromptEditorProps) {
   const router = useRouter();
   const [value, setValue] = useState(initialValue);
@@ -85,7 +87,7 @@ function PromptEditor({
           setValue(event.target.value);
           setSavedNote(null);
         }}
-        rows={8}
+        rows={rows}
         maxLength={MAX_SYSTEM_PROMPT_CHARS}
         disabled={pending}
         className="w-full rounded-md border border-cloud bg-sand px-3 py-2 font-mono text-sm leading-relaxed text-ink disabled:opacity-60"
@@ -127,11 +129,15 @@ export function PromptsPanel({
   reflectIsCustom,
   askValue,
   askIsCustom,
+  summarizeValue,
+  summarizeIsCustom,
 }: {
   reflectValue: string;
   reflectIsCustom: boolean;
   askValue: string;
   askIsCustom: boolean;
+  summarizeValue: string;
+  summarizeIsCustom: boolean;
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -148,6 +154,14 @@ export function PromptsPanel({
         description="Instructions for grounded Q&A over the Commons on Synthesis → Ask. This bot should answer only from retrieved excerpts — keep that boundary clear if you edit."
         initialValue={askValue}
         isCustom={askIsCustom}
+      />
+      <PromptEditor
+        kind="summarize"
+        label="Element summary"
+        description="Instructions for the automatic Markdown brief written onto each Commons document (Record, Reflect, Upload). Default shape: brief summary, categorized highlights, balcony observations (transcripts only), tensions/polarities, key questions, and theme tags. This is enrichment, not a chat reply — keep Reflect and Ask out of this prompt."
+        initialValue={summarizeValue}
+        isCustom={summarizeIsCustom}
+        rows={16}
       />
     </div>
   );

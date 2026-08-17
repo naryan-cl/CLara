@@ -8,7 +8,7 @@ import { removeStreamMember } from "@/lib/streams/remove-member";
 import { updateMemberRole } from "@/lib/streams/update-member-role";
 import { updateStreamIsolation } from "@/lib/streams/update-isolation";
 import { updateStreamPrompt } from "@/lib/prompts/update-stream-prompt";
-import type { PromptKind } from "@/lib/prompts/defaults";
+import { isPromptKind, type PromptKind } from "@/lib/prompts/defaults";
 import { updateStreamThemeSettings } from "@/lib/map-theme/theme-state";
 import { isMapThemeId, type MapThemeId } from "@/lib/map-theme";
 import { listDocumentsMissingEmbeddings } from "@/lib/embeddings/list-missing-embeddings";
@@ -112,7 +112,7 @@ export async function toggleIsolation(enabled: boolean): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Save a Reflect or Ask system-prompt override for the active stream. */
+/** Save a Reflect, Ask, or Summarize system-prompt override for the active stream. */
 export async function saveStreamPrompt(
   kind: PromptKind,
   value: string,
@@ -120,7 +120,7 @@ export async function saveStreamPrompt(
   const auth = await requireAdmin();
   if (!auth.ok) return auth;
 
-  if (kind !== "reflect" && kind !== "ask") {
+  if (!isPromptKind(kind)) {
     return { ok: false, error: "Unknown prompt kind." };
   }
 
@@ -140,7 +140,7 @@ export async function resetStreamPrompt(
   const auth = await requireAdmin();
   if (!auth.ok) return auth;
 
-  if (kind !== "reflect" && kind !== "ask") {
+  if (!isPromptKind(kind)) {
     return { ok: false, error: "Unknown prompt kind." };
   }
 

@@ -363,8 +363,7 @@ export function DashboardGrid({
         )}
       </div>
 
-      {/* Top-left chrome: Add / List. Theme sits here on phone so the
-          bottom-centered Ask blob does not cover it. */}
+      {/* Top-left chrome: Add / List. Theme picker is desktop-only. */}
       <div
         ref={listChromeRef}
         className={`pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5 ${
@@ -391,9 +390,6 @@ export function DashboardGrid({
                 })
               }
             />
-          </div>
-          <div className="sm:hidden">
-            <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
           </div>
           {listOpen ? (
             <CommonsListPanel

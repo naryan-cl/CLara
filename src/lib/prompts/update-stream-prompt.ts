@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   MAX_SYSTEM_PROMPT_CHARS,
+  PROMPT_COLUMNS,
   defaultPromptFor,
   type PromptKind,
 } from "@/lib/prompts/defaults";
@@ -17,8 +18,7 @@ export async function updateStreamPrompt(
   value: string | null,
 ): Promise<{ error: string | null }> {
   const trimmed = value?.trim() ?? "";
-  const column =
-    kind === "reflect" ? "reflect_system_prompt" : "ask_system_prompt";
+  const column = PROMPT_COLUMNS[kind];
 
   if (trimmed.length > MAX_SYSTEM_PROMPT_CHARS) {
     return {

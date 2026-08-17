@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-17 (CLara tab/app icon)  
+**Last updated:** 2026-08-17 (structured element-summary brief)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0029`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail).
+5. Apply newer Supabase migrations if missing (`0011`–**`0030`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt.
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -83,9 +83,10 @@
 *   **`0024_auto_join_camp_clai.sql`** — new `auth.users` auto-join Camp CLAI as `member`; backfill existing accounts; `ensure_my_camp_clai_membership()` self-heal RPC. **Required so new colleagues are not stuck with "no active stream".**
 *   **`0026_session_delete_rls.sql`** — DELETE policies on `sessions` for host, stream admins, attendees, and nested document authors (same gate as session edit). **Required for Commons / dashboard session Delete.**
 *   **`0029_fix_session_delete_rls.sql`** — `is_session_attendee` + `is_nested_session_document_author` SECURITY DEFINER helpers; rewrites 0023 UPDATE + 0026 DELETE attendee/nested-author policies so they do not recurse through `session_attendees` / `documents` RLS. **Required if Delete shows “infinite recursion detected in policy for relation sessions”.**
+*   **`0030_summarize_system_prompt.sql`** — `streams.summarize_system_prompt` (nullable text). NULL = product default in `src/lib/prompts/defaults.ts`. **Required to save an Admin override for per-element summaries.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0029** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0030** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -116,7 +117,7 @@
 | Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
 | Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`, DELETE RLS in `0026` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation,ensure-camp-clai-membership}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
-| Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
+| Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migrations `0015` + `0030` (summarize) |
 | Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
 | Admin map layout | `src/lib/graph/map-layout-config.ts`, `get-map-layout-config.ts`, `MapLayoutAdminPanel`, `/admin/map-layout`, migration `0022` — physics + sizes → Dashboard + `/map` |
 | PDF/DOCX conversion job | `src/lib/inngest/functions/convert-upload.ts` — `unpdf` for PDF, `mammoth` + existing `htmlToMarkdown` for DOCX |
@@ -145,6 +146,10 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Structured element-summary brief (2026-08-17):** Default summarize prompt is no longer “1–3 short paragraphs.” New Commons summaries use a long Markdown brief: **Brief summary**, categorized **Highlights**, **Balcony observations** (Transcripts only — omit for Reflection/Upload), **Tensions and polarities**, **Key questions**, **Theme tags**. Job allows ~4k output tokens and sends more of the source (~24k chars). Admins can still override on `/admin`. Existing summaries are not rewritten. **Manual test:** (1) Admin → CLara prompts → Element summary shows the new default (Reset if an old override is saved); (2) submit a Record with 2+ speakers → Summary has balcony + tags; (3) submit a Reflect → no balcony heading; (4) thin upload stays honest, not padded.
+*   **Ask button floats on the blob (2026-08-17):** Desktop Ask submit was clipped by `.organic-ask` + `overflow-hidden`. The button (and Clear thread) now sits on the blob’s bottom edge (`sm:translate-y-1/2`, panel `sm:overflow-visible`). Phone keeps the in-flow button inside the blob. **Manual test:** (1) desktop Dashboard — minimized Ask: the Ask button is fully visible, overlapping the bottom of the field shape, not cut off; (2) type a question and submit; (3) expanded thread — Ask follow-up / Clear thread still float on the edge; (4) select a map node — detail Ask button same treatment; (5) phone ~390px — Ask button stays inside the blob.
+*   **Admin summarize prompt + collapsible sections (2026-08-17):** Per-element Commons summaries used a hardcoded system prompt in `clara-summarize-document`. That prompt now lives in `src/lib/prompts/defaults.ts` (`DEFAULT_SUMMARIZE_SYSTEM_PROMPT`) and is editable on `/admin` → **CLara prompts** like Reflect and Ask (per-stream override on `streams.summarize_system_prompt`; NULL = code default). Reflect ≠ Ask ≠ Summarize stay separate. `/admin` content sections (Isolation, Map themes, Ask index, CLara prompts, Membership, Admin Queue) start **collapsed**, with **Expand** on the right. Apply **`0030_summarize_system_prompt.sql`** to save a summarize override (the editor still shows the default before that). **Manual test:** (1) run `0030` in Supabase; (2) Admin — sections collapsed, Expand/Collapse works; (3) CLara prompts → see Element summary; (4) edit it → Save → submit a short Reflect/Upload and confirm the Summary tab follows the new instructions; (5) Reset restores the product default; (6) Reflect and Ask prompts unchanged.
+*   **Hide theme picker on phone (2026-08-17):** Dashboard map-theme chips (Plant / Ocean / Desert) stay **desktop-only** (`sm` / 640px+). Phone chrome is Add + List; the extra picker was crowding the map and overlapping the Ask blob. Unlock popup is unchanged. **Manual test:** (1) phone ~390px Dashboard — no Plant/Ocean/Desert chips; Add and List still work; (2) desktop — picker still bottom-left.
 *   **CLara tab + app icon (2026-08-17):** Replaced the default Next.js/Vercel triangle (`src/app/favicon.ico`) with the CLara flower-and-C mark. File conventions: `src/app/icon.png` (browser tab / high-DPI), `src/app/apple-icon.png` (Add to Home Screen), `src/app/favicon.ico` (legacy `/favicon.ico` request). Auth proxy skips those paths so the icon is not gated. Works on Vercel Hobby without a custom domain. **Manual test:** (1) `npm run dev` → tab shows the green flower + C, not the Vercel triangle (hard-refresh or private window if cached); (2) after deploy to `clara-cl.vercel.app`, same check; (3) optional: iOS Safari Share → Add to Home Screen → CLara icon.
 *   **Session delete RLS recursion (2026-08-17):** Delete failed with `infinite recursion detected in policy for relation "sessions"`. 0026 (and 0023 UPDATE) queried `session_attendees` / `documents` under RLS; those policies query `sessions` again. **`0029_fix_session_delete_rls.sql`** uses SECURITY DEFINER helpers (same pattern as 0013 / 0025). **Apply `0029` in Supabase.** **Manual test:** (1) run `0029`; (2) Dashboard or Commons → session → Delete → Keep documents; (3) another session → Delete session and documents; (4) attendee (not host/admin) can still delete a session they attended.
 

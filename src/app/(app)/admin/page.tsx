@@ -4,6 +4,7 @@ import { IsolationToggle } from "@/components/IsolationToggle";
 import { PromptsPanel } from "@/components/PromptsPanel";
 import { MapThemesPanel } from "@/components/MapThemesPanel";
 import { AskIndexPanel } from "@/components/AskIndexPanel";
+import { AdminSection } from "@/components/admin/AdminSection";
 import Link from "next/link";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { listNeedsReviewDocuments } from "@/lib/documents/list-needs-review";
@@ -55,16 +56,19 @@ export default async function AdminPage() {
   const reflectValue =
     prompts?.reflectEffective ?? defaultPromptFor("reflect");
   const askValue = prompts?.askEffective ?? defaultPromptFor("ask");
+  const summarizeValue =
+    prompts?.summarizeEffective ?? defaultPromptFor("summarize");
   const reflectIsCustom = Boolean(prompts?.reflectOverride?.trim());
   const askIsCustom = Boolean(prompts?.askOverride?.trim());
+  const summarizeIsCustom = Boolean(prompts?.summarizeOverride?.trim());
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Admin</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Membership, isolation, map themes, Ask index, CLara prompts, and the
-          metadata review queue for {stream.name}.
+          metadata review queue for {stream.name}. Expand a section to edit it.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
@@ -82,113 +86,114 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          Isolation
-        </h2>
-        <div className="mt-4">
-          <IsolationToggle initialEnabled={stream.isolation_enabled} />
-        </div>
-      </section>
+      <AdminSection
+        title="Isolation"
+        hint={stream.isolation_enabled ? "on" : "off"}
+      >
+        <IsolationToggle initialEnabled={stream.isolation_enabled} />
+      </AdminSection>
 
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          Map themes
-        </h2>
-        <div className="mt-4">
-          {themeError || !themeSettings ? (
-            <p className="font-mono text-sm text-danger">
-              {themeError ??
-                "Theme settings unavailable — apply migration 0017_map_themes."}
-            </p>
-          ) : (
-            <MapThemesPanel
-              key={`${themeSettings.defaultMapTheme}-${themeSettings.oceanUnlockAt}-${themeSettings.desertUnlockAt}`}
-              initialDefaultTheme={themeSettings.defaultMapTheme}
-              initialOceanUnlockAt={themeSettings.oceanUnlockAt}
-              initialDesertUnlockAt={themeSettings.desertUnlockAt}
-            />
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          Ask index
-        </h2>
-        <div className="mt-4">
-          <AskIndexPanel
-            documents={missingEmbeddings}
-            listError={missingEmbeddingsError}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          CLara prompts
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          These are the system instructions Reflect and Ask CLara use for{" "}
-          {stream.name}. Edits apply immediately to new messages. Reflect and
-          Ask stay separate — changing one never changes the other.
-        </p>
-        <div className="mt-4">
-          {promptsError ? (
-            <p className="font-mono text-sm text-danger">{promptsError}</p>
-          ) : (
-            <PromptsPanel
-              reflectValue={reflectValue}
-              reflectIsCustom={reflectIsCustom}
-              askValue={askValue}
-              askIsCustom={askIsCustom}
-            />
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          Membership
-        </h2>
-        {membersError ? (
-          <p className="mt-3 font-mono text-sm text-danger">
-            {membersError}
+      <AdminSection title="Map themes">
+        {themeError || !themeSettings ? (
+          <p className="font-mono text-sm text-danger">
+            {themeError ??
+              "Theme settings unavailable — apply migration 0017_map_themes."}
           </p>
         ) : (
-          <div className="mt-4">
-            <MembersPanel members={members} currentUserId={user?.id ?? ""} />
+          <MapThemesPanel
+            key={`${themeSettings.defaultMapTheme}-${themeSettings.oceanUnlockAt}-${themeSettings.desertUnlockAt}`}
+            initialDefaultTheme={themeSettings.defaultMapTheme}
+            initialOceanUnlockAt={themeSettings.oceanUnlockAt}
+            initialDesertUnlockAt={themeSettings.desertUnlockAt}
+          />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Ask index"
+        hint={
+          missingEmbeddingsError
+            ? undefined
+            : missingEmbeddings.length > 0
+              ? `${missingEmbeddings.length} not indexed`
+              : undefined
+        }
+      >
+        <AskIndexPanel
+          documents={missingEmbeddings}
+          listError={missingEmbeddingsError}
+        />
+      </AdminSection>
+
+      <AdminSection
+        title="CLara prompts"
+        description={
+          <>
+            These are the system instructions Reflect, Ask CLara, and element
+            summaries use for {stream.name}. Edits apply immediately to new
+            messages and new summaries. Each prompt stays separate — changing
+            one never changes the others.
+          </>
+        }
+      >
+        {promptsError ? (
+          <p className="font-mono text-sm text-danger">{promptsError}</p>
+        ) : (
+          <PromptsPanel
+            reflectValue={reflectValue}
+            reflectIsCustom={reflectIsCustom}
+            askValue={askValue}
+            askIsCustom={askIsCustom}
+            summarizeValue={summarizeValue}
+            summarizeIsCustom={summarizeIsCustom}
+          />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Membership"
+        hint={
+          membersError
+            ? undefined
+            : members.length > 0
+              ? `${members.length} members`
+              : undefined
+        }
+      >
+        {membersError ? (
+          <p className="font-mono text-sm text-danger">{membersError}</p>
+        ) : (
+          <MembersPanel members={members} currentUserId={user?.id ?? ""} />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Admin Queue"
+        description="Documents the OKF enrichment pass couldn't confidently fill in. Open one, fix Title / Type (and Tags / Participants / Session ID if needed), and save — that clears it from this queue."
+        hint={
+          error
+            ? undefined
+            : documents.length > 0
+              ? `${documents.length} flagged`
+              : undefined
+        }
+      >
+        {error ? (
+          <p className="font-mono text-sm text-danger">{error}</p>
+        ) : documents.length === 0 ? (
+          <p className="text-sm text-ink/60">
+            Nothing flagged right now — every document in {stream.name} has
+            enough metadata.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
+              {documents.length} flagged
+            </p>
+            <DocumentList documents={documents} />
           </div>
         )}
-      </section>
-
-      <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-        <h2 className="font-display text-lg font-medium text-ink">
-          Admin Queue
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Documents the OKF enrichment pass couldn&apos;t confidently fill in.
-          Open one, fix Title / Type (and Tags / Participants / Session ID if
-          needed), and save — that clears it from this queue.
-        </p>
-        <div className="mt-4">
-          {error ? (
-            <p className="font-mono text-sm text-danger">{error}</p>
-          ) : documents.length === 0 ? (
-            <p className="text-sm text-ink/60">
-              Nothing flagged right now — every document in {stream.name} has
-              enough metadata.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-                {documents.length} flagged
-              </p>
-              <DocumentList documents={documents} />
-            </div>
-          )}
-        </div>
-      </section>
+      </AdminSection>
     </div>
   );
 }

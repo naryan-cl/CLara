@@ -8,14 +8,45 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
 import { shouldGenerateSummary } from "@/lib/documents/summary";
+import {
+  defaultPromptFor,
+  resolveSystemPrompt,
+} from "@/lib/prompts/defaults";
 
-/** Keep prompt cost/latency sane — long transcripts get truncated. */
-const MAX_CONTENT_CHARS = 12_000;
+/** Keep cost/latency sane — long transcripts get truncated. */
+const MAX_CONTENT_CHARS = 24_000;
+
+/** Room for a structured, multi-section brief (not a postcard). */
+const MAX_SUMMARY_TOKENS = 4096;
+
+async function loadSummarizePrompt(streamId: string): Promise<string> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("streams")
+      .select("summarize_system_prompt")
+      .eq("id", streamId)
+      .maybeSingle();
+    if (error) {
+      console.error("summarize-document: load prompt failed", error.message);
+      return defaultPromptFor("summarize");
+    }
+    const override =
+      typeof data?.summarize_system_prompt === "string"
+        ? data.summarize_system_prompt
+        : null;
+    return resolveSystemPrompt("summarize", override);
+  } catch (err) {
+    console.error("summarize-document: load prompt failed", err);
+    return defaultPromptFor("summarize");
+  }
+}
 
 async function writeElementSummary(input: {
   type: string | null;
   title: string | null;
   content: string;
+  systemPrompt: string;
 }): Promise<string> {
   const apiKey = getOpenAiApiKey();
   if (!apiKey) {
@@ -28,17 +59,11 @@ async function writeElementSummary(input: {
 
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
+    max_tokens: MAX_SUMMARY_TOKENS,
     messages: [
       {
         role: "system",
-        content:
-          "You write a short Markdown summary of one CLara Commons element " +
-          "(a reflection, transcript, note, or upload). Capture the main " +
-          "themes, tensions, and notable insights in 1–3 short paragraphs or " +
-          "a handful of bullets. Do not invent speakers, quotes, or facts. " +
-          "If the material is thin, say what little is present honestly. " +
-          "This is Commons enrichment — not an Ask CLara answer and not a " +
-          "reflective Chatbot reply.",
+        content: input.systemPrompt,
       },
       {
         role: "user",
@@ -112,12 +137,17 @@ export const summarizeDocumentFn = inngest.createFunction(
       return { ok: true, documentId, copied: true };
     }
 
+    const systemPrompt = await step.run("load-summarize-prompt", async () => {
+      return loadSummarizePrompt(doc.stream_id);
+    });
+
     const markdown = await step.run("write-summary", async () => {
       try {
         return await writeElementSummary({
           type: doc.type,
           title: doc.title,
           content: doc.content ?? "",
+          systemPrompt,
         });
       } catch (err) {
         console.error("summarize-document: writeElementSummary failed", err);

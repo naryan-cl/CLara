@@ -112,7 +112,7 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 **Commons repository (`/commons`):** click a card to open a **detail overlay** over the list (below the header on phone; centered modal on `sm+`). The shell is viewport-bounded with inner scroll — never a desktop panel that extends off-screen. Close via ✕, backdrop, or Escape.
 
-**Dashboard floating controls:** organic **+** FAB expands to Record / Reflect / Upload; sibling **List** FAB slides an organic Commons card panel. Ask CLara is an **asymmetric organic blob** (`.organic-ask`) — top-right on desktop, **horizontally centered** above the home indicator on phone (not a full-bleed bottom sheet). Minimized (title + entry) until the first question or handoff.
+**Dashboard floating controls:** organic **+** FAB expands to Record / Reflect / Upload; sibling **List** FAB slides an organic Commons card panel. Ask CLara is an **asymmetric organic blob** (`.organic-ask`) — top-right on desktop, **horizontally centered** above the home indicator on phone (not a full-bleed bottom sheet). Minimized (title + entry) until the first question or handoff. On desktop, the **Ask** submit button floats on the blob’s bottom edge so the organic radius does not clip it.
 
 **CLara Chatbot (Add) & Ask CLara (Synthesis):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
 

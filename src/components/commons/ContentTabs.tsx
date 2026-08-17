@@ -11,7 +11,7 @@ export type ContentTab = {
 /**
  * Summary-first tabs for Commons/Dashboard detail.
  * Why: the original transcript or reflection is still one click away,
- * but the first thing you read should be the short summary.
+ * but the first thing you read should be the generated brief.
  */
 export function ContentTabs({
   tabs,
