@@ -25,6 +25,10 @@ export const metadata: Metadata = {
   title: "CLara — Camp CLAI",
   description:
     "The shared brain for Camp CLAI: capture, structure, and explore collective thinking.",
+  applicationName: "CLara",
+  appleWebApp: {
+    title: "CLara",
+  },
 };
 
 export const viewport: Viewport = {
