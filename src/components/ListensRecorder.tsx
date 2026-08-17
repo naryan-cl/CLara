@@ -21,6 +21,10 @@ import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 import { listensFileExtension } from "@/lib/listens/audio-format";
+import {
+  hasSeenMobileRecordHint,
+  markMobileRecordHintSeen,
+} from "@/lib/listens/mobile-record-hint";
 import { requestScreenWakeLock } from "@/lib/listens/screen-wake-lock";
 
 /** Brief celebration before handing off to the dashboard (matches Reflect). */
@@ -344,9 +348,7 @@ export const ListensRecorder = forwardRef<
     'Only works with Chrome or Edge — pick Entire screen or a tab, then enable “Also share system audio” (Windows) or “Share tab audio” (Mac).',
   );
   const [mobileRecordHint, setMobileRecordHint] = useState(false);
-  const [screenStayAwake, setScreenStayAwake] = useState<
-    "off" | "held" | "unavailable"
-  >("off");
+  const [mobileStayAwakeHintOpen, setMobileStayAwakeHintOpen] = useState(false);
 
   useEffect(() => {
     setAudioHint(tabSystemAudioHint());
@@ -404,15 +406,11 @@ export const ListensRecorder = forwardRef<
         // Ignore — already released by the browser (screen lock, tab hide).
       }
     }
-    setScreenStayAwake("off");
   }, []);
 
   const acquireWakeLock = useCallback(async () => {
     const sentinel = await requestScreenWakeLock();
-    if (!sentinel) {
-      if (!wakeLockRef.current) setScreenStayAwake("unavailable");
-      return;
-    }
+    if (!sentinel) return;
     const previous = wakeLockRef.current;
     wakeLockRef.current = sentinel;
     if (previous && previous !== sentinel) {
@@ -422,7 +420,6 @@ export const ListensRecorder = forwardRef<
         // ignore
       }
     }
-    setScreenStayAwake("held");
     sentinel.addEventListener("release", () => {
       if (wakeLockRef.current === sentinel) {
         wakeLockRef.current = null;
@@ -907,6 +904,18 @@ export const ListensRecorder = forwardRef<
     };
   }, [phase, acquireWakeLock, releaseWakeLock]);
 
+  // First live take on a phone: one dialog, then never again on this browser.
+  useEffect(() => {
+    if (phase === "paused") return;
+    if (phase !== "recording") {
+      setMobileStayAwakeHintOpen(false);
+      return;
+    }
+    if (!isLikelyMobileRecord() || hasSeenMobileRecordHint()) return;
+    markMobileRecordHintSeen();
+    setMobileStayAwakeHintOpen(true);
+  }, [phase]);
+
   function attachMicEndedHandlers(micStream: MediaStream) {
     micStream.getAudioTracks().forEach((track) => {
       track.addEventListener("ended", () => {
@@ -1228,21 +1237,6 @@ export const ListensRecorder = forwardRef<
                 up soon
               </p>
             ) : null}
-
-            {phase === "recording" && screenStayAwake === "held" ? (
-              <p className="text-xs text-ink/50">
-                Keeping the screen on so capture doesn’t stop if the phone
-                idles. Locking the phone or switching apps still ends the take
-                — dim brightness to save battery.
-              </p>
-            ) : null}
-
-            {phase === "recording" && screenStayAwake === "unavailable" ? (
-              <p className="text-xs text-ink/50">
-                Leave this page open with the screen on. Sleep or switching
-                apps usually stops a web recording.
-              </p>
-            ) : null}
           </div>
         ) : (
           <p className="text-center text-sm text-ink/50">
@@ -1289,6 +1283,17 @@ export const ListensRecorder = forwardRef<
       ) : null}
 
       {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
+
+      {mobileStayAwakeHintOpen ? (
+        <ConfirmDialog
+          title="Keep this page in front"
+          body="Keeping the screen on so capture doesn’t stop if the phone idles. Locking the phone or switching apps still ends the take — dim brightness to save battery."
+          confirmLabel="Got it"
+          hideCancel
+          onCancel={() => setMobileStayAwakeHintOpen(false)}
+          onConfirm={() => setMobileStayAwakeHintOpen(false)}
+        />
+      ) : null}
 
       {trashConfirmOpen ? (
         <ConfirmDialog
@@ -1490,6 +1495,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "Cancel",
   danger,
+  hideCancel,
   onCancel,
   onConfirm,
   secondaryLabel,
@@ -1500,6 +1506,7 @@ export function ConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   danger?: boolean;
+  hideCancel?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
   secondaryLabel?: string;
@@ -1511,8 +1518,12 @@ export function ConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
+      onClick={hideCancel ? onCancel : undefined}
     >
-      <div className="flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-soft sm:rounded-lg sm:pb-5">
+      <div
+        className="flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-soft sm:rounded-lg sm:pb-5"
+        onClick={hideCancel ? (event) => event.stopPropagation() : undefined}
+      >
         <h2
           id="confirm-dialog-title"
           className="font-display text-lg font-medium text-ink"
@@ -1521,13 +1532,15 @@ export function ConfirmDialog({
         </h2>
         <p className="text-sm text-ink/65">{body}</p>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-11 rounded-md border border-cloud px-4 py-2 text-sm text-ink"
-          >
-            {cancelLabel}
-          </button>
+          {hideCancel ? null : (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="min-h-11 rounded-md border border-cloud px-4 py-2 text-sm text-ink"
+            >
+              {cancelLabel}
+            </button>
+          )}
           {secondaryLabel && onSecondary ? (
             <button
               type="button"

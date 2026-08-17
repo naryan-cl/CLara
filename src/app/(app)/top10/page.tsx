@@ -18,10 +18,7 @@ export default async function Top10Page() {
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-horizon">
-          Synthesis · Top 10
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-medium text-ink sm:text-4xl">
+        <h1 className="font-display text-3xl font-medium text-ink sm:text-4xl">
           A live reading of the Commons
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">

@@ -11,7 +11,6 @@ type ColumnId = "topics" | "differences" | "questions";
 
 const COLUMNS: {
   id: ColumnId;
-  eyebrow: string;
   title: string;
   blurb: string;
   empty: string;
@@ -19,7 +18,6 @@ const COLUMNS: {
 }[] = [
   {
     id: "topics",
-    eyebrow: "The chorus",
     title: "What’s humming",
     blurb:
       "Ideas that keep showing up across Public Commons — tags, summaries, and map themes.",
@@ -29,7 +27,6 @@ const COLUMNS: {
   },
   {
     id: "differences",
-    eyebrow: "The crackle",
     title: "Spaces of difference",
     blurb:
       "Tensions and polarities the stream is holding — two true things at once. Difference is data.",
@@ -39,7 +36,6 @@ const COLUMNS: {
   },
   {
     id: "questions",
-    eyebrow: "Open loops",
     title: "Still asking",
     blurb:
       "Questions people actually asked, plus the inquiries sessions were built around.",
@@ -138,12 +134,9 @@ export function Top10BoardView({ board }: { board: Top10Board }) {
               className={column.id === tab ? "block" : "hidden lg:block"}
               aria-labelledby={`top10-${column.id}`}
             >
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-horizon">
-                {column.eyebrow}
-              </p>
               <h2
                 id={`top10-${column.id}`}
-                className="mt-1 font-display text-2xl font-medium text-ink"
+                className="font-display text-2xl font-medium text-ink"
               >
                 {column.title}
               </h2>
