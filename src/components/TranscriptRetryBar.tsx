@@ -35,8 +35,8 @@ export function TranscriptRetryBar({
   return (
     <div className="flex flex-col gap-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-3">
       <p className="text-sm text-ink/75">
-        Transcription never finished. If the audio is still staged, Retry will
-        send it to Whisper again.
+        Transcription never finished. The original recording is kept — listen
+        below, then Retry Whisper.
       </p>
       {canEdit ? (
         <button

@@ -62,7 +62,9 @@ function readRecordingPayload(event: unknown): RecordingPayload {
 /**
  * Listens v2 Module B: diarize/Whisper each staged segment in order, shift
  * clocks so the full take is continuous, map Speaker A/B → session names,
- * write Transcript, delete staging objects, fan out clara/document.created.
+ * write Transcript (keeping the staging pointer), fan out clara/document.created.
+ * Staging audio is kept until the Commons document is deleted so a later
+ * Whisper failure still has something to Retry.
  */
 async function markTranscriptionFailed(
   documentId: string,
@@ -190,14 +192,18 @@ export const transcribeRecordingFn = inngest.createFunction(
           throw new Error(`download ${storagePath}: empty object`);
         }
 
+        // Strip codecs= from MediaRecorder MIME; Whisper keys off the filename.
+        const simpleMime = (mimeType || "audio/webm").split(";")[0]?.trim();
         const file = await toFile(buffer, `recording-${i}.${ext}`, {
-          type: mimeType || "audio/webm",
+          type: simpleMime || "audio/webm",
         });
 
         const result = await transcribeAudio(file);
         if (!result.ok) {
           // Fail the step so Inngest shows the Whisper error (not a silent empty doc).
-          throw new Error(`Whisper segment ${i}: ${result.error}`);
+          throw new Error(
+            `Whisper segment ${i} (${buffer.byteLength} bytes, ${simpleMime}, ${storagePath}): ${result.error}`,
+          );
         }
         return {
           text: result.text,
@@ -261,14 +267,16 @@ export const transcribeRecordingFn = inngest.createFunction(
       // Keep needs_review true on success until OKF enrich settles metadata.
       // Why: the dashboard can show “Summarizing…” between Whisper and OKF
       // without a separate job-status column.
-      const failureContent = withListensJobMeta(LISTENS_FAILURE_PLACEHOLDER, {
+      const job = {
         recordingId,
         segmentCount,
         mimeType,
         fileExtension: ext,
-      });
+      } as const;
       const patch: Record<string, unknown> = {
-        content: success ? transcript : failureContent,
+        content: success
+          ? withListensJobMeta(transcript, job)
+          : withListensJobMeta(LISTENS_FAILURE_PLACEHOLDER, job),
         needs_review: true,
       };
       if (participantNames.length > 0) {
@@ -282,22 +290,6 @@ export const transcribeRecordingFn = inngest.createFunction(
 
       if (error) throw new Error(`apply-transcript: ${error.message}`);
     });
-
-    if (transcript.trim()) {
-      await step.run("cleanup-storage", async () => {
-        const admin = createAdminClient();
-        const paths = Array.from(
-          { length: segmentCount },
-          (_, i) => `${streamId}/${recordingId}/${i}.${ext}`,
-        );
-        const { error } = await admin.storage
-          .from("listens-staging")
-          .remove(paths);
-        if (error) {
-          console.error("transcribe-recording: storage cleanup failed", error);
-        }
-      });
-    }
 
     if (transcript.trim()) {
       await step.sendEvent("trigger-okf-enrich", {

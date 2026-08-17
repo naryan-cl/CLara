@@ -8,6 +8,12 @@ import {
   formatTranscriptMarkdown,
   type TranscriptSegment,
 } from "@/lib/listens/format-transcript";
+import {
+  alternateAudioUploadMeta,
+  isLikelyAudioFormatError,
+  openaiAudioUploadMeta,
+  type OpenAiAudioUploadMeta,
+} from "@/lib/listens/audio-format";
 
 /**
  * Sync Receives / legacy Listens body-size cap (Vercel ~4.5MB request limit).
@@ -45,27 +51,45 @@ function isWhisperModel(model: string): boolean {
 function openaiErrorMessage(err: unknown): string {
   if (err && typeof err === "object") {
     const body = err as {
+      status?: number;
       message?: string;
-      error?: { message?: string };
+      code?: string | null;
+      error?: { message?: string } | string;
     };
-    const msg = body.error?.message?.trim() || body.message?.trim();
-    if (msg) return msg;
+    const nested =
+      typeof body.error === "string"
+        ? body.error.trim()
+        : body.error?.message?.trim();
+    const msg = nested || body.message?.trim();
+    if (msg) {
+      const status =
+        typeof body.status === "number" ? `${body.status} ` : "";
+      return `${status}${msg}`.trim();
+    }
+    if (typeof body.status === "number") {
+      return `OpenAI HTTP ${body.status}`;
+    }
   }
   if (err instanceof Error && err.message.trim()) return err.message;
+  if (typeof err === "string" && err.trim()) return err;
+  try {
+    const json = JSON.stringify(err);
+    if (json && json !== "{}") return json;
+  } catch {
+    // ignore
+  }
   return "Transcription failed. Please try again.";
 }
 
-async function cloneUploadable(file: File, buffer: Buffer) {
-  return toFile(Buffer.from(buffer), file.name || "recording.webm", {
-    type: file.type || "application/octet-stream",
-  });
+async function makeUploadable(buffer: Buffer, meta: OpenAiAudioUploadMeta) {
+  return toFile(Buffer.from(buffer), meta.filename, { type: meta.mimeType });
 }
 
 /**
  * Transcribe one audio clip. Prefer gpt-4o-transcribe-diarize (speakers +
- * clocks); fall back to whisper-1 verbose segments (clocks only) when the
- * env model is Whisper. Phone AAC/mp4 sometimes fails diarize — retry Whisper
- * on API/format errors. Never throws.
+ * clocks); fall back to whisper-1 verbose segments (clocks only), then plain
+ * Whisper JSON. Phone AAC labeled as WebM is sniffed from magic bytes and
+ * retried as .m4a when OpenAI rejects the container. Never throws.
  */
 export async function transcribeAudio(file: File): Promise<TranscribeResult> {
   const apiKey = getOpenAiApiKey();
@@ -73,53 +97,133 @@ export async function transcribeAudio(file: File): Promise<TranscribeResult> {
     return { ok: false, error: "OPENAI_API_KEY not configured." };
   }
 
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(await file.arrayBuffer());
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Could not read audio bytes: ${openaiErrorMessage(err)}`,
+    };
+  }
+
+  if (buffer.byteLength < 256) {
+    return {
+      ok: false,
+      error: `Audio file too small to transcribe (${buffer.byteLength} bytes).`,
+    };
+  }
+
   const model = getOpenAiTranscriptionModel();
   const client = new OpenAI({ apiKey });
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const makeFile = () => cloneUploadable(file, buffer);
+  const primary = openaiAudioUploadMeta(buffer, {
+    filename: file.name,
+    mimeType: file.type,
+  });
+  const alt = alternateAudioUploadMeta(primary);
+
+  console.info("transcribeAudio upload", {
+    bytes: buffer.byteLength,
+    claimedName: file.name,
+    claimedType: file.type,
+    using: primary,
+  });
+
+  const first = await transcribeWithModels(client, buffer, primary, model);
+  if (first.ok) return first;
+
+  if (isLikelyAudioFormatError(first.error)) {
+    console.error(
+      "transcribeAudio format error, retrying alternate container:",
+      primary,
+      alt,
+      first.error,
+    );
+    const second = await transcribeWithModels(client, buffer, alt, model);
+    if (second.ok) return second;
+    return {
+      ok: false,
+      error: `${first.error} (also tried ${alt.filename}: ${second.error})`,
+    };
+  }
+
+  return first;
+}
+
+async function transcribeWithModels(
+  client: OpenAI,
+  buffer: Buffer,
+  meta: OpenAiAudioUploadMeta,
+  model: string,
+): Promise<TranscribeResult> {
+  const errors: string[] = [];
+  const nextFile = () => makeUploadable(buffer, meta);
+
+  if (isDiarizeModel(model)) {
+    try {
+      const diarized = await transcribeDiarized(
+        client,
+        await nextFile(),
+        model,
+      );
+      if (diarized.ok) return diarized;
+      errors.push(`diarize: ${diarized.error}`);
+      console.error(
+        "transcribeAudio diarize empty, trying whisper-1:",
+        diarized.error,
+      );
+    } catch (err) {
+      errors.push(`diarize: ${openaiErrorMessage(err)}`);
+      console.error("transcribeAudio diarize failed, trying whisper-1:", err);
+    }
+  } else if (!isWhisperModel(model)) {
+    try {
+      const transcription = await client.audio.transcriptions.create({
+        file: await nextFile(),
+        model,
+      });
+      const text = transcription.text?.trim() ?? "";
+      if (text) {
+        return {
+          ok: true,
+          text,
+          durationSeconds: 0,
+          hasSpeakers: false,
+        };
+      }
+      errors.push(`${model}: No speech detected in the recording.`);
+    } catch (err) {
+      errors.push(`${model}: ${openaiErrorMessage(err)}`);
+      console.error("transcribeAudio model failed, trying whisper-1:", err);
+    }
+  }
+
+  const whisperModel = isWhisperModel(model) ? model : "whisper-1";
 
   try {
-    if (isDiarizeModel(model)) {
-      try {
-        const diarized = await transcribeDiarized(client, await makeFile(), model);
-        if (diarized.ok) return diarized;
-        console.error(
-          "transcribeAudio diarize empty, trying whisper-1:",
-          diarized.error,
-        );
-      } catch (err) {
-        console.error("transcribeAudio diarize failed, trying whisper-1:", err);
-      }
-      return await transcribeWhisperVerbose(
-        client,
-        await makeFile(),
-        "whisper-1",
-      );
-    }
-
-    if (isWhisperModel(model)) {
-      return await transcribeWhisperVerbose(client, await makeFile(), model);
-    }
-
-    // Other models (e.g. gpt-4o-transcribe): plain text only.
-    const transcription = await client.audio.transcriptions.create({
-      file: await makeFile(),
-      model,
-    });
-    const text = transcription.text?.trim() ?? "";
-    if (!text) {
-      return { ok: false, error: "No speech detected in the recording." };
-    }
-    return {
-      ok: true,
-      text,
-      durationSeconds: 0,
-      hasSpeakers: false,
-    };
+    return await transcribeWhisperVerbose(
+      client,
+      await nextFile(),
+      whisperModel,
+    );
   } catch (err) {
-    console.error("transcribeAudio failed:", err);
-    return { ok: false, error: openaiErrorMessage(err) };
+    errors.push(`whisper-verbose: ${openaiErrorMessage(err)}`);
+    console.error("transcribeAudio whisper verbose failed:", err);
   }
+
+  try {
+    return await transcribeWhisperPlain(client, await nextFile(), whisperModel);
+  } catch (err) {
+    errors.push(`whisper-json: ${openaiErrorMessage(err)}`);
+    console.error("transcribeAudio whisper json failed:", err);
+  }
+
+  return {
+    ok: false,
+    error:
+      errors.join(" → ") ||
+      "Transcription failed. Please try again.",
+  };
 }
 
 async function transcribeDiarized(
@@ -196,6 +300,27 @@ async function transcribeWhisperVerbose(
     ok: true,
     text,
     durationSeconds,
+    hasSpeakers: false,
+  };
+}
+
+async function transcribeWhisperPlain(
+  client: OpenAI,
+  file: File,
+  model: string,
+): Promise<TranscribeResult> {
+  const transcription = await client.audio.transcriptions.create({
+    file,
+    model,
+  });
+  const text = transcription.text?.trim() ?? "";
+  if (!text) {
+    return { ok: false, error: "No speech detected in the recording." };
+  }
+  return {
+    ok: true,
+    text,
+    durationSeconds: 0,
     hasSpeakers: false,
   };
 }

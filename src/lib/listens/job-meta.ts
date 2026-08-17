@@ -1,7 +1,9 @@
 /**
- * Hidden retry handle for Listens v2. Stored as an HTML comment after the
- * pending/failure placeholder so we can re-enqueue Whisper without a new
- * documents column. Successful transcripts drop the comment (audio is gone).
+ * Hidden handle for Listens v2 audio in Storage. Stored as an HTML comment
+ * after the transcript (or pending/failure placeholder) so Retry / playback
+ * can find the files without a new documents column. Kept after a successful
+ * transcript so a later Whisper miss does not lose the original recording.
+ * Files are removed when the Commons document is deleted.
  */
 
 export type ListensJobMeta = {
@@ -54,4 +56,14 @@ export function parseListensJobMeta(content: string): ListensJobMeta | null {
   } catch {
     return null;
   }
+}
+
+export function listensStagingPaths(
+  streamId: string,
+  meta: Pick<ListensJobMeta, "recordingId" | "segmentCount" | "fileExtension">,
+): string[] {
+  return Array.from(
+    { length: meta.segmentCount },
+    (_, i) => `${streamId}/${meta.recordingId}/${i}.${meta.fileExtension}`,
+  );
 }

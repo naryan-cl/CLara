@@ -18,6 +18,7 @@ import {
   LISTENS_PENDING_PLACEHOLDER,
 } from "@/lib/listens/placeholders";
 import {
+  listensStagingPaths,
   parseListensJobMeta,
   stripListensJobMeta,
   withListensJobMeta,
@@ -441,6 +442,55 @@ export async function retryListensTranscription(
     console.error("retryListensTranscription failed:", err);
     return { ok: false, error: "Could not retry transcription. Try again." };
   }
+}
+
+export type ListensAudioPlayback =
+  | { ok: true; urls: { url: string; label: string }[] }
+  | { ok: false; error: string };
+
+/**
+ * Signed URLs for the original recording still in listens-staging.
+ * Why: if Whisper fails, the contributor can still hear the take.
+ */
+export async function getListensAudioPlayback(
+  documentId: string,
+): Promise<ListensAudioPlayback> {
+  const { document, error } = await getDocumentById(documentId);
+  if (error || !document) {
+    return { ok: false, error: error ?? "Document not found." };
+  }
+
+  const meta = parseListensJobMeta(document.content);
+  if (!meta) {
+    return { ok: false, error: "No original audio is linked to this document." };
+  }
+
+  const supabase = await createClient();
+  const paths = listensStagingPaths(document.stream_id, meta);
+  const urls: { url: string; label: string }[] = [];
+
+  for (let i = 0; i < paths.length; i++) {
+    const path = paths[i]!;
+    const { data, error: signError } = await supabase.storage
+      .from("listens-staging")
+      .createSignedUrl(path, 60 * 60);
+    if (signError || !data?.signedUrl) {
+      continue;
+    }
+    urls.push({
+      url: data.signedUrl,
+      label: paths.length === 1 ? "Original recording" : `Part ${i + 1}`,
+    });
+  }
+
+  if (urls.length === 0) {
+    return {
+      ok: false,
+      error: "The original audio is no longer in storage.",
+    };
+  }
+
+  return { ok: true, urls };
 }
 
 /**

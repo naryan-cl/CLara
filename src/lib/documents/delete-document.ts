@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { removeListensStagingFromContent } from "@/lib/listens/remove-staging";
 
 /**
  * Delete a Commons document.
@@ -16,7 +17,7 @@ export async function deleteDocument(
     .from("documents")
     .delete()
     .eq("id", id)
-    .select("id")
+    .select("id, content, stream_id")
     .maybeSingle();
 
   if (error) {
@@ -39,6 +40,15 @@ export async function deleteDocument(
   } catch (err) {
     // Document is already gone; orphaned comments are non-fatal.
     console.error("deleteDocument: comment cleanup failed", err);
+  }
+
+  try {
+    await removeListensStagingFromContent(
+      String(data.stream_id),
+      data.content ? String(data.content) : null,
+    );
+  } catch (err) {
+    console.error("deleteDocument: listens staging cleanup failed", err);
   }
 
   return { error: null };

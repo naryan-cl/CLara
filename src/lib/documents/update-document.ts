@@ -5,6 +5,10 @@ import type {
   DocumentPrivacy,
   OkfDocumentType,
 } from "@/lib/documents/types";
+import {
+  parseListensJobMeta,
+  withListensJobMeta,
+} from "@/lib/listens/job-meta";
 
 export type UpdateDocumentInput = {
   id: string;
@@ -29,7 +33,19 @@ export async function updateDocument(
     patch.type = input.type?.trim() || null;
   }
   if (input.content !== undefined) {
-    patch.content = input.content;
+    let nextContent = input.content;
+    const { data: existing } = await supabase
+      .from("documents")
+      .select("content")
+      .eq("id", input.id)
+      .maybeSingle();
+    const meta = existing?.content
+      ? parseListensJobMeta(String(existing.content))
+      : null;
+    if (meta) {
+      nextContent = withListensJobMeta(nextContent, meta);
+    }
+    patch.content = nextContent;
     // Clear so the summarize job rewrites it and the UI shows Summarizing…
     patch.summary = null;
   }

@@ -12,7 +12,6 @@ import type { SessionSummary } from "@/lib/sessions/types";
 import { ConnectionsField } from "@/components/ConnectionsField";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { DocumentReadView } from "@/components/commons/ElementReadView";
-import { TranscriptRetryBar } from "@/components/TranscriptRetryBar";
 import { stripListensJobMeta } from "@/lib/listens/job-meta";
 
 const NEW_SESSION_VALUE = "__new__";
@@ -181,9 +180,8 @@ export function DocumentEditor({
           createdByName={createdByName}
           attendeeNames={attendeeNames}
           hideTitle={false}
+          canEdit={canEdit}
         />
-
-        <TranscriptRetryBar document={document} canEdit={canEdit} />
 
         {message ? (
           <p className="text-sm text-success">{message}</p>

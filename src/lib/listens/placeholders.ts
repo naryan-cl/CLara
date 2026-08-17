@@ -3,8 +3,8 @@ export const LISTENS_PENDING_PLACEHOLDER =
   "_Transcription in progress. This updates automatically when ready…_";
 
 export const LISTENS_FAILURE_PLACEHOLDER =
-  "_Automatic transcription failed for this recording. Use Retry if the audio " +
-  "is still available, or Edit to paste a transcript._";
+  "_Automatic transcription failed for this recording. The original audio is " +
+  "kept — listen to it, use Retry, or Edit to paste a transcript._";
 
 /** Older failure copy (before Retry existed). */
 const LISTENS_FAILURE_PLACEHOLDER_LEGACY =

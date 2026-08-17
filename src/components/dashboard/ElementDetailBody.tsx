@@ -187,6 +187,7 @@ export function ElementDetailBody({
           createdByName={detail.createdBy?.display_name ?? null}
           attendeeNames={detail.attendees.map((person) => person.display_name)}
           hideTitle
+          canEdit={detail.canEdit}
         />
       ) : (
         <SessionReadView detail={detail} hideTitle />

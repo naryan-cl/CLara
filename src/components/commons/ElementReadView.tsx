@@ -11,11 +11,14 @@ import {
   needsElementSummary,
   sourceTabLabel,
 } from "@/lib/documents/summary";
+import { stripListensJobMeta } from "@/lib/listens/job-meta";
 import {
   isRecordingProcessing,
   recordingProcessLabel,
   recordingProcessStatus,
 } from "@/lib/listens/process-status";
+import { TranscriptRetryBar } from "@/components/TranscriptRetryBar";
+import { ListensAudioPlayer } from "@/components/ListensAudioPlayer";
 
 function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
@@ -104,11 +107,13 @@ export function DocumentReadView({
   createdByName,
   attendeeNames,
   hideTitle = false,
+  canEdit = false,
 }: {
   document: CommonsDocument;
   createdByName: string | null;
   attendeeNames: string[];
   hideTitle?: boolean;
+  canEdit?: boolean;
 }) {
   const okfParticipants = asStringList(document.participants);
   const attendees = mergeAttendeeNames(attendeeNames, okfParticipants);
@@ -152,7 +157,7 @@ export function DocumentReadView({
 
   const sourceTab = (
     <MarkdownView
-      markdown={document.content}
+      markdown={stripListensJobMeta(document.content)}
       emptyLabel={`No ${sourceLabel.toLowerCase()} yet.`}
     />
   );
@@ -185,6 +190,16 @@ export function DocumentReadView({
         <MetaField label="Created by">
           <p className="text-sm text-ink/80">{createdByName}</p>
         </MetaField>
+      ) : null}
+
+      {document.type === "Transcript" ? (
+        <div className="flex flex-col gap-3">
+          <TranscriptRetryBar document={document} canEdit={canEdit} />
+          <ListensAudioPlayer
+            documentId={document.id}
+            content={document.content}
+          />
+        </div>
       ) : null}
 
       {attendees.length >= 2 ? (
