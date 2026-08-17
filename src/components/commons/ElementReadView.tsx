@@ -25,17 +25,15 @@ function asStringList(value: unknown): string[] {
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return null;
-  try {
-    return new Date(value).toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return null;
-  }
+  if (!value?.trim()) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
 }
 
 function MetaPill({
@@ -89,6 +87,34 @@ function MetaField({
       </h3>
       {children}
     </section>
+  );
+}
+
+/** Type pills + date + author on one row so the pane keeps room for the summary. */
+function MetaRow({
+  date,
+  createdByName,
+  children,
+}: {
+  date: string | null;
+  createdByName?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {children}
+      {date ? (
+        <span className="font-mono text-[11px] tracking-wide text-ink/45">
+          {date}
+        </span>
+      ) : null}
+      {createdByName ? (
+        <span className="font-mono text-[11px] tracking-wide text-ink/45">
+          {date ? "· " : ""}
+          {createdByName}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -163,9 +189,9 @@ export function DocumentReadView({
   );
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-col gap-2">
+        <MetaRow date={date} createdByName={createdByName}>
           <MetaPill>{document.type ?? "Document"}</MetaPill>
           {document.privacy_status === "private" ? (
             <MetaPill>Private</MetaPill>
@@ -174,24 +200,13 @@ export function DocumentReadView({
           {processLabel ? (
             <MetaPill tone={processTone}>{processLabel}</MetaPill>
           ) : null}
-        </div>
+        </MetaRow>
         {!hideTitle ? (
           <h2 className="font-display text-xl font-medium text-ink">
             {document.title?.trim() || "Untitled"}
           </h2>
         ) : null}
-        {date ? (
-          <p className="font-mono text-[11px] tracking-wide text-ink/45">
-            {date}
-          </p>
-        ) : null}
       </header>
-
-      {createdByName ? (
-        <MetaField label="Created by">
-          <p className="text-sm text-ink/80">{createdByName}</p>
-        </MetaField>
-      ) : null}
 
       {document.type === "Transcript" ? (
         <div className="flex flex-col gap-3">
@@ -330,50 +345,25 @@ export function SessionReadView({
   hideTitle?: boolean;
 }) {
   const date = formatDate(
-    detail.session.occurred_at ?? detail.session.created_at,
+    detail.session.occurred_at || detail.session.created_at,
   );
   const attendeeNames = detail.attendees.map((person) => person.display_name);
   const createdByName = detail.createdBy?.display_name ?? null;
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-col gap-2">
+        <MetaRow date={date} createdByName={createdByName}>
           <MetaPill>Session</MetaPill>
           {detail.attending ? <MetaPill>Attending</MetaPill> : null}
           {detail.session.finalized_at ? <MetaPill>Finalized</MetaPill> : null}
-        </div>
+        </MetaRow>
         {!hideTitle ? (
           <h2 className="font-display text-xl font-medium text-ink">
             {detail.session.name}
           </h2>
         ) : null}
-        {date ? (
-          <p className="font-mono text-[11px] tracking-wide text-ink/45">
-            {date}
-          </p>
-        ) : null}
       </header>
-
-      {createdByName ? (
-        <MetaField label="Created by">
-          <p className="text-sm text-ink/80">{createdByName}</p>
-        </MetaField>
-      ) : null}
-
-      {detail.session.join_code ? (
-        <MetaField label="Join code">
-          <p className="font-mono text-sm tracking-widest text-ink">
-            {detail.session.join_code}
-          </p>
-          <Link
-            href={`/add/session?id=${detail.session.id}`}
-            className="text-sm text-horizon hover:underline"
-          >
-            Open live board (share links & QR)
-          </Link>
-        </MetaField>
-      ) : null}
 
       {attendeeNames.length >= 2 ? (
         <MetaField label="Attendees">

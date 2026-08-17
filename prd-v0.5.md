@@ -18,7 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
-*   **Dashboard list recency + outside-CL flag (2026-08-17):** Dashboard List sorts newest activity first; **Recent** (last 24 hours) and **Hide external** pills in the panel header; **New** / **External** labels on cards. Upload can flag “from outside CL” (`documents.is_external`). Map stays unfiltered. Apply **`0032_document_is_external.sql`**. See §5.1, §7.1.
+*   **Dashboard list recency + outside-CL flag (2026-08-17):** Dashboard List sorts newest activity first; **Hide external** pill in the panel header (beside close); **New** / **External** labels on cards. Upload can flag “from outside CL” (`documents.is_external`). Detail pane: date + Created by sit on the type-pill row; session Join code is in Edit. Map stays unfiltered. Apply **`0032_document_is_external.sql`**. See §5.1, §7.1.
 *   **Synthesis Top 10 (2026-08-17):** New Synthesis child at `/top10` ranks the stream’s top topics, spaces of difference (tensions/polarities), and questions/inquiries from Public Commons — tags, element-summary sections, session inquiries, and Knowledge Map contrast links. Source chips open the original document or session. Private stays off the board (same as the map). Not an Ask CLara pipeline. See §5.3, §7.4.
 *   **Connect without join code (2026-08-17):** Stream members can nest Reflect / Record / Upload under an **open Session** from a Connect dropdown (newest first). Join code + share/QR remain for people who were given a code, including late Adds after Finalize. Session detail shows the join code and a link to the live board. See §5.1.
 *   **Long audio via Upload (2026-08-17):** Add → Upload uses the same `listens-staging` + async Whisper path as Record (no ~4MB Server Action cap). Files over 25MB are compressed in the browser. See §5.1.
@@ -191,7 +191,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ### 7.1 Dashboard
 *   Active stream context from DB.
 *   Full-bleed Commons map (contribution types) with floating Ask / Add / List.
-*   **List panel** (2026-08-17): newest `created_at` first; **New** on the last 24 hours; pills **Recent** and **Hide external** (list only — map stays unfiltered). Closing the list resets filters. Apply **`0032`**.
+*   **List panel** (2026-08-17): newest `created_at` first; **New** on the last 24 hours; **Hide external** beside close (list only — map stays unfiltered). Detail: date + author on the type-pill row; session Join code in Edit. Apply **`0032`**.
 *   Map shows sessions + ungrouped Adds; **select a session to expand children and nest lines**. Relate lines among visible nodes. Ask pane pencil edits documents **and sessions** when permitted.
 
 ### 7.2 Add — Session / Reflect / Record / Upload

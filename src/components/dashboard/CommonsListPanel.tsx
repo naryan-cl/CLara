@@ -72,16 +72,15 @@ export function CommonsListPanel({
     maxHeight: LIST_MAX_HEIGHT,
   });
 
-  const [recentOnly, setRecentOnly] = useState(false);
   const [hideExternal, setHideExternal] = useState(false);
 
   const visible = useMemo(
     () =>
       filterDashboardListItems(items, {
-        recentOnly,
+        recentOnly: false,
         hideExternal,
       }),
-    [items, recentOnly, hideExternal],
+    [items, hideExternal],
   );
 
   const panelWidth = Math.min(
@@ -93,11 +92,7 @@ export function CommonsListPanel({
     typeof window !== "undefined" ? window.innerHeight - 120 : size.height,
   );
 
-  const filterEmptyCopy = hideExternal
-    ? recentOnly
-      ? "Nothing from the last 24 hours that isn’t from outside CL"
-      : "No CL-only items to show"
-    : "Nothing from the last 24 hours";
+  const filterEmptyCopy = "No CL-only items to show";
 
   return (
     <aside
@@ -128,34 +123,25 @@ export function CommonsListPanel({
         className="absolute inset-x-3 -bottom-1 z-10 hidden h-2 cursor-ns-resize rounded-full hover:bg-horizon/25 sm:block"
       />
 
-      <div className="flex shrink-0 flex-col gap-2 border-b border-cloud/70 px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-base font-medium text-ink">
-            Commons
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
-            aria-label="Close list"
-          >
-            ×
-          </button>
-        </div>
+      <div className="flex shrink-0 items-center gap-2 border-b border-cloud/70 px-4 py-3">
+        <h2 className="min-w-0 flex-1 font-display text-base font-medium text-ink">
+          Commons
+        </h2>
         {items.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            <FilterPill
-              pressed={recentOnly}
-              onToggle={() => setRecentOnly((value) => !value)}
-              label="Recent"
-            />
-            <FilterPill
-              pressed={hideExternal}
-              onToggle={() => setHideExternal((value) => !value)}
-              label="Hide external"
-            />
-          </div>
+          <FilterPill
+            pressed={hideExternal}
+            onToggle={() => setHideExternal((value) => !value)}
+            label="Hide external"
+          />
         ) : null}
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
+          aria-label="Close list"
+        >
+          ×
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">

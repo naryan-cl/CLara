@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   deleteSessionAction,
   saveSessionEdits,
@@ -15,7 +16,14 @@ import type { SessionSummary } from "@/lib/sessions/types";
 
 function dateInputValue(value: string | null): string {
   if (!value) return "";
-  return value.slice(0, 10);
+  // Postgres `date` columns arrive as YYYY-MM-DD — keep that calendar day.
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -171,10 +179,31 @@ export function SessionEditor({
           <input
             type="date"
             name="occurredAt"
-            defaultValue={dateInputValue(session.occurred_at)}
+            defaultValue={dateInputValue(
+              session.occurred_at || session.created_at,
+            )}
             className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
           />
         </label>
+
+        {session.join_code ? (
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink">Join code</span>
+            <p className="font-mono tracking-widest text-ink">
+              {session.join_code}
+            </p>
+            <p className="text-xs text-ink/45">
+              Change the code or copy share links on the{" "}
+              <Link
+                href={`/add/session?id=${session.id}`}
+                className="text-horizon hover:underline"
+              >
+                live board
+              </Link>
+              .
+            </p>
+          </div>
+        ) : null}
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Inquiry</span>
