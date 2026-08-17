@@ -121,18 +121,23 @@ export function AskClaraPanel({
   }, [forceMinimized]);
 
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
     function sync() {
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      const inset = Math.max(
+        0,
+        window.innerHeight - viewport.height - viewport.offsetTop,
+      );
       setKeyboardInset(inset);
     }
+    const viewport = window.visualViewport;
+    if (!viewport) return;
     sync();
-    vv.addEventListener("resize", sync);
-    vv.addEventListener("scroll", sync);
+    viewport.addEventListener("resize", sync);
+    viewport.addEventListener("scroll", sync);
     return () => {
-      vv.removeEventListener("resize", sync);
-      vv.removeEventListener("scroll", sync);
+      viewport.removeEventListener("resize", sync);
+      viewport.removeEventListener("scroll", sync);
     };
   }, []);
 
