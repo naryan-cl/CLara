@@ -187,9 +187,9 @@ function isMacPlatform(): boolean {
 /** Checkbox hint — Mac tab audio vs Windows system-audio wording. */
 function tabSystemAudioHint(): string {
   if (isMacPlatform()) {
-    return 'Only works with Chrome or Edge — pick a Chrome Tab and turn on “Share tab audio”. If Chrome asks for System Settings → Screen Recording, enable Chrome, then quit Chrome completely and reopen.';
+    return 'Only works with Chrome or Edge — in the share dialog pick Chrome Tab (any tab, not just this page) and turn on “Share tab audio”. Entire screen usually has no audio on Mac. If Chrome asks for System Settings → Screen Recording, enable Chrome, then quit Chrome completely and reopen.';
   }
-  return 'Only works with Chrome or Edge — select a tab or screen and enable “Also share system audio”.';
+  return 'Only works with Chrome or Edge — in the share dialog pick Entire screen (or a tab/window), then enable “Also share system audio” (or “Share tab audio”).';
 }
 
 function mapMicCaptureError(err: unknown): string {
@@ -230,7 +230,7 @@ function emptyShareAudioError(): string {
   if (isMacPlatform()) {
     return 'No audio track came back. Pick a Chrome Tab and turn on “Share tab audio” (entire screen often has no audio on Mac).';
   }
-  return 'No audio track came back. Select a tab or screen and enable “Also share system audio”.';
+  return 'No audio track came back. Pick Entire screen and enable “Also share system audio”, or a Chrome Tab with “Share tab audio”.';
 }
 
 async function requestSystemTabAudio(): Promise<
@@ -261,20 +261,24 @@ async function requestSystemTabAudio(): Promise<
   }
 
   try {
-    // Prefer Chrome Tab (reliable audio on macOS). Windows can still pick
-    // entire screen + system audio when the OS/browser offers it.
+    // Why: we need the *full* Chrome picker (Entire screen / Window / Tab).
+    // `preferCurrentTab: true` skips that and only offers this CLara tab, so
+    // Windows never sees “Also share system audio” (that checkbox lives on
+    // Entire screen). Mac still *hints* Chrome Tab because monitor capture
+    // often has no audio on macOS — the other surfaces stay selectable.
+    const isMac = isMacPlatform();
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        displaySurface: "browser",
+        displaySurface: isMac ? "browser" : "monitor",
         frameRate: 1,
         width: 16,
         height: 16,
       },
       audio: true,
       systemAudio: "include",
-      preferCurrentTab: true,
       selfBrowserSurface: "include",
       monitorTypeSurfaces: "include",
+      surfaceSwitching: "include",
     } as DisplayMediaStreamOptions);
 
     for (const track of display.getVideoTracks()) {
@@ -337,7 +341,7 @@ export const ListensRecorder = forwardRef<
   const [showThanks, setShowThanks] = useState(false);
   /** Set after mount so SSR/hydration don’t disagree on Mac vs Windows copy. */
   const [audioHint, setAudioHint] = useState(
-    'Only works with Chrome or Edge — pick a Chrome Tab and enable share audio (“Share tab audio” on Mac, or “Also share system audio” on Windows).',
+    'Only works with Chrome or Edge — pick Entire screen or a tab, then enable “Also share system audio” (Windows) or “Share tab audio” (Mac).',
   );
   const [mobileRecordHint, setMobileRecordHint] = useState(false);
   const [screenStayAwake, setScreenStayAwake] = useState<

@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-17 (phone Record transcription + Created by names)  
+**Last updated:** 2026-08-17 (Chrome Record share picker: screen + system audio)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -147,6 +147,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Chrome Record picker: screen + system audio (2026-08-17):** `getDisplayMedia` no longer sets `preferCurrentTab: true`. That flag made Chrome offer only this CLara tab, so Windows users never saw Entire screen / Window or the “Also share system audio” checkbox. The picker now shows all surfaces; Windows hints Entire screen, Mac still hints Chrome Tab (monitor audio is unreliable on macOS). **Manual test (Chrome on Windows):** (1) Record → leave “Include tab / system audio” on → tap mic; (2) share dialog has Entire screen, Window, and Chrome Tab; (3) Entire screen shows “Also share system audio”; (4) you can pick a different screen/tab, not only the CLara page; (5) Mac: Chrome Tab + “Share tab audio” still works.
+
 *   **Long audio via Upload (2026-08-17):** Add → Upload now uses the same `listens-staging` + Inngest Whisper path as Record, so Voice Memos / Zoom files are not capped at ~4MB. Files ≤ 25MB upload as-is; larger files are compressed in the browser (32kbps, 12-min chunks, ~3 hour cap). Original audio stays for playback/Retry. Keep the Upload page open until the file has uploaded. **Manual test:** (1) Upload a short .m4a/.mp3 → dashboard Transcribing → transcript + Original audio; (2) Upload a file over 25MB (or a long Voice Memo) → see Compressing… then Uploading… then the same dashboard flow; (3) PDF/DOCX/Add text unchanged; (4) lock/switch apps during compress still interrupts (web limit).
 
 *   **Record wake lock + Whisper footer strip (2026-08-17):** Two phone-recording fixes. (1) While Record is live, CLara requests a **Screen Wake Lock** so the display stays on (Chrome Android, Safari 16.4+). That is the web-app limit: locking the phone or switching apps still stops the mic. Pause releases the lock. (2) After Whisper/diarize, trailing credit hallucinations (“Transcribed by Otter”, “Thanks for watching”, Amara subtitles) are stripped from Record and Upload-audio transcripts (`stripWhisperArtifacts`). **Manual test:** (1) phone Record — screen should not auto-sleep; timer keeps moving; lock button / Home still stops capture; (2) Record a short take that ends in silence — transcript should not end with “Transcribed by Otter”; (3) desktop Record unchanged; (4) Pause then Resume — screen can sleep while paused, stays on after Resume.
