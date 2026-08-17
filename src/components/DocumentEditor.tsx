@@ -276,19 +276,13 @@ export function DocumentEditor({
           defaultChecked={Boolean(document.is_external)}
           className="mt-1 h-4 w-4 shrink-0 rounded border-cloud accent-forest"
         />
-        <span>
-          <span className="font-medium text-ink">This is from outside CL</span>
-          <span className="mt-0.5 block text-xs leading-5 text-ink/50">
-            Check this if the file or text did not come from a CL / Camp CLAI
-            gathering (for example a public article or another program).
-          </span>
-        </span>
+        <span className="font-medium text-ink">This is from outside CL</span>
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Nested in session</span>
         <p className="text-xs text-ink/45">
-          This Add lives inside the gathering. Leave empty if it stands alone.
+          Use if this Add is a part of a larger session.
         </p>
         <select
           name="sessionId"
@@ -326,7 +320,7 @@ export function DocumentEditor({
             ? [sessionChoice]
             : []),
         ]}
-        helpText="Connect to another session or element without nesting. Nesting is the field above."
+        helpText="Connect to another session or element without nesting."
       />
 
       <div className="flex flex-col gap-1 text-sm">
