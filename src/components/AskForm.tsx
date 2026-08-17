@@ -9,6 +9,7 @@ import {
   type AskSource,
 } from "@/app/(app)/ask/actions";
 import { FadeRise } from "@/components/motion/FadeRise";
+import { MarkdownView } from "@/components/MarkdownView";
 import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 import type { AskScope } from "@/lib/ask/scope";
 import { askScopeIsActive } from "@/lib/ask/scope";
@@ -175,6 +176,15 @@ export function AskForm({
     runAsk(trimmed, historyForServer);
   }
 
+  /** Enter sends; Shift+Enter keeps a newline. Skip while composing (IME). */
+  function onDraftKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (pending) return;
+    if (event.key !== "Enter" || event.shiftKey) return;
+    if (event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
   function onClear() {
     setTurns([]);
     setError(null);
@@ -255,9 +265,13 @@ export function AskForm({
                     CLARA
                   </p>
                 ) : null}
-                <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
-                  {turn.content}
-                </p>
+                {turn.role === "assistant" ? (
+                  <MarkdownView markdown={turn.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
+                    {turn.content}
+                  </p>
+                )}
                 {turn.role === "assistant" &&
                 turn.sources &&
                 turn.sources.length > 0 ? (
@@ -296,22 +310,14 @@ export function AskForm({
             : ""
         }`}
       >
-        <label
-          htmlFor="ask-question"
-          className={
-            turns.length === 0
-              ? "sr-only"
-              : "font-mono text-[11px] uppercase tracking-wide text-ink/60"
-          }
-        >
-          {turns.length === 0
-            ? "Ask a question"
-            : "Follow up (same grounded thread)"}
+        <label htmlFor="ask-question" className="sr-only">
+          Ask a question
         </label>
         <textarea
           id="ask-question"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={onDraftKeyDown}
           rows={minimized && turns.length === 0 ? 2 : 3}
           placeholder={
             scoped

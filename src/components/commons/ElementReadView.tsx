@@ -360,6 +360,20 @@ export function SessionReadView({
         </MetaField>
       ) : null}
 
+      {detail.session.join_code ? (
+        <MetaField label="Join code">
+          <p className="font-mono text-sm tracking-widest text-ink">
+            {detail.session.join_code}
+          </p>
+          <Link
+            href={`/add/session?id=${detail.session.id}`}
+            className="text-sm text-horizon hover:underline"
+          >
+            Open live board (share links & QR)
+          </Link>
+        </MetaField>
+      ) : null}
+
       {attendeeNames.length >= 2 ? (
         <MetaField label="Attendees">
           <PersonPills people={attendeeNames} />

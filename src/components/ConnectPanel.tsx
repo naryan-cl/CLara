@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveJoinCodeAction } from "@/app/(app)/sessions/composer-actions";
 import type { RelateTarget } from "@/lib/commons/relate-targets";
+import { openSessionsNewestFirst } from "@/lib/sessions/open-sessions";
 import type { SessionSummary } from "@/lib/sessions/types";
 
 export type { RelateTarget };
@@ -39,8 +40,9 @@ type Props = {
 
 /**
  * Shared Connect chrome for Reflect / Record / Upload.
- * Relate = user-described edges. Join code = nest under a Session.
- * No create-session UI (that lives on Add → Session).
+ * Relate = user-described edges. Nesting = pick an open Session from the
+ * dropdown (newest first) or enter a join code. No create-session UI
+ * (that lives on Add → Session).
  */
 export function ConnectPanel({
   sessions: initialSessions,
@@ -108,6 +110,15 @@ export function ConnectPanel({
   }, [connectOpen]);
 
   const nestedSessions = sessions.filter((s) => sessionIds.includes(s.id));
+  const dropdownSessions = useMemo(() => {
+    const open = openSessionsNewestFirst(sessions);
+    const selectedExtras = sessions.filter(
+      (session) =>
+        sessionIds.includes(session.id) &&
+        !open.some((openSession) => openSession.id === session.id),
+    );
+    return [...open, ...selectedExtras];
+  }, [sessions, sessionIds]);
 
   const filteredTargets = useMemo(() => {
     const q = relateQuery.trim().toLowerCase();
@@ -164,6 +175,11 @@ export function ConnectPanel({
     setSessionIds([]);
   }
 
+  function selectOpenSession(sessionId: string) {
+    setJoinError(null);
+    setSessionIds(sessionId ? [sessionId] : []);
+  }
+
   const relateCount = relatedDocumentIds.length + relatedSessionIds.length;
 
   return (
@@ -202,9 +218,40 @@ export function ConnectPanel({
             />
             <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] space-y-4 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:z-20 sm:mt-2 sm:max-h-none sm:w-[min(100%,24rem)] sm:min-w-0 sm:max-w-md sm:rounded-lg sm:pb-4">
             <div>
-              <p className="font-medium text-ink">Join code</p>
+              <p className="font-medium text-ink">Open session</p>
               <p className="mt-0.5 text-xs text-ink/50">
-                Nest this Add under a group Session.
+                Nest this Add under a gathering. Newest sessions are listed
+                first — no join code needed.
+              </p>
+              {dropdownSessions.length === 0 ? (
+                <p className="mt-2 text-sm text-ink/45">
+                  No open sessions yet. Create one from Add → Session, or
+                  enter a join code below.
+                </p>
+              ) : (
+                <select
+                  value={sessionIds[0] ?? ""}
+                  onChange={(event) => selectOpenSession(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-cloud bg-white px-3 py-2 text-sm text-ink outline-none focus:border-horizon"
+                  aria-label="Open session"
+                >
+                  <option value="">Not nested in a session</option>
+                  {dropdownSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name}
+                      {session.join_code ? ` · ${session.join_code}` : ""}
+                      {session.finalized_at ? " (finalized)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <p className="font-medium text-ink">Or join with a code</p>
+              <p className="mt-0.5 text-xs text-ink/50">
+                Use this if someone sent you a code (including a finalized
+                session that still accepts late Adds).
               </p>
               <div className="mt-2 flex gap-2">
                 <input

@@ -38,9 +38,9 @@ export function ReflectPageClient({
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Reflect</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Explore your thinking with CLara. Connect with a join code to nest
-          under a Session, or Relate to other Commons elements — or leave this
-          as a stand-alone reflection.
+          Explore your thinking with CLara. Connect to an open Session from
+          the dropdown (or paste a join code), Relate to other Commons
+          elements — or leave this as a stand-alone reflection.
         </p>
         {loadError ? (
           <p className="mt-2 text-sm text-danger">{loadError}</p>

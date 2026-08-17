@@ -385,6 +385,12 @@ export function AskClaraPanel({
               id="ask-host-detail-question"
               value={detailDraft}
               onChange={(event) => setDetailDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.shiftKey) return;
+                if (event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }}
               rows={2}
               placeholder={
                 selectedItem.kind === "session"

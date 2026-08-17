@@ -120,7 +120,9 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 **Status pills:** Draft (`--cloud`), Pending (`--warning`), Published/Approved (`--success`).
 
-**Navigation:** minimal top bar — **CLara** wordmark, active **stream** badge (e.g. Camp CLAI), **Dashboard · Add · Commons · Synthesis · Admin**, and account. **Add** expands to Chat / Record / Upload; **Synthesis** expands to Ask CLara / Knowledge Map. Mobile: hamburger with the same expandable groups (nav must remain reachable below `sm`). Calm, not crowded.
+**Navigation:** minimal top bar — **CLara** wordmark, active **stream** badge (e.g. Camp CLAI), **Dashboard · Add · Commons · Synthesis · Admin**, and account. **Add** expands to Chat / Record / Upload; **Synthesis** expands to Ask CLara / Knowledge Map / Top 10. Mobile: hamburger with the same expandable groups (nav must remain reachable below `sm`). Calm, not crowded.
+
+**Top 10 (`/top10`):** editorial three-column board (phone: tabs) of ranked cards. Rank numbers in display italic; #1 may use a quiet `--glow` ring. Source chips match Ask CLara (`--horizon` outline, mono label) and link to the originating document or session. Empty state is invitational, not an error.
 
 ---
 

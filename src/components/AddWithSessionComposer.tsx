@@ -26,7 +26,8 @@ type Props = {
 
 /**
  * Shared Add shell for Record / Upload with uniform Connect
- * (Relate + Join code). Record title is document-only — never creates a session.
+ * (open-session dropdown, optional join code, Relate). Record title is
+ * document-only — never creates a session.
  */
 export function AddWithSessionComposer({
   sessions,

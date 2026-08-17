@@ -54,6 +54,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
     children: [
       { href: "/ask", label: "Ask CLara" },
       { href: "/map", label: "Knowledge Map" },
+      { href: "/top10", label: "Top 10" },
     ],
   },
   { href: "/guide", label: "Guide" },

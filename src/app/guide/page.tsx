@@ -127,7 +127,7 @@ export default async function GuidePage() {
                 "Add",
                 "Contribution surfaces: Reflect, Record, Upload (and Session, which starts a gathering).",
               ],
-              ["Synthesis", "Meaning-making surfaces: Ask CLara and Knowledge Map."],
+              ["Synthesis", "Meaning-making surfaces: Ask CLara, Knowledge Map, and Top 10."],
               [
                 "OKF",
                 'Open Knowledge Format — standardized metadata on every Commons document. Shown in the UI simply as "Type."',
@@ -192,8 +192,8 @@ export default async function GuidePage() {
           />
           <Callout label="Rule to remember">
             Solo Reflect, Record, and Upload never create a session — only
-            Add → Session does. Nesting under a session always requires a
-            join code (or a share/QR join link); there is no other path.
+            Add → Session does. Nesting under a session uses Connect&rsquo;s
+            open-session dropdown, a join code, or a share/QR join link.
           </Callout>
 
           <H3>2.2 Reflect — solo conversation with CLara</H3>
@@ -206,7 +206,7 @@ export default async function GuidePage() {
             items={[
               "Autosaves as a draft; Submit when the conversation feels finished.",
               "Public by default; a checkbox marks the reflection Private.",
-              "Connect: the same Relate + join-code pattern as every other Add surface (below).",
+              "Connect: pick an open Session from the dropdown, paste a join code, and/or Relate to other Commons elements.",
             ]}
           />
 
@@ -220,7 +220,7 @@ export default async function GuidePage() {
             items={[
               "The title you give a recording names the recording itself — it does not create a session.",
               "On mobile, Record uses the device microphone. Keep the Record page in front with the screen on (CLara asks the phone not to sleep). Locking the phone or switching apps still stops capture.",
-              "Same Connect chrome (Relate + join code) as Reflect and Upload.",
+              "Same Connect chrome (open session, join code, Relate) as Reflect and Upload.",
             ]}
           />
 
@@ -241,8 +241,12 @@ export default async function GuidePage() {
                 "A user-described link to another Commons element. Creates an edge — never nests one item under another.",
               ],
               [
+                "Open session",
+                "Dropdown of live (not finalized) gatherings, newest first. Stream members can nest without a code.",
+              ],
+              [
                 "Join code",
-                "The only way to nest a contribution under a Session. Comes from the session's share link or QR code.",
+                "Optional. Use a code or share/QR link — including late Adds after Finalize.",
               ],
             ]}
           />
@@ -287,7 +291,7 @@ export default async function GuidePage() {
         </Section>
 
         {/* 4. Synthesis */}
-        <Section id="synthesis" eyebrow="4 · Synthesis — Meaning Comes Back Out" title="Ask CLara first, then the Knowledge Map">
+        <Section id="synthesis" eyebrow="4 · Synthesis — Meaning Comes Back Out" title="Ask CLara, the Knowledge Map, then Top 10">
           <H3>4.1 Ask CLara</H3>
           <P>
             Ask CLara (<Code>/ask</Code>) is grounded question-and-answer over
@@ -302,10 +306,24 @@ export default async function GuidePage() {
             from public Commons documents and rendered as an interactive,
             force-directed canvas. Private documents never feed the map.
           </P>
+          <H3>4.3 Top 10</H3>
+          <P>
+            Top 10 (<Code>/top10</Code>) is a live reading of the Public
+            Commons: the topics that keep showing up, the spaces of
+            difference (tensions and polarities), and the questions still in
+            the air. Ranked by how often they appear in tags, element
+            summaries, session inquiries, and Knowledge Map contrast links.
+            Each item has source chips that open the original document or
+            session. Private items never appear — same rule as the map.
+            This is a count of what people already wrote, not an Ask CLara
+            answer.
+          </P>
           <Callout label="Try it">
             Ask CLara a question that can only be answered using something
             someone added earlier in the session, then find that concept as
-            a node on the Knowledge Map.
+            a node on the Knowledge Map, then see whether it also made the
+            Top 10 list — and tap a source chip to hear it in someone&rsquo;s
+            own words.
           </Callout>
         </Section>
 

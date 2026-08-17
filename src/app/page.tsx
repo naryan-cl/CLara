@@ -49,7 +49,7 @@ export default function Home() {
               Synthesis
             </p>
             <p className="mt-1 text-sm text-ink/70">
-              Ask CLara and the Knowledge Map surface what was found.
+              Ask CLara, the Knowledge Map, and Top 10 surface what was found.
             </p>
           </div>
         </div>
