@@ -129,6 +129,7 @@ export function ReceiveUploadForm({
   const [editorKey, setEditorKey] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
+  const [isExternal, setIsExternal] = useState(false);
 
   const busy = pending || audioBusy;
   const audioSelected = Boolean(file && isAudioFile(file));
@@ -273,6 +274,7 @@ export function ReceiveUploadForm({
         sessionIds,
         relatedDocumentIds,
         relatedSessionIds,
+        isExternal,
       });
 
       if (!result.ok) {
@@ -335,6 +337,7 @@ export function ReceiveUploadForm({
 
     const formData = new FormData(form);
     formData.set("source", mode);
+    formData.set("isExternal", isExternal ? "true" : "false");
     if (sessionIds.length > 0) {
       formData.set("sessionIds", sessionIds.join(","));
     }
@@ -371,6 +374,7 @@ export function ReceiveUploadForm({
       setMarkdownText("");
       setEditorKey((k) => k + 1);
       setMode("file");
+      setIsExternal(false);
       form.reset();
       router.refresh();
     });
@@ -535,6 +539,23 @@ export function ReceiveUploadForm({
           </select>
         </label>
       )}
+
+      <label className="flex items-start gap-2.5 text-sm">
+        <input
+          type="checkbox"
+          name="isExternal"
+          checked={isExternal}
+          onChange={(e) => setIsExternal(e.target.checked)}
+          className="mt-1 h-4 w-4 shrink-0 rounded border-cloud accent-forest"
+        />
+        <span>
+          <span className="font-medium text-ink">This is from outside CL</span>
+          <span className="mt-0.5 block text-xs leading-5 text-ink/50">
+            Check this if the file or text did not come from a CL / Camp CLAI
+            gathering (for example a public article or another program).
+          </span>
+        </span>
+      </label>
 
       <button
         type="submit"

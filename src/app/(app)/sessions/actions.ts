@@ -13,6 +13,11 @@ import {
 } from "@/lib/inngest/client";
 import type { StreamSummary } from "@/lib/streams/types";
 
+function isExternalFromForm(formData: FormData): boolean {
+  const raw = String(formData.get("isExternal") ?? "").trim().toLowerCase();
+  return raw === "on" || raw === "true" || raw === "1";
+}
+
 const TEXT_EXTENSIONS = new Set([".md", ".txt"]);
 const CONVERTIBLE_EXTENSIONS = new Set([".pdf", ".docx"]);
 /** Guard: audio must not POST through this action (browser staging instead). */
@@ -185,6 +190,7 @@ export async function receiveTextContent(
       type: typeFromForm,
       privacyStatus: "public",
       sessionId: primarySessionId,
+      isExternal: isExternalFromForm(formData),
     });
 
     if (error || !document) {
@@ -278,6 +284,7 @@ async function receiveConvertibleUpload({
     privacyStatus: "public",
     needsReview: true, // pending conversion
     sessionId: primarySessionId,
+    isExternal: isExternalFromForm(formData),
   });
 
   if (error || !document) {

@@ -1,9 +1,14 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { FadeRise } from "@/components/motion/FadeRise";
 import { useResizablePanel } from "@/components/dashboard/useResizablePanel";
-import type { CommonsListItem } from "@/lib/commons/types";
+import {
+  filterDashboardListItems,
+  isRecentActivity,
+  type CommonsListItem,
+} from "@/lib/commons/types";
 import {
   isRecordingProcessing,
   recordingProcessLabel,
@@ -67,6 +72,18 @@ export function CommonsListPanel({
     maxHeight: LIST_MAX_HEIGHT,
   });
 
+  const [recentOnly, setRecentOnly] = useState(false);
+  const [hideExternal, setHideExternal] = useState(false);
+
+  const visible = useMemo(
+    () =>
+      filterDashboardListItems(items, {
+        recentOnly,
+        hideExternal,
+      }),
+    [items, recentOnly, hideExternal],
+  );
+
   const panelWidth = Math.min(
     size.width,
     typeof window !== "undefined" ? window.innerWidth - 32 : size.width,
@@ -75,6 +92,12 @@ export function CommonsListPanel({
     size.height,
     typeof window !== "undefined" ? window.innerHeight - 120 : size.height,
   );
+
+  const filterEmptyCopy = hideExternal
+    ? recentOnly
+      ? "Nothing from the last 24 hours that isn’t from outside CL"
+      : "No CL-only items to show"
+    : "Nothing from the last 24 hours";
 
   return (
     <aside
@@ -105,16 +128,34 @@ export function CommonsListPanel({
         className="absolute inset-x-3 -bottom-1 z-10 hidden h-2 cursor-ns-resize rounded-full hover:bg-horizon/25 sm:block"
       />
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-cloud/70 px-4 py-3">
-        <h2 className="font-display text-base font-medium text-ink">Commons</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
-          aria-label="Close list"
-        >
-          ×
-        </button>
+      <div className="flex shrink-0 flex-col gap-2 border-b border-cloud/70 px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-display text-base font-medium text-ink">
+            Commons
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
+            aria-label="Close list"
+          >
+            ×
+          </button>
+        </div>
+        {items.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            <FilterPill
+              pressed={recentOnly}
+              onToggle={() => setRecentOnly((value) => !value)}
+              label="Recent"
+            />
+            <FilterPill
+              pressed={hideExternal}
+              onToggle={() => setHideExternal((value) => !value)}
+              label="Hide external"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -135,6 +176,17 @@ export function CommonsListPanel({
               .
             </p>
           </div>
+        ) : visible.length === 0 ? (
+          <div className="flex flex-col gap-2 px-1 py-4">
+            <p className="font-display text-sm text-ink">{filterEmptyCopy}</p>
+            <p className="text-sm leading-6 text-ink/60">
+              Turn a filter off, or open{" "}
+              <Link href="/commons" className="text-horizon hover:underline">
+                Commons
+              </Link>{" "}
+              for the full archive.
+            </p>
+          </div>
         ) : (
           <FadeRise>
             <div
@@ -143,12 +195,15 @@ export function CommonsListPanel({
                 gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_MIN}px, 1fr))`,
               }}
             >
-              {              items.map((item, index) => {
+              {visible.map((item, index) => {
                 const id = `${item.kind}-${item.id}`;
                 const selected = selectedId === id;
                 const processing =
                   item.kind === "document" &&
                   isRecordingProcessing(item.processStatus);
+                const showNew = isRecentActivity(item);
+                const showExternal =
+                  item.kind === "document" && item.is_external;
                 return (
                   <button
                     key={id}
@@ -167,9 +222,21 @@ export function CommonsListPanel({
                       <p className="min-w-0 flex-1 line-clamp-2 font-display text-sm text-ink">
                         {item.title}
                       </p>
-                      <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
-                        {elementLabel(item)}
-                      </span>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                        <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
+                          {elementLabel(item)}
+                        </span>
+                        {showNew ? (
+                          <span className="rounded-pill border border-horizon/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-horizon">
+                            New
+                          </span>
+                        ) : null}
+                        {showExternal ? (
+                          <span className="rounded-pill border border-ink/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-ink/50">
+                            External
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <p
                       className={`mt-1.5 font-mono text-[11px] tracking-wide ${
@@ -192,6 +259,31 @@ export function CommonsListPanel({
         )}
       </div>
     </aside>
+  );
+}
+
+function FilterPill({
+  pressed,
+  onToggle,
+  label,
+}: {
+  pressed: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onToggle}
+      className={`min-h-11 rounded-pill border px-3 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors ${
+        pressed
+          ? "border-forest bg-forest text-paper"
+          : "border-cloud text-ink/60 hover:border-sage hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

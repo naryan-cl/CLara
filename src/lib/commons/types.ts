@@ -23,6 +23,8 @@ export type CommonsDocumentItem = {
   elementType: "chat" | "record" | "upload" | "other";
   /** Listens (and similar) async pipeline label source. */
   processStatus: RecordingProcessStatus;
+  /** True when the author flagged this as from outside CL. */
+  is_external: boolean;
 };
 
 export type CommonsSessionItem = {
@@ -97,6 +99,7 @@ export function toDocumentItem(
     attending,
     elementType: documentElementType(doc.type),
     processStatus: recordingProcessStatus(doc),
+    is_external: Boolean(doc.is_external),
   };
 }
 
@@ -192,4 +195,59 @@ export function topLevelCommonsItems(
   return items.filter(
     (item) => item.kind === "session" || !item.session_id,
   );
+}
+
+/** Dashboard list "Recent" window — last 24 hours of Commons activity. */
+export const DASHBOARD_RECENT_MS = 24 * 60 * 60 * 1000;
+
+function createdAtMs(item: CommonsListItem): number {
+  const t = new Date(item.created_at).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/** True when the item landed in the Commons within the last 24 hours. */
+export function isRecentActivity(
+  item: CommonsListItem,
+  nowMs = Date.now(),
+): boolean {
+  const created = createdAtMs(item);
+  return created > 0 && nowMs - created <= DASHBOARD_RECENT_MS && created <= nowMs;
+}
+
+/** Newest Commons activity first (created_at) — dashboard list is an activity feed. */
+export function sortByCreatedAtNewest(
+  items: CommonsListItem[],
+): CommonsListItem[] {
+  return [...items].sort((a, b) => createdAtMs(b) - createdAtMs(a));
+}
+
+export type DashboardListFilters = {
+  recentOnly: boolean;
+  hideExternal: boolean;
+};
+
+/**
+ * Pure filter/sort for the dashboard Commons list panel.
+ * Recent = last 24 hours by created_at. Hide external = drop flagged uploads.
+ * Sessions are never "external" (the flag lives on documents only).
+ */
+export function filterDashboardListItems(
+  items: CommonsListItem[],
+  filters: DashboardListFilters,
+  nowMs = Date.now(),
+): CommonsListItem[] {
+  const filtered = items.filter((item) => {
+    if (filters.recentOnly && !isRecentActivity(item, nowMs)) {
+      return false;
+    }
+    if (
+      filters.hideExternal &&
+      item.kind === "document" &&
+      item.is_external
+    ) {
+      return false;
+    }
+    return true;
+  });
+  return sortByCreatedAtNewest(filtered);
 }

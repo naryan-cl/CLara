@@ -18,6 +18,7 @@ export type UpdateDocumentInput = {
   privacyStatus?: DocumentPrivacy;
   sessionId?: string | null;
   needsReview?: boolean;
+  isExternal?: boolean;
 };
 
 export async function updateDocument(
@@ -54,6 +55,9 @@ export async function updateDocument(
   }
   if (input.sessionId !== undefined) {
     patch.session_id = input.sessionId?.trim() || null;
+  }
+  if (input.isExternal !== undefined) {
+    patch.is_external = input.isExternal;
   }
   if (input.needsReview !== undefined) {
     patch.needs_review = input.needsReview;

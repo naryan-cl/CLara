@@ -170,6 +170,7 @@ export function DocumentReadView({
           {document.privacy_status === "private" ? (
             <MetaPill>Private</MetaPill>
           ) : null}
+          {document.is_external ? <MetaPill>External</MetaPill> : null}
           {processLabel ? (
             <MetaPill tone={processTone}>{processLabel}</MetaPill>
           ) : null}

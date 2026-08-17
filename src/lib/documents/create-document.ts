@@ -20,6 +20,8 @@ export type CreateDocumentInput = {
   needsReview?: boolean;
   /** Reflect autosave = true until Submit. Default false. */
   isDraft?: boolean;
+  /** Upload flagged as from outside CL. Default false. */
+  isExternal?: boolean;
 };
 
 /**
@@ -50,6 +52,7 @@ export async function createDocument(
       participants: input.participants ?? [],
       needs_review: needsReview,
       is_draft: input.isDraft ?? false,
+      is_external: input.isExternal ?? false,
     })
     .select(DOCUMENT_SELECT)
     .single();

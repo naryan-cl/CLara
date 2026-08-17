@@ -4,4 +4,4 @@
  * made detail views look like the field did not exist.
  */
 export const DOCUMENT_SELECT =
-  "id, stream_id, created_by, content, summary, title, session_id, type, participants, tags, privacy_status, needs_review, is_draft, created_at, updated_at";
+  "id, stream_id, created_by, content, summary, title, session_id, type, participants, tags, privacy_status, needs_review, is_draft, is_external, created_at, updated_at";

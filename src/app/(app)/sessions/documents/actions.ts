@@ -38,6 +38,13 @@ export async function saveDocumentEdits(
     const privacyRaw = String(formData.get("privacyStatus") ?? "public");
     const privacyStatus: DocumentPrivacy =
       privacyRaw === "private" ? "private" : "public";
+    const isExternalRaw = String(formData.get("isExternal") ?? "")
+      .trim()
+      .toLowerCase();
+    const isExternal =
+      isExternalRaw === "on" ||
+      isExternalRaw === "true" ||
+      isExternalRaw === "1";
     const needsReview = !title || !type;
 
     let sessionId: string | null = sessionChoice || null;
@@ -81,6 +88,7 @@ export async function saveDocumentEdits(
       sessionId: sessionId || null,
       privacyStatus,
       needsReview,
+      isExternal,
     });
 
     if (error || !document) {

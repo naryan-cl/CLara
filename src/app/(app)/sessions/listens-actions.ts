@@ -121,6 +121,8 @@ export async function finalizeListensUpload(input: {
   sessionIds?: string[];
   relatedDocumentIds?: string[];
   relatedSessionIds?: string[];
+  /** Upload form only — Record leaves this unset (false). */
+  isExternal?: boolean;
 }): Promise<ListensResult> {
   const uploadedPaths: string[] = [];
 
@@ -211,6 +213,7 @@ export async function finalizeListensUpload(input: {
       needsReview: true,
       sessionId: primarySessionId,
       participants,
+      isExternal: input.isExternal ?? false,
     });
 
     if (error || !document) {

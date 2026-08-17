@@ -269,6 +269,22 @@ export function DocumentEditor({
         </label>
       </div>
 
+      <label className="flex items-start gap-2.5 text-sm">
+        <input
+          type="checkbox"
+          name="isExternal"
+          defaultChecked={Boolean(document.is_external)}
+          className="mt-1 h-4 w-4 shrink-0 rounded border-cloud accent-forest"
+        />
+        <span>
+          <span className="font-medium text-ink">This is from outside CL</span>
+          <span className="mt-0.5 block text-xs leading-5 text-ink/50">
+            Check this if the file or text did not come from a CL / Camp CLAI
+            gathering (for example a public article or another program).
+          </span>
+        </span>
+      </label>
+
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Nested in session</span>
         <p className="text-xs text-ink/45">

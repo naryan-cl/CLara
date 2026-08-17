@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0031`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this).
+5. Apply newer Supabase migrations if missing (`0011`–**`0032`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this); **`0032_document_is_external.sql`** adds `documents.is_external` (required for dashboard “Hide external”).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -85,12 +85,13 @@
 *   **`0029_fix_session_delete_rls.sql`** — `is_session_attendee` + `is_nested_session_document_author` SECURITY DEFINER helpers; rewrites 0023 UPDATE + 0026 DELETE attendee/nested-author policies so they do not recurse through `session_attendees` / `documents` RLS. **Required if Delete shows “infinite recursion detected in policy for relation sessions”.**
 *   **`0030_summarize_system_prompt.sql`** — `streams.summarize_system_prompt` (nullable text). NULL = product default in `src/lib/prompts/defaults.ts`. **Required to save an Admin override for per-element summaries.**
 *   **`0031_user_display_names.sql`** — richer `get_user_public_profiles` / `list_stream_peers` names (`display_name`, given+family, email local-part). Optional for Created by (app fallbacks exist); run so SQL and UI stay in sync.
+*   **`0032_document_is_external.sql`** — `documents.is_external` (boolean, default false). **Required for dashboard list “Hide external”** and the Upload “from outside CL” checkbox.
 
 ### Not yet migrated
-*   (ensure **0012**–**0031** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0032** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
-`id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
+`id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `is_draft`, `is_external`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
 
 ---
 
@@ -148,6 +149,10 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Dashboard list recency + outside-CL uploads (2026-08-17):** Dashboard Commons list is now an activity feed — sessions and ungrouped Adds interleaved **newest `created_at` first** (was documents-then-sessions). Quiet **New** pill on items from the last 24 hours. Two header pills (list only, not the map): **Recent** (last 24 hours) and **Hide external**. Closing the list resets filters. Upload (file / paste / audio) has **This is from outside CL**; Record/Reflect/Chat do not. Flag is editable later. Apply **`0032_document_is_external.sql`**. **Manual test:** (1) run `0032`; (2) open dashboard list — mixed types, newest on top, today’s items show New; (3) Recent pill = last 24 hours only; (4) Upload without the checkbox still shows with Hide external on; (5) Upload with the checkbox → External pill, Hide external hides it; (6) Record is not External; (7) Edit → uncheck → it returns; (8) map still shows every node.
+
+*   **Phone Record stay-awake tip (2026-08-17):** The live-strip warning (“Keeping the screen on…”) no longer stays on for the whole take. On a phone/tablet it pops up **once** the first time capture starts, then is remembered in this browser (`clara.listens.mobile-record-hint-seen`). Wake lock still keeps the screen on while Record is in front. Desktop is unchanged. **Manual test:** (1) phone (or DevTools device mode) → tap mic → dialog appears, recording continues underneath → Got it; (2) stop, start again — no dialog, no inline warning; (3) desktop Record — no dialog; (4) to see the dialog again, clear that localStorage key.
+
 *   **Synthesis Top 10 (2026-08-17):** New Synthesis child **Top 10** (`/top10`) ranks Public Commons into three lists: topics, spaces of difference, questions/inquiries. Evidence = OKF tags + element-summary sections (theme tags / tensions / key questions) + session `seed_question` + Knowledge Map Theme/Concept nodes and contrast-ish edges. Source chips open the original document or session. Private/drafts stay out (same as the map). Pure ranking in `src/lib/top10/` — no extra LLM, not Ask CLara. Nav: Synthesis → Top 10. **Manual test:** (1) Synthesis menu shows Top 10; (2) open `/top10` with Public tagged/summarized docs — lists fill, chips open the source; (3) a Private Reflect does not appear; (4) a session with an inquiry shows under Still asking; (5) empty stream shows the quiet-meadow empty state; (6) phone tabs switch the three lists.
 
 *   **Connect open-session dropdown (2026-08-17):** Stream members nest Reflect / Record / Upload by picking an **open** (not finalized) Session from Connect — newest first, join code shown in the option. Join code field stays for codes/QR and late Adds after Finalize. Session Commons/dashboard detail shows the join code + **Open live board**. Helper: `openSessionsNewestFirst`. **Manual test:** (1) Add → Session, save; (2) Reflect → Connect → newest session is first in the dropdown → pick it (no code) → Submit → nested; (3) open that session in Commons — join code visible, live board link works; (4) finalize a session — it leaves the dropdown; join code still nests a late Add.

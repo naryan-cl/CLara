@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Dashboard list recency + outside-CL flag (2026-08-17):** Dashboard List sorts newest activity first; **Recent** (last 24 hours) and **Hide external** pills in the panel header; **New** / **External** labels on cards. Upload can flag “from outside CL” (`documents.is_external`). Map stays unfiltered. Apply **`0032_document_is_external.sql`**. See §5.1, §7.1.
 *   **Synthesis Top 10 (2026-08-17):** New Synthesis child at `/top10` ranks the stream’s top topics, spaces of difference (tensions/polarities), and questions/inquiries from Public Commons — tags, element-summary sections, session inquiries, and Knowledge Map contrast links. Source chips open the original document or session. Private stays off the board (same as the map). Not an Ask CLara pipeline. See §5.3, §7.4.
 *   **Connect without join code (2026-08-17):** Stream members can nest Reflect / Record / Upload under an **open Session** from a Connect dropdown (newest first). Join code + share/QR remain for people who were given a code, including late Adds after Finalize. Session detail shows the join code and a link to the live board. See §5.1.
 *   **Long audio via Upload (2026-08-17):** Add → Upload uses the same `listens-staging` + async Whisper path as Record (no ~4MB Server Action cap). Files over 25MB are compressed in the browser. See §5.1.
@@ -137,6 +138,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 3.  **Upload** (Receives) — bring existing text/files into the Commons; same Connect pattern (Relate + open session / join code).
     *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap) **or** audio (Listens staging + async Whisper, ~3 hour cap).
     *   **Add text** — rich-text editor (formatting visible; **stored as Markdown**); lives under Upload (not a fourth Add nav item).
+    *   Optional checkbox **This is from outside CL** flags `documents.is_external` (file, paste, and audio). Record / Reflect / Chat do not set it. Editable later. Apply **`0032_document_is_external.sql`**.
     *   Upload and Add text are **mutually exclusive** on one submit (not both).
     *   After save: **view** formatted Markdown; **edit** with the same rich toolbar (Bold, Italic, Underline, Header, Subhead, Bullets, Numbered, Indent/Outdent, Link).
     *   Old `.doc` still lower priority / not planned.
@@ -189,13 +191,14 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 ### 7.1 Dashboard
 *   Active stream context from DB.
 *   Full-bleed Commons map (contribution types) with floating Ask / Add / List.
+*   **List panel** (2026-08-17): newest `created_at` first; **New** on the last 24 hours; pills **Recent** and **Hide external** (list only — map stays unfiltered). Closing the list resets filters. Apply **`0032`**.
 *   Map shows sessions + ungrouped Adds; **select a session to expand children and nest lines**. Relate lines among visible nodes. Ask pane pencil edits documents **and sessions** when permitted.
 
 ### 7.2 Add — Session / Reflect / Record / Upload
 *   **Session** (`/add/session`) — *(IA v2.)* First in Add menu + FAB. Host live board, join code, mode-specific share/QR, counts, Finalize.
 *   **Reflect** (`/add/chat`) — Solo Add; Connect = Relate + open session / join code; autosave + Submit. Separate from Ask CLara.
 *   **Record** — Mic → Whisper → Transcript; recording title ≠ session; same Connect chrome.
-*   **Upload** — Upload / Add text / PDF / DOCX / audio (async Whisper, same path as Record); same Connect chrome.
+*   **Upload** — Upload / Add text / PDF / DOCX / audio (async Whisper, same path as Record); same Connect chrome; optional **from outside CL** flag.
 *   **Join link** — `/join/[token]?mode=reflect|record|upload` marks attendance and opens the matching Add surface with the session pre-linked (works after Finalize).
 
 ### 7.3 Commons — repository

@@ -29,6 +29,8 @@ export type CommonsDocument = {
   needs_review: boolean;
   /** Reflect autosave until Submit. Absent/false for older rows. */
   is_draft?: boolean;
+  /** Upload flagged as from outside CL. Absent/false for older rows. */
+  is_external?: boolean;
   created_at: string;
   updated_at: string;
 };
