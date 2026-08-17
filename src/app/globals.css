@@ -192,23 +192,24 @@ html {
   .animate-success-glow {
     animation: success-glow 700ms var(--ease) both;
   }
+}
 
-  /* Floating map chrome — soft paper on dark forest-deep. */
-  .organic-fab {
-    border-radius: var(--radius-organic-fab);
-  }
+/* Floating map chrome — @utility so variants like sm:organic-ask work.
+   @layer utilities custom classes do not get Tailwind breakpoint prefixes. */
+@utility organic-fab {
+  border-radius: var(--radius-organic-fab);
+}
 
-  .organic-ask {
-    border-radius: var(--radius-organic-ask);
-  }
+@utility organic-ask {
+  border-radius: var(--radius-organic-ask);
+}
 
-  .organic-list {
-    border-radius: var(--radius-organic-list);
-  }
+@utility organic-list {
+  border-radius: var(--radius-organic-list);
+}
 
-  .organic-ask-btn {
-    border-radius: var(--radius-organic-btn);
-  }
+@utility organic-ask-btn {
+  border-radius: var(--radius-organic-btn);
 }
 
 @media (prefers-reduced-motion: reduce) {

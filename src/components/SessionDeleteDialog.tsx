@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 export type NestedDocSummary = {
   id: string;
   title: string | null;
@@ -8,6 +11,7 @@ export type NestedDocSummary = {
 
 /**
  * Confirm session delete. Nested Commons docs can stay (ungrouped) or go too.
+ * Portaled to body so Commons popup overflow / transform cannot clip it.
  */
 export function SessionDeleteDialog({
   sessionName,
@@ -25,8 +29,14 @@ export function SessionDeleteDialog({
   onConfirm: (mode: "ungroup" | "delete-nested") => void;
 }) {
   const count = nestedDocuments.length;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
       <button
         type="button"
@@ -123,6 +133,7 @@ export function SessionDeleteDialog({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

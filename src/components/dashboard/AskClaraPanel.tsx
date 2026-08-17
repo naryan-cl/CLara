@@ -24,7 +24,8 @@ const ASK_DEFAULT_HEIGHT = 640;
 const ASK_MINIMIZED_HEIGHT = 148;
 
 /**
- * Floating Ask CLara host (top-right over the map).
+ * Floating Ask CLara host (top-right over the map on desktop;
+ * centered organic blob on phone).
  *
  * Modes:
  * - minimized: title + entry only
@@ -230,10 +231,10 @@ export function AskClaraPanel({
   return (
     <section
       ref={rootRef}
-      className={`relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm max-sm:w-full max-sm:max-w-none max-sm:rounded-t-[22px] max-sm:rounded-b-none max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:organic-ask ${
+      className={`organic-ask relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
         mode === "minimized"
           ? "max-sm:!h-auto max-sm:!max-h-none"
-          : "max-sm:!h-[min(88dvh,calc(100dvh-var(--clara-header-height)))] max-sm:!max-h-[min(88dvh,calc(100dvh-var(--clara-header-height)))]"
+          : "max-sm:!h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))] max-sm:!max-h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))]"
       } ${
         dragging
           ? ""

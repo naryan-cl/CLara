@@ -364,7 +364,7 @@ export function DashboardGrid({
       </div>
 
       {/* Top-left chrome: Add / List. Theme sits here on phone so the
-          bottom Ask sheet does not cover it. */}
+          bottom-centered Ask blob does not cover it. */}
       <div
         ref={listChromeRef}
         className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5"
@@ -410,8 +410,8 @@ export function DashboardGrid({
         <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
       </div>
 
-      {/* Ask host — bottom sheet on phone, top-right on sm+. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20">
+      {/* Ask host — floating organic blob, centered on phone, top-right on sm+. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-4 sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20 sm:block sm:px-0">
         <div className="pointer-events-auto">
           <AskClaraPanel
             formKey={askHandoff?.key ?? "default"}

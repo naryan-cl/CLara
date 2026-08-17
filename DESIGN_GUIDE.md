@@ -1,6 +1,6 @@
 # CLara Platform — Visual Design Guide
 
-**Version:** 0.2 (draft) · Motion §6 closed out 2026-08-06 (`--duration-ambient: 3.2s`) · Dashboard map-as-background + organic radii 2026-08-07  
+**Version:** 0.2 (draft) · Motion §6 closed out 2026-08-06 (`--duration-ambient: 3.2s`) · Dashboard map-as-background + organic radii 2026-08-07 · Ask blob restored (phone centered, not bottom sheet) 2026-08-16  
 **Direction:** Cultivating Leadership's warmth and depth, pushed toward a calm, futuristic feel.  
 **Applies to:** The **CLara** product UI, including the **Camp CLAI** stream and future streams.
 
@@ -110,7 +110,7 @@ Body line-height 1.6; measure (line length) capped ~68–72ch for summaries — 
 
 **Knowledge Map:** dark `--forest-deep` canvas with **type-colored circles** on `/map` (no wallpaper, no sprites). On `/dashboard` the map **fills the viewport under the top nav** (full-bleed) with a **Plant / Ocean / Desert** generative topo wallpaper that pans/zooms with the graph, plus **theme-matched nature sprites** (pools per Atom/Concept/Framework/Theme). Circles are the fallback if a sprite is missing. Active/hover sprites glow; pinned nodes get a contrasting ring. Labels/edges use each theme’s contrast tokens. Edges are thin **quadratic curves** through sprite centers with a faint animated flow. Optional subtle contour drift; freeze under `prefers-reduced-motion`. **Interactions (Festival harvest pattern):** scroll to zoom, drag background to pan, drag a node to **pin** it (peers reheat around it), double-click to unpin. **Theme picker** (unlocked themes) sits bottom-left on the dashboard. **Dashboard detail:** selecting a Commons node (or a List card) opens **inside** the floating Ask host — title becomes the element title, **Summary tab first** (original Transcript / Reflection / Uploaded text on the next tab), **Created by** + session **Attendees** when there are two or more people, Ask entry stays at the bottom; asking hands off to a scoped Ask thread and clears the selection. Circular **X** closes detail; documents with edit rights show a pencil that opens `DocumentEditor`. On `/map`, detail still overlays the canvas. Respect reduced-motion (freeze the flow).
 
-**Dashboard floating controls:** organic **+** FAB expands to Record / Reflect / Upload; sibling **List** FAB slides an organic Commons card panel. Ask CLara floats top-right, minimized (title + entry) until the first question or handoff.
+**Dashboard floating controls:** organic **+** FAB expands to Record / Reflect / Upload; sibling **List** FAB slides an organic Commons card panel. Ask CLara is an **asymmetric organic blob** (`.organic-ask`) — top-right on desktop, **horizontally centered** above the home indicator on phone (not a full-bleed bottom sheet). Minimized (title + entry) until the first question or handoff.
 
 **CLara Chatbot (Add) & Ask CLara (Synthesis):** roomy message column; assistant messages in `--paper` bubbles with a small mono "CLARA" label. Keep the two surfaces visually related but distinct (e.g. different empty states / headers) so contribution and retrieval are not confused. **Ask CLara** shows **source chips** beneath answers (`--horizon` outline, mono label) linking to the doc/session, plus a quiet "no grounding found" state. Chatbot focuses on capture/reflection, not Commons retrieval chips.
 

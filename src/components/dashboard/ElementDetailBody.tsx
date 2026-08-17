@@ -164,6 +164,10 @@ export function ElementDetailBody({
         relatedSessionIds={detail.relatedSessionIds}
         relatedDocumentIds={detail.relatedDocumentIds}
         onCancelEditing={() => onEditingChange?.(false)}
+        onDeleted={() => {
+          onEditingChange?.(false);
+          onDeleted?.();
+        }}
         onSaved={(session) => {
           setDetail((prev) =>
             prev && prev.kind === "session" ? { ...prev, session } : prev,
