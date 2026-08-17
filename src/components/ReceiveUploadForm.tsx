@@ -2,8 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState, useTransition } from "react";
+import confetti from "canvas-confetti";
 import { receiveTextContent } from "@/app/(app)/sessions/actions";
+import {
+  discardListensStaging,
+  finalizeListensUpload,
+  prepareListensRecording,
+} from "@/app/(app)/sessions/listens-actions";
+import { FlowerMark } from "@/components/FlowerMark";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
+import {
+  listensExtensionFromFileName,
+  listensFileExtension,
+  mimeTypeForStagingExtension,
+  type ListensStagingExtension,
+} from "@/lib/listens/audio-format";
+import { LISTENS_MAX_SOURCE_BYTES } from "@/lib/listens/constants";
+import { requestScreenWakeLock } from "@/lib/listens/screen-wake-lock";
+import { transcodeAudioFileForWhisper } from "@/lib/listens/transcode-file";
+import { uploadListensStagingBlob } from "@/lib/listens/upload-staging-blob";
+
+const THANKS_NAV_MS = 2400;
 
 const TYPE_OPTIONS = [
   "Note",
@@ -24,6 +44,7 @@ const ALLOWED_EXTENSIONS = [
   ".docx",
   ".mp3",
   ".m4a",
+  ".aac",
   ".wav",
   ".webm",
   ".ogg",
@@ -37,6 +58,7 @@ const CONVERTIBLE_EXTENSIONS = [".pdf", ".docx"];
 const AUDIO_EXTENSIONS = [
   ".mp3",
   ".m4a",
+  ".aac",
   ".wav",
   ".webm",
   ".ogg",
@@ -49,7 +71,8 @@ const AUDIO_EXTENSIONS = [
 
 function isAllowedFile(file: File) {
   const name = file.name.toLowerCase();
-  return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
+  if (ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext))) return true;
+  return file.type.startsWith("audio/");
 }
 
 function isConvertibleFile(file: File) {
@@ -59,7 +82,29 @@ function isConvertibleFile(file: File) {
 
 function isAudioFile(file: File) {
   const name = file.name.toLowerCase();
-  return AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext));
+  if (AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext))) return true;
+  return file.type.startsWith("audio/");
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function formatClock(totalSeconds: number) {
+  const sec = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(sec / 60);
+  const seconds = sec % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function titleFromFileName(name: string) {
+  return (
+    name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() ||
+    `Audio — ${new Date().toLocaleString()}`
+  );
 }
 
 export function ReceiveUploadForm({
@@ -74,6 +119,8 @@ export function ReceiveUploadForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<InputMode>("file");
@@ -81,6 +128,10 @@ export function ReceiveUploadForm({
   const [markdownText, setMarkdownText] = useState("");
   const [editorKey, setEditorKey] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [showThanks, setShowThanks] = useState(false);
+
+  const busy = pending || audioBusy;
+  const audioSelected = Boolean(file && isAudioFile(file));
 
   const clearFile = useCallback(() => {
     setFile(null);
@@ -99,7 +150,14 @@ export function ReceiveUploadForm({
       }
       if (!isAllowedFile(next)) {
         setError(
-          "Only .md, .txt, .pdf, .docx, and short audio files are supported.",
+          "Only .md, .txt, .pdf, .docx, and audio files are supported.",
+        );
+        clearFile();
+        return;
+      }
+      if (isAudioFile(next) && next.size > LISTENS_MAX_SOURCE_BYTES) {
+        setError(
+          "That audio file is too large for the browser (max 512MB). Export a compressed M4A/MP3.",
         );
         clearFile();
         return;
@@ -111,6 +169,145 @@ export function ReceiveUploadForm({
     },
     [clearFile],
   );
+
+  function celebrateAndGo(documentId: string) {
+    setShowThanks(true);
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!prefersReducedMotion) {
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ["#7A9B76", "#C4A574", "#D4B896", "#F5F0E8", "#4a6741"],
+      });
+    }
+    window.setTimeout(() => {
+      router.push(`/dashboard?select=document:${documentId}&fresh=1`);
+      router.refresh();
+    }, THANKS_NAV_MS);
+  }
+
+  async function submitAudio(fileToSend: File, title: string) {
+    setAudioBusy(true);
+    setProgress("Preparing…");
+    const wakeLock = await requestScreenWakeLock();
+    let recordingId: string | null = null;
+    let uploadedCount = 0;
+    let fileExtension: ListensStagingExtension = "webm";
+
+    try {
+      const prepared = await prepareListensRecording();
+      if (!prepared.ok) {
+        setError(prepared.error);
+        return;
+      }
+      recordingId = prepared.recordingId;
+
+      const namedExt = listensExtensionFromFileName(fileToSend.name);
+      const needsCompress =
+        fileToSend.size > MAX_LISTENS_STAGING_BYTES || !namedExt;
+
+      let blobs: Blob[];
+      let mimeType: string;
+
+      if (needsCompress) {
+        setProgress("Compressing for Whisper… keep this page open");
+        const transcoded = await transcodeAudioFileForWhisper(
+          fileToSend,
+          ({ currentSeconds, durationSeconds }) => {
+            setProgress(
+              `Compressing for Whisper… ${formatClock(currentSeconds)} / ${formatClock(durationSeconds)}`,
+            );
+          },
+        );
+        if (!transcoded.ok) {
+          setError(transcoded.error);
+          return;
+        }
+        blobs = transcoded.segments;
+        mimeType = transcoded.mimeType;
+        fileExtension = listensFileExtension(mimeType);
+      } else {
+        blobs = [fileToSend];
+        fileExtension = namedExt;
+        mimeType = fileToSend.type || mimeTypeForStagingExtension(namedExt);
+      }
+
+      for (let i = 0; i < blobs.length; i++) {
+        setProgress(
+          blobs.length === 1
+            ? `Uploading ${formatFileSize(blobs[i]!.size)}…`
+            : `Uploading part ${i + 1} of ${blobs.length}…`,
+        );
+        const uploaded = await uploadListensStagingBlob({
+          streamId: prepared.streamId,
+          recordingId: prepared.recordingId,
+          index: i,
+          blob: blobs[i]!,
+          mimeType,
+          fileExtension,
+        });
+        if (!uploaded.ok) {
+          setError(uploaded.error);
+          if (uploadedCount > 0) {
+            await discardListensStaging({
+              recordingId: prepared.recordingId,
+              segmentCount: uploadedCount,
+              fileExtension,
+            });
+          }
+          return;
+        }
+        uploadedCount = i + 1;
+      }
+
+      setProgress("Starting transcription…");
+      const result = await finalizeListensUpload({
+        recordingId: prepared.recordingId,
+        segmentCount: blobs.length,
+        mimeType,
+        fileExtension,
+        title: title || titleFromFileName(fileToSend.name),
+        sessionIds,
+        relatedDocumentIds,
+        relatedSessionIds,
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      clearFile();
+      celebrateAndGo(result.documentId);
+    } catch (err) {
+      console.error("submitAudio failed:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not upload this audio. Try again.",
+      );
+      if (recordingId && uploadedCount > 0) {
+        await discardListensStaging({
+          recordingId,
+          segmentCount: uploadedCount,
+          fileExtension,
+        });
+      }
+    } finally {
+      setAudioBusy(false);
+      setProgress(null);
+      if (wakeLock && !wakeLock.released) {
+        try {
+          await wakeLock.release();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,6 +324,15 @@ export function ReceiveUploadForm({
     }
 
     const form = event.currentTarget;
+    const title = String(
+      new FormData(form).get("title") ?? "",
+    ).trim();
+
+    if (mode === "file" && file && isAudioFile(file)) {
+      void submitAudio(file, title);
+      return;
+    }
+
     const formData = new FormData(form);
     formData.set("source", mode);
     if (sessionIds.length > 0) {
@@ -139,7 +345,6 @@ export function ReceiveUploadForm({
       formData.set("relatedSessionIds", relatedSessionIds.join(","));
     }
     const convertible = mode === "file" && file ? isConvertibleFile(file) : false;
-    const audio = mode === "file" && file ? isAudioFile(file) : false;
     if (mode === "file" && file) {
       formData.set("file", file);
       formData.set("pastedText", "");
@@ -158,11 +363,9 @@ export function ReceiveUploadForm({
       setMessage(
         convertible
           ? "Received — extracting text in the background, refresh in a moment to see it."
-          : audio
-            ? "Received — transcribed with Whisper and saved as a Transcript."
-            : result.needsReview
-              ? "Received — saved with needs_review (missing metadata)."
-              : "Received — saved to the Commons.",
+          : result.needsReview
+            ? "Received — saved with needs_review (missing metadata)."
+            : "Received — saved to the Commons.",
       );
       clearFile();
       setMarkdownText("");
@@ -186,13 +389,13 @@ export function ReceiveUploadForm({
           Upload a <span className="font-mono">.md</span>,{" "}
           <span className="font-mono">.txt</span>,{" "}
           <span className="font-mono">.pdf</span>,{" "}
-          <span className="font-mono">.docx</span>, or a short audio clip
-          (<span className="font-mono">.mp3</span>,{" "}
+          <span className="font-mono">.docx</span>, or audio (
           <span className="font-mono">.m4a</span>,{" "}
+          <span className="font-mono">.mp3</span>,{" "}
           <span className="font-mono">.wav</span>, …), or add formatted text —
-          one or the other, not both. Text is stored as Markdown; audio is
-          transcribed with Whisper into a Transcript (same ~15 min / ~4MB cap
-          as Record).
+          one or the other, not both. Audio uses the same Whisper path as
+          Record (up to ~3 hours). Files over 25MB are compressed in this
+          browser first — keep the page open.
         </p>
       </div>
 
@@ -262,14 +465,14 @@ export function ReceiveUploadForm({
             </p>
             <p className="text-xs text-ink/50">
               {file
-                ? `${Math.max(1, Math.round(file.size / 1024))} KB · tap to replace`
-                : ".md, .txt, .pdf, .docx, or short audio · or drop a file here"}
+                ? `${formatFileSize(file.size)} · tap to replace`
+                : ".md, .txt, .pdf, .docx, or audio · or drop a file here"}
             </p>
             <input
               ref={fileInputRef}
               type="file"
               name="file"
-              accept=".md,.txt,.pdf,.docx,.mp3,.m4a,.wav,.webm,.ogg,.mp4,.mpeg,.mpga,.oga,.flac,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/*"
+              accept=".md,.txt,.pdf,.docx,.mp3,.m4a,.aac,.wav,.webm,.ogg,.mp4,.mpeg,.mpga,.oga,.flac,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/*"
               className="sr-only"
               onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
             />
@@ -311,28 +514,47 @@ export function ReceiveUploadForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-ink">Type</span>
-        <select
-          name="type"
-          defaultValue="Note"
-          className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
-        >
-          {TYPE_OPTIONS.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-      </label>
+      {audioSelected ? (
+        <p className="text-sm text-ink/55">
+          Audio is saved as a Transcript. Keep this page in front until upload
+          finishes — then CLara transcribes in the background.
+        </p>
+      ) : (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-ink">Type</span>
+          <select
+            name="type"
+            defaultValue="Note"
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+          >
+            {TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={busy}
         className="btn-primary self-start rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
       >
-        {pending ? "Receiving…" : "Receive into Commons"}
+        {audioBusy
+          ? progress ?? "Uploading audio…"
+          : pending
+            ? "Receiving…"
+            : audioSelected
+              ? "Transcribe into Commons"
+              : "Receive into Commons"}
       </button>
+
+      {progress && audioBusy ? (
+        <p className="text-sm text-ink/60" aria-live="polite">
+          {progress}
+        </p>
+      ) : null}
 
       {error ? (
         <p className="font-mono text-sm text-danger">{error}</p>
@@ -341,6 +563,29 @@ export function ReceiveUploadForm({
         <p className="rounded-md px-2 py-1.5 text-sm text-success animate-success-glow motion-reduce:animate-none">
           {message}
         </p>
+      ) : null}
+
+      {showThanks ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6 animate-fade-rise motion-reduce:animate-none"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-thanks-title"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-4 rounded-lg border border-cloud bg-paper p-8 text-center shadow-soft">
+            <FlowerMark className="h-24 w-24" />
+            <h2
+              id="upload-thanks-title"
+              className="font-display text-xl font-medium text-ink"
+            >
+              Thank you for contributing to our Commons!
+            </h2>
+            <p className="text-sm text-ink/55">
+              Taking you to the dashboard — CLara is transcribing your
+              audio…
+            </p>
+          </div>
+        </div>
       ) : null}
     </form>
   );

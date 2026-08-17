@@ -11,17 +11,15 @@ import {
   CLARA_DOCUMENT_CREATED,
   CLARA_UPLOAD_RECEIVED,
 } from "@/lib/inngest/client";
-import { MAX_AUDIO_BYTES, transcribeAudio } from "@/lib/openai/transcribe";
-import { mapTranscriptSpeakersToNames } from "@/lib/listens/map-speakers";
-import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
 import type { StreamSummary } from "@/lib/streams/types";
 
 const TEXT_EXTENSIONS = new Set([".md", ".txt"]);
 const CONVERTIBLE_EXTENSIONS = new Set([".pdf", ".docx"]);
-/** Whisper-friendly formats (same cap as Listens v1). */
+/** Guard: audio must not POST through this action (browser staging instead). */
 const AUDIO_EXTENSIONS = new Set([
   ".mp3",
   ".m4a",
+  ".aac",
   ".wav",
   ".webm",
   ".ogg",
@@ -61,7 +59,8 @@ async function persistRelateLinks(
 
 /**
  * CLara Receives: file upload XOR pasted text → Commons document
- * for the active stream. Audio files share Listens' Whisper path.
+ * for the active stream. Audio files upload in the browser (Listens
+ * staging + Inngest), not this Server Action.
  */
 export async function receiveTextContent(
   formData: FormData,
@@ -124,17 +123,16 @@ export async function receiveTextContent(
         return {
           ok: false,
           error:
-            "Only .md, .txt, .pdf, .docx, and short audio uploads are supported.",
+            "Only .md, .txt, .pdf, .docx, and audio uploads are supported.",
         };
       }
 
       if (AUDIO_EXTENSIONS.has(extension)) {
-        return receiveAudioUpload({
-          file,
-          formData,
-          userId: user.id,
-          streamId: stream.id,
-        });
+        return {
+          ok: false,
+          error:
+            "Audio files now upload in the browser (same path as Record). Refresh this page and try again.",
+        };
       }
 
       if (CONVERTIBLE_EXTENSIONS.has(extension)) {
@@ -222,85 +220,6 @@ export async function receiveTextContent(
       error: "Something went wrong while receiving. Try again.",
     };
   }
-}
-
-/**
- * Audio via Receives: same Whisper path as Listens v1, sync, ~4MB cap.
- * Type is always Transcript — the body is spoken word, not a typed note.
- */
-async function receiveAudioUpload({
-  file,
-  formData,
-  userId,
-  streamId,
-}: {
-  file: File;
-  formData: FormData;
-  userId: string;
-  streamId: string;
-}): Promise<ReceiveResult> {
-  if (file.size > MAX_AUDIO_BYTES) {
-    return {
-      ok: false,
-      error:
-        "Audio is too long for this path (max ~4MB, roughly 15 minutes). Try a shorter clip, or use Add → Record for a live take.",
-    };
-  }
-
-  const transcribed = await transcribeAudio(file);
-  if (!transcribed.ok) {
-    return { ok: false, error: transcribed.error };
-  }
-
-  const titleFromForm = String(formData.get("title") ?? "").trim();
-  const defaultTitle =
-    file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() ||
-    `Audio — ${new Date().toLocaleString()}`;
-  const title = titleFromForm || defaultTitle;
-  const sessionIds = parseSessionIdsFromFormData(formData);
-  const primarySessionId = sessionIds[0] ?? null;
-  const participants = await resolveSessionParticipantNames(sessionIds);
-  const content =
-    participants.length > 0
-      ? await mapTranscriptSpeakersToNames(transcribed.text, participants)
-      : transcribed.text;
-
-  const { document, error } = await createDocument({
-    streamId,
-    createdBy: userId,
-    content,
-    title,
-    type: "Transcript",
-    privacyStatus: "public",
-    sessionId: primarySessionId,
-    participants,
-  });
-
-  if (error || !document) {
-    return { ok: false, error: error ?? "Saving the transcript failed." };
-  }
-
-  const linkError = await linkDocumentSessions(document.id, sessionIds);
-  if (linkError.error) {
-    return { ok: false, error: linkError.error };
-  }
-
-  await persistRelateLinks(formData, streamId, document.id, userId);
-
-  try {
-    await inngest.send({
-      name: CLARA_DOCUMENT_CREATED,
-      data: { documentId: document.id, streamId },
-    });
-  } catch (err) {
-    console.error("Failed to enqueue OKF enrichment:", err);
-  }
-
-  return {
-    ok: true,
-    documentId: document.id,
-    needsReview: document.needs_review,
-  };
 }
 
 /**

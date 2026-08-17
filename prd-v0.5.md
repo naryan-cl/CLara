@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-17 (phone Record transcription; Created by names)  
+**Last updated:** 2026-08-17 (long audio via Upload; phone Record transcription; Created by names)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Long audio via Upload (2026-08-17):** Add → Upload uses the same `listens-staging` + async Whisper path as Record (no ~4MB Server Action cap). Files over 25MB are compressed in the browser. See §5.1.
 *   **Phone Record + Created by (2026-08-17):** Phone mic recordings now stay on the raw audio track (iOS was producing files Whisper could not read). **Created by** uses Google/email names instead of a generic “Member” when the profile RPC misses. Apply **`0031_user_display_names.sql`**. Original Record audio is kept in private `listens-staging` until the Transcript is deleted (Retry + in-app player). See §5.1, §5.2.
 *   **Structured element-summary brief (2026-08-17):** Default summarize prompt writes a long Markdown brief (overview, categorized highlights, balcony observations on transcripts only, tensions/polarities, key questions, theme tags), not a 1–3 paragraph digest. Admin-editable. See §5.2, §7.5.
 *   **Admin-editable summarize prompt + collapsible Admin (2026-08-17):** The per-element summary system prompt is editable on `/admin` alongside Reflect and Ask (`streams.summarize_system_prompt`; NULL = code default). Admin content sections start collapsed with Expand on the right. Apply **`0030_summarize_system_prompt.sql`**. See §7.5.
@@ -132,12 +133,12 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 1.  **Reflect** (`/add/chat`, nav label Reflect; legacy `/chat` redirects) — Solo reflective conversation with CLara (separate from Ask). Creates **one** Reflection document — **no create-session UI**. **Connect:** **Relate** (user-described link to another Commons element) and/or **Join code** (nest under a Session — only nesting path). Inquiry seed appears when joining via session. Autosave drafts + Submit → thank-you + flower; private checkbox (public unless opted private); private docs hidden from public Commons/map but readable by session attendees + stream admins. Each person's reflection is its own document.
 2.  **Record** (Listens) — Browser mic (+ optional system/tab audio) → `listens-staging` → async diarized transcription → Commons `Transcript`. Soft ~3 hour cap. **Title is the recording title only** (does not create a session). Same **Connect** (Relate + Join code) as Reflect/Upload. Mobile = device mic.
 3.  **Upload** (Receives) — bring existing text/files into the Commons; same Connect pattern (Relate + Join code).
-    *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap).
+    *   **Upload** — `.md` / `.txt` (synchronous) **or** `.pdf` / `.docx` *(Shipped)* (async — converts via Storage + Inngest, ~4.5MB cap) **or** audio (Listens staging + async Whisper, ~3 hour cap).
     *   **Add text** — rich-text editor (formatting visible; **stored as Markdown**); lives under Upload (not a fourth Add nav item).
     *   Upload and Add text are **mutually exclusive** on one submit (not both).
     *   After save: **view** formatted Markdown; **edit** with the same rich toolbar (Bold, Italic, Underline, Header, Subhead, Bullets, Numbered, Indent/Outdent, Link).
     *   Old `.doc` still lower priority / not planned.
-    *   **Audio file upload** *(Shipped 2026-08-05; speakers/timestamps 2026-08-10.)* Sync diarized transcription via Receives (~4MB / ~15 min), `Type: Transcript`. Longer meeting audio uses **Record / Listens v2** (Storage + async), not Receives.
+    *   **Audio file upload** *(2026-08-17: long files.)* Same Listens staging + async Whisper as Record. The Upload box accepts `.m4a` / `.mp3` / `.wav` / …; files ≤ 25MB go to Storage as-is; larger files are compressed in the browser into 12-min chunks. Soft ~3 hour cap. `Type: Transcript`. Keep the Upload page open until the file has uploaded; transcription then runs in the background.
 
 **What creates a session:** Only **Add → Session**. Reflect / Record / Upload never create sessions. Nesting under a session requires a **join code** (or share/QR join link). Stand-alone Adds leave `session_id` null. **Relate** creates a user-described edge only — never nests.
 
@@ -191,7 +192,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Session** (`/add/session`) — *(IA v2.)* First in Add menu + FAB. Host live board, join code, mode-specific share/QR, counts, Finalize.
 *   **Reflect** (`/add/chat`) — Solo Add; Connect = Relate + Join code; autosave + Submit. Separate from Ask CLara.
 *   **Record** — Mic → Whisper → Transcript; recording title ≠ session; same Connect chrome.
-*   **Upload** — Upload / Add text / PDF / DOCX / short audio; same Connect chrome.
+*   **Upload** — Upload / Add text / PDF / DOCX / audio (async Whisper, same path as Record); same Connect chrome.
 *   **Join link** — `/join/[token]?mode=reflect|record|upload` marks attendance and opens the matching Add surface with the session pre-linked (works after Finalize).
 
 ### 7.3 Commons — repository

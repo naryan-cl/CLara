@@ -6,11 +6,16 @@
  * Files are removed when the Commons document is deleted.
  */
 
+import {
+  normalizeListensStagingExtension,
+  type ListensStagingExtension,
+} from "@/lib/listens/audio-format";
+
 export type ListensJobMeta = {
   recordingId: string;
   segmentCount: number;
   mimeType: string;
-  fileExtension: "webm" | "m4a";
+  fileExtension: ListensStagingExtension;
 };
 
 const META_OPEN = "<!-- clara-listens:";
@@ -49,7 +54,9 @@ export function parseListensJobMeta(content: string): ListensJobMeta | null {
     const mimeType =
       typeof parsed.mimeType === "string" ? parsed.mimeType : "audio/webm";
     const fileExtension =
-      parsed.fileExtension === "m4a" ? "m4a" : "webm";
+      normalizeListensStagingExtension(
+        typeof parsed.fileExtension === "string" ? parsed.fileExtension : "",
+      ) ?? "webm";
     if (!recordingId || recordingId.includes("/")) return null;
     if (!Number.isInteger(segmentCount) || segmentCount < 1) return null;
     return { recordingId, segmentCount, mimeType, fileExtension };

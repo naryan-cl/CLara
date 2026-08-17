@@ -11,23 +11,78 @@ export function listensFileExtension(
   if (
     mime.includes("mp4") ||
     mime.includes("m4a") ||
-    mime.includes("aac") ||
-    mime.includes("mpeg")
+    mime.includes("aac")
   ) {
     return "m4a";
   }
   return "webm";
 }
 
-/** Prefer MIME (phones lie about webm support) then the client-sent extension. */
+export const LISTENS_STAGING_EXTENSIONS = [
+  "webm",
+  "m4a",
+  "mp3",
+  "wav",
+  "ogg",
+  "flac",
+] as const;
+
+export type ListensStagingExtension =
+  (typeof LISTENS_STAGING_EXTENSIONS)[number];
+
+const STAGING_EXT_SET = new Set<string>(LISTENS_STAGING_EXTENSIONS);
+
+/** Normalize a filename/path extension to a Storage object suffix. */
+export function normalizeListensStagingExtension(
+  raw: string | null | undefined,
+): ListensStagingExtension | null {
+  const ext = (raw ?? "").toLowerCase().replace(/^\./, "").trim();
+  if (ext === "m4a" || ext === "mp4" || ext === "aac") return "m4a";
+  if (ext === "mp3" || ext === "mpeg" || ext === "mpga") return "mp3";
+  if (ext === "ogg" || ext === "oga") return "ogg";
+  if (STAGING_EXT_SET.has(ext)) return ext as ListensStagingExtension;
+  return null;
+}
+
+export function listensExtensionFromFileName(
+  filename: string | null | undefined,
+): ListensStagingExtension | null {
+  const name = (filename ?? "").toLowerCase();
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return null;
+  return normalizeListensStagingExtension(name.slice(dot + 1));
+}
+
+export function mimeTypeForStagingExtension(
+  ext: ListensStagingExtension,
+): string {
+  switch (ext) {
+    case "m4a":
+      return "audio/mp4";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "ogg":
+      return "audio/ogg";
+    case "flac":
+      return "audio/flac";
+    default:
+      return "audio/webm";
+  }
+}
+
+/**
+ * Prefer an explicit filename extension (Upload mp3/wav/ogg) so `audio/mpeg`
+ * is not mistaken for AAC. Record still passes webm/m4a from MediaRecorder.
+ */
 export function listensStagingExtension(input: {
   fileExtension?: string | null;
   mimeType?: string | null;
-}): "webm" | "m4a" {
-  if (listensFileExtension(input.mimeType) === "m4a") return "m4a";
-  const ext = (input.fileExtension ?? "").toLowerCase().replace(/^\./, "");
-  if (ext === "m4a" || ext === "mp4" || ext === "aac") return "m4a";
-  return "webm";
+}): ListensStagingExtension {
+  const fromName = normalizeListensStagingExtension(input.fileExtension);
+  if (fromName) return fromName;
+  return listensFileExtension(input.mimeType);
 }
 
 /** OpenAI multipart uploads key off filename + a simple MIME (no codecs=). */

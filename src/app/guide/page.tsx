@@ -229,7 +229,7 @@ export default async function GuidePage() {
             items={[
               'Upload a file (.md/.txt synchronously, or PDF/DOCX asynchronously) — or use "Add text," a rich-text editor stored as Markdown. Mutually exclusive on a single submission.',
               "After saving, view the formatted Markdown and edit it with the same rich toolbar.",
-              "Short audio files also transcribe synchronously; longer recordings should use Record instead.",
+              "Audio files (Voice Memos, Zoom, .m4a/.mp3/…) use the same Whisper path as Record: upload in the browser, then transcribe in the background. Files over 25MB are compressed here first — keep the page open. Soft cap ~3 hours.",
             ]}
           />
 

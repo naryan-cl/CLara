@@ -16,7 +16,7 @@ export default async function AddUploadPage({ searchParams }: Props) {
         <h1 className="font-display text-2xl font-medium text-ink">Upload</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Bring existing thinking into the Commons — upload a file (text, PDF,
-          DOCX, or short audio), or add text. Use Connect to join a Session or
+          DOCX, or audio), or add text. Use Connect to join a Session or
           relate to other elements.
         </p>
       </div>

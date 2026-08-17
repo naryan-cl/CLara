@@ -45,7 +45,7 @@ export type ClaraRecordingReceivedEvent = {
     segmentCount: number;
     /** MIME type from MediaRecorder (e.g. audio/webm). */
     mimeType: string;
-    /** webm or m4a — matches uploaded object names. */
+    /** webm, m4a, mp3, wav, ogg, or flac — matches uploaded object names. */
     fileExtension: string;
   };
 };
