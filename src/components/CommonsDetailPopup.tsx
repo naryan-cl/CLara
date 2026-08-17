@@ -7,6 +7,7 @@ import {
   loadCommonsDetail,
   type DetailPayload,
 } from "@/app/(app)/commons/actions";
+import { CloseXButton } from "@/components/CloseXButton";
 import { AttendanceToggle } from "@/components/AttendanceToggle";
 import { CommentThread } from "@/components/CommentThread";
 import { SessionSummaryTabs } from "@/components/commons/ElementReadView";
@@ -15,7 +16,7 @@ import { SessionEditor } from "@/components/SessionEditor";
 import type { CommonsListItem } from "@/lib/commons/types";
 
 /**
- * Commons detail overlay (close via ✕, backdrop, or Escape).
+ * Commons detail overlay (close via circular ×, backdrop, or Escape).
  * Portaled to `document.body` so page overflow / transform cannot clip it.
  * On phone it fills the view below the header so it cannot paint off-screen.
  * Parent remounts via key when selection changes so load state resets cleanly.
@@ -91,14 +92,7 @@ export function CommonsDetailPopup({
           <p className="truncate font-mono text-[11px] uppercase tracking-wide text-ink/40">
             {item.kind === "session" ? "Session" : item.elementType}
           </p>
-          <button
-            type="button"
-            className="min-h-11 min-w-11 rounded-md px-2.5 py-1.5 text-sm text-ink/50 hover:text-danger"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <CloseXButton onClick={onClose} />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-5">

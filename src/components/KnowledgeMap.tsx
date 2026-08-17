@@ -7,15 +7,20 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { HelpTip } from "@/components/HelpTip";
+import { MapLegend } from "@/components/map/MapLegend";
 import { MapWallpaper } from "@/components/map/MapWallpaper";
 import { NodeDetailPanel } from "@/components/NodeDetailPanel";
 import { curvedPath, edgeEndpoints } from "@/lib/graph/curves";
+import { colorForNodeType } from "@/lib/graph/node-glossary";
 import {
+  applySimRadii,
   createGraphSimulation,
   radiusFor,
   seedSimNodes,
   type SimNode,
 } from "@/lib/graph/layout";
+import { closenessRadiiByNodeId } from "@/lib/graph/closeness";
 import {
   DEFAULT_MAP_LAYOUT_CONFIG,
   type MapLayoutConfig,
@@ -57,32 +62,17 @@ function isMapNodeTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("[data-km-node]"));
 }
 
-/** Detail overlay lives inside the canvas; pan/pinch must not steal its clicks. */
-function isDetailPanelTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element && Boolean(target.closest("[data-km-detail]"))
-  );
-}
-
 function nodeIdFromTarget(target: EventTarget | null): string | null {
   if (!(target instanceof Element)) return null;
   return target.closest("[data-km-node]")?.getAttribute("data-km-node") ?? null;
 }
 
-const NODE_COLOR: Record<string, string> = {
-  Concept: "var(--glow)",
-  Framework: "var(--horizon)",
-  Theme: "var(--ember)",
-  Atom: "var(--sage)",
-  // Dashboard Commons contribution types (IA v2)
-  Session: "var(--horizon)",
-  Chat: "var(--glow)",
-  Record: "var(--ember)",
-  Upload: "var(--sage)",
-};
-
-function colorFor(type: string): string {
-  return NODE_COLOR[type] ?? "var(--sage)";
+/** Detail / legend / fullscreen controls sit on the canvas; pan must not steal clicks. */
+function isMapOverlayTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest("[data-km-detail], [data-km-chrome]"))
+  );
 }
 
 function subscribeReducedMotion(callback: () => void) {
@@ -125,7 +115,8 @@ function getMountedServerSnapshot() {
  * leaves both off for classic dark circles.
  *
  * `hideDetailPanel` + `onSelect` let the dashboard open detail inside Ask
- * without resizing the map. `hideChrome` drops the hint row for full-bleed.
+ * without resizing the map. `hideChrome` drops the hint row, legend, and
+ * fullscreen control for the full-bleed dashboard.
  */
 export function KnowledgeMap({
   nodes,
@@ -134,6 +125,10 @@ export function KnowledgeMap({
   onSelect,
   hideDetailPanel = false,
   hideChrome = false,
+  showLegend = null,
+  allowFullscreen = null,
+  legendVariant = "knowledgeMap",
+  sizeMode = null,
   wallpaperTheme = null,
   wallpaperSeed,
   useSprites = false,
@@ -145,8 +140,18 @@ export function KnowledgeMap({
   selectedId?: string | null;
   onSelect?: (node: GraphNode | null) => void;
   hideDetailPanel?: boolean;
-  /** Dashboard full-bleed: no hint row, square canvas edge. */
+  /** Dashboard full-bleed: no hint row, legend, or fullscreen, square canvas edge. */
   hideChrome?: boolean;
+  /** Override legend visibility. Default = shown unless `hideChrome`. */
+  showLegend?: boolean | null;
+  /** Override fullscreen control. Default = shown unless `hideChrome`. */
+  allowFullscreen?: boolean | null;
+  legendVariant?: "knowledgeMap" | "dashboard";
+  /**
+   * How circle size is chosen. Default: closeness on `/map`, type on Dashboard.
+   * Closeness = SNA harmonic closeness (fewest steps to other nodes).
+   */
+  sizeMode?: "closeness" | "type" | null;
   /** Generative topo wallpaper (Plant/Ocean/Desert). Null = dark classic. */
   wallpaperTheme?: MapThemeId | null;
   /** Seed for generative terrain (stable per stream is ideal). */
@@ -185,6 +190,8 @@ export function KnowledgeMap({
   );
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [cssFullscreen, setCssFullscreen] = useState(false);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
 
   const isControlled = controlledSelectedId !== undefined;
   const selectedId = isControlled
@@ -204,10 +211,38 @@ export function KnowledgeMap({
 
   const themePalette = wallpaperTheme ? paletteFor(wallpaperTheme) : null;
   const canvasFill = themePalette?.base ?? "var(--forest-deep)";
+  const legendVisible = showLegend ?? !hideChrome;
+  const fullscreenEnabled = allowFullscreen ?? !hideChrome;
+  const resolvedSizeMode: "closeness" | "type" =
+    sizeMode ?? (legendVariant === "dashboard" ? "type" : "closeness");
+  const isFullscreen = nativeFullscreen || cssFullscreen;
 
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setNativeFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (!cssFullscreen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setCssFullscreen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [cssFullscreen]);
 
   const publishNodes = useCallback(() => {
     setSimNodes(nodesRef.current.slice());
@@ -267,6 +302,11 @@ export function KnowledgeMap({
       previous,
       edges,
     );
+    const radiusById =
+      resolvedSizeMode === "closeness"
+        ? closenessRadiiByNodeId(nodes, edges, layoutConfig)
+        : null;
+    applySimRadii(seeded, radiusById, layoutConfig);
     nodesRef.current = seeded;
 
     const simulation = createGraphSimulation(
@@ -294,6 +334,7 @@ export function KnowledgeMap({
     size.width,
     size.height,
     layoutConfigKey,
+    resolvedSizeMode,
     publishNodes,
   ]);
 
@@ -349,6 +390,28 @@ export function KnowledgeMap({
 
   function findSimNode(id: string): SimNode | undefined {
     return nodesRef.current.find((n) => n.id === id);
+  }
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      setCssFullscreen(false);
+      return;
+    }
+    if (cssFullscreen) {
+      setCssFullscreen(false);
+      return;
+    }
+    const element = containerRef.current;
+    if (element?.requestFullscreen) {
+      try {
+        await element.requestFullscreen();
+        return;
+      } catch {
+        // Permission denied or iOS — fill the viewport with CSS instead.
+      }
+    }
+    setCssFullscreen(true);
   }
 
   function viewPointFromClient(clientX: number, clientY: number): PointerPos {
@@ -414,7 +477,7 @@ export function KnowledgeMap({
     // Close / source-document links sit on top of the canvas. Capturing the
     // pointer here would retarget pointerup to the map, so the button never
     // gets a click (and Next.js <Link> never navigates).
-    if (isDetailPanelTarget(event.target)) return;
+    if (isMapOverlayTarget(event.target)) return;
 
     pointersRef.current.set(
       event.pointerId,
@@ -579,16 +642,24 @@ export function KnowledgeMap({
     <div
       className={`relative flex h-full min-h-[220px] w-full flex-col ${hideChrome ? "gap-0" : "gap-2"} ${className}`.trim()}
     >
-      {hideChrome ? null : (
-        <p className="shrink-0 font-mono text-[11px] text-ink/45">
-          Scroll or pinch to zoom · drag to pan · drag a node to pin it ·
-          double-click a pin to release · Tab/arrows for keyboard
+      {hideChrome || isFullscreen ? null : (
+        <p className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-ink/45">
+          <span>
+            Scroll or pinch to zoom · drag to pan · drag a node to pin it ·
+            double-click a pin to release
+          </span>
+          <HelpTip
+            description="Tab moves focus onto a node. Arrow keys jump to the nearest node in that direction. Enter or Space opens details. Escape closes the panel."
+            placement="bottom"
+          />
         </p>
       )}
 
       <div
         ref={containerRef}
-        className={`relative min-h-0 flex-1 overflow-hidden overscroll-none ${hideChrome ? "" : "rounded-lg"}`}
+        className={`relative min-h-0 flex-1 overflow-hidden overscroll-none ${
+          hideChrome || isFullscreen ? "" : "rounded-lg"
+        } ${cssFullscreen ? "fixed inset-0 z-[80] rounded-none" : ""}`}
         style={{ background: canvasFill }}
         onPointerDownCapture={onViewportPointerDownCapture}
         onPointerMoveCapture={onViewportPointerMoveCapture}
@@ -610,7 +681,7 @@ export function KnowledgeMap({
             width={size.width}
             height={size.height}
             role="img"
-            aria-label="Knowledge Map. Scroll or pinch to zoom, drag to pan, drag nodes to pin."
+            aria-label="Knowledge Map. Scroll or pinch to zoom, drag to pan, drag nodes to pin. Tab to a node, arrow keys to move between them."
             className="relative z-0 block h-full w-full touch-none cursor-grab active:cursor-grabbing"
             onWheel={(event) => {
               event.preventDefault();
@@ -684,7 +755,7 @@ export function KnowledgeMap({
                 const isLit = isSelected || isHovered;
                 const isPinned = node.fx != null && node.fy != null;
                 const isTabStop = node.id === activeId;
-                const r = radiusFor(node.type, layoutConfig);
+                const r = node.radius || radiusFor(node.type, layoutConfig);
                 const spriteHref =
                   useSprites && wallpaperTheme
                     ? nodeSpriteUrl(wallpaperTheme, node.type, node.id)
@@ -823,7 +894,7 @@ export function KnowledgeMap({
                     ) : (
                       <circle
                         r={r}
-                        fill={colorFor(node.type)}
+                        fill={colorForNodeType(node.type)}
                         fillOpacity={isLit ? 1 : 0.85}
                         stroke={isPinned ? pinnedStroke : nodeStrokeDefault}
                         strokeWidth={isPinned ? 2 : themePalette ? 1 : 0}
@@ -884,7 +955,69 @@ export function KnowledgeMap({
             className="absolute inset-x-3 bottom-3 top-auto z-20 max-h-[min(50vh,24rem)] w-auto overflow-y-auto shadow-lg touch-auto sm:inset-y-3 sm:bottom-auto sm:left-auto sm:right-3 sm:max-h-none sm:w-[min(100%-1.5rem,18rem)]"
           />
         ) : null}
+
+        {legendVisible ? (
+          <MapLegend
+            variant={legendVariant}
+            sizeMode={resolvedSizeMode}
+            layoutConfig={layoutConfig}
+            className="absolute bottom-3 left-3 z-10"
+          />
+        ) : null}
+
+        {fullscreenEnabled ? (
+          <button
+            type="button"
+            data-km-chrome
+            onClick={() => void toggleFullscreen()}
+            aria-label={isFullscreen ? "Exit full screen" : "View full screen"}
+            aria-pressed={isFullscreen}
+            className="absolute left-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-paper/25 bg-forest-deep/70 text-paper/80 backdrop-blur-sm transition-colors hover:border-paper/50 hover:text-paper"
+          >
+            {isFullscreen ? <CollapseIcon /> : <ExpandIcon />}
+          </button>
+        ) : null}
       </div>
     </div>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M3 7V3h4M15 7V3h-4M3 11v4h4M15 11v4h-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CollapseIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M7 3v4H3M11 3v4h4M7 15v-4H3M11 15v-4h4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

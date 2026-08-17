@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Top10BoardView } from "@/components/Top10Board";
+import { HelpTip } from "@/components/HelpTip";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { buildStreamTop10 } from "@/lib/top10";
+import { CLOSENESS_GLOSSARY } from "@/lib/graph/closeness";
 
 export const metadata = {
   title: "Top 10 — CLara",
@@ -23,9 +25,16 @@ export default async function Top10Page() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">
           Top topics, spaces of difference, and questions still in the air
-          across {stream?.name ?? "this stream"} — ranked by how often they
-          show up in Public material. Every chip is a door back to the
-          original voice. Private stays private, same as the Knowledge Map.
+          across {stream?.name ?? "this stream"} — ordered by{" "}
+          <HelpTip
+            variant="term"
+            label="closeness"
+            description={CLOSENESS_GLOSSARY}
+            placement="bottom"
+          />{" "}
+          on the Knowledge Map (how central an idea is), then by how often they
+          show up. Every chip is a door back to the original voice. Private
+          stays private, same as the Knowledge Map.
         </p>
       </div>
 
@@ -43,10 +52,11 @@ export default async function Top10Page() {
         <>
           <Top10BoardView board={board} />
           <p className="max-w-2xl text-xs leading-5 text-ink/45">
-            Ranked from Public, non-draft Commons (OKF tags, element-summary
-            theme tags / tensions / key questions), session inquiries, and
-            Knowledge Map contrast links. Not an Ask CLara answer — this is a
-            count of what people already wrote.{" "}
+            Ordered by closeness on the Knowledge Map (same SNA measure as
+            circle size on /map), then by how often the idea appears in Public
+            Commons. Ideas that never landed on the map sort after those that
+            did. Not an Ask CLara answer — this is a reading of what people
+            already wrote.{" "}
             <Link href="/ask" className="text-horizon hover:underline">
               Curious about one of these? Ask CLara
             </Link>

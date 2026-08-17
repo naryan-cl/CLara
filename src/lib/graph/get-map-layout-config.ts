@@ -1,14 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  DEFAULT_MAP_LAYOUT_CONFIG,
-  parseMapLayoutConfig,
+  bothLayoutsAreDefault,
+  parseStreamMapLayouts,
   type MapLayoutConfig,
+  type MapLayoutSurface,
+  type StreamMapLayouts,
 } from "@/lib/graph/map-layout-config";
 
-/** Load stream map layout overrides (or product defaults if NULL / missing column). */
-export async function getStreamMapLayoutConfig(
+function missingColumn(error: { message: string; code?: string }): boolean {
+  return (
+    error.message.includes("map_layout_config") ||
+    error.code === "42703" ||
+    error.code === "PGRST204"
+  );
+}
+
+/** Load both surface overrides (or product defaults if NULL / missing column). */
+export async function getStreamMapLayouts(
   streamId: string,
-): Promise<{ config: MapLayoutConfig; error: string | null }> {
+): Promise<{ layouts: StreamMapLayouts; error: string | null }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("streams")
@@ -17,32 +27,43 @@ export async function getStreamMapLayoutConfig(
     .maybeSingle();
 
   if (error) {
-    // Column missing until migration 0022 is applied — fail soft to defaults.
-    if (
-      error.message.includes("map_layout_config") ||
-      error.code === "42703" ||
-      error.code === "PGRST204"
-    ) {
-      return { config: DEFAULT_MAP_LAYOUT_CONFIG, error: null };
+    if (missingColumn(error)) {
+      return { layouts: parseStreamMapLayouts(null), error: null };
     }
-    return { config: DEFAULT_MAP_LAYOUT_CONFIG, error: error.message };
+    return { layouts: parseStreamMapLayouts(null), error: error.message };
   }
 
   return {
-    config: parseMapLayoutConfig(data?.map_layout_config ?? null),
+    layouts: parseStreamMapLayouts(data?.map_layout_config ?? null),
     error: null,
   };
 }
 
-export async function updateStreamMapLayoutConfig(
+/** Load knobs for one surface. Default = Knowledge Map (`/map`). */
+export async function getStreamMapLayoutConfig(
   streamId: string,
-  config: MapLayoutConfig | null,
+  surface: MapLayoutSurface = "knowledgeMap",
+): Promise<{ config: MapLayoutConfig; error: string | null }> {
+  const { layouts, error } = await getStreamMapLayouts(streamId);
+  return { config: layouts[surface], error };
+}
+
+export async function updateStreamMapLayouts(
+  streamId: string,
+  layouts: StreamMapLayouts | null,
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
+  const payload =
+    layouts == null || bothLayoutsAreDefault(layouts)
+      ? null
+      : {
+          knowledgeMap: layouts.knowledgeMap,
+          dashboard: layouts.dashboard,
+        };
   const { error } = await supabase
     .from("streams")
     .update({
-      map_layout_config: config,
+      map_layout_config: payload,
     })
     .eq("id", streamId);
 

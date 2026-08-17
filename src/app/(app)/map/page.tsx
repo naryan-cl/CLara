@@ -1,4 +1,7 @@
 import { KnowledgeMap } from "@/components/KnowledgeMap";
+import { HelpTip } from "@/components/HelpTip";
+import { NODE_TYPE_GLOSSARY } from "@/lib/graph/node-glossary";
+import { CLOSENESS_GLOSSARY } from "@/lib/graph/closeness";
 import { getStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
 import { listGraph } from "@/lib/graph/list-graph";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
@@ -9,7 +12,7 @@ export default async function MapPage() {
     ? await listGraph(stream.id)
     : { nodes: [], edges: [], error: null };
   const { config: layoutConfig } = stream
-    ? await getStreamMapLayoutConfig(stream.id)
+    ? await getStreamMapLayoutConfig(stream.id, "knowledgeMap")
     : { config: undefined };
 
   return (
@@ -19,9 +22,44 @@ export default async function MapPage() {
           Knowledge Map
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Atoms, Concepts, Frameworks, and Themes drawn automatically from the{" "}
-          {stream?.name ?? "Camp CLAI"} Commons. Click a node for details and
-          a link back to where it came from.
+          <HelpTip
+            variant="term"
+            label="Atoms"
+            description={NODE_TYPE_GLOSSARY.Atom}
+            placement="bottom"
+          />
+          {", "}
+          <HelpTip
+            variant="term"
+            label="Concepts"
+            description={NODE_TYPE_GLOSSARY.Concept}
+            placement="bottom"
+          />
+          {", "}
+          <HelpTip
+            variant="term"
+            label="Frameworks"
+            description={NODE_TYPE_GLOSSARY.Framework}
+            placement="bottom"
+          />
+          {", and "}
+          <HelpTip
+            variant="term"
+            label="Themes"
+            description={NODE_TYPE_GLOSSARY.Theme}
+            placement="bottom"
+          />{" "}
+          drawn automatically from the {stream?.name ?? "Camp CLAI"} Commons.
+          Click a node for details and a link back to where it came from. Colour
+          is type; size is{" "}
+          <HelpTip
+            variant="term"
+            label="closeness"
+            description={CLOSENESS_GLOSSARY}
+            placement="bottom"
+          />{" "}
+          (how central an idea is in the network). Hover a term — or the legend
+          — for a definition.
         </p>
       </div>
 

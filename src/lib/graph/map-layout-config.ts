@@ -2,6 +2,10 @@
  * Tunable force-layout + visual sizes for Dashboard / Knowledge Map.
  * Product defaults match the previous hardcodes in layout.ts / KnowledgeMap.
  * Stream admins override via `/admin/map-layout` → streams.map_layout_config.
+ *
+ * Stored JSON is nested `{ knowledgeMap, dashboard }` so each surface saves
+ * independently. A legacy flat config (chargeStrength at the top level) is
+ * treated as the starting point for *both* until an admin saves a tab.
  */
 
 export type MapNodeRadii = {
@@ -146,3 +150,87 @@ export function mapLayoutConfigsEqual(
 ): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
+
+export type MapLayoutSurface = "knowledgeMap" | "dashboard";
+
+export type StreamMapLayouts = {
+  knowledgeMap: MapLayoutConfig;
+  dashboard: MapLayoutConfig;
+};
+
+function isNestedLayouts(raw: Record<string, unknown>): boolean {
+  return "knowledgeMap" in raw || "dashboard" in raw;
+}
+
+/** Parse DB JSON — nested (current) or flat (legacy 0022) or null. */
+export function parseStreamMapLayouts(raw: unknown): StreamMapLayouts {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return {
+      knowledgeMap: parseMapLayoutConfig(null),
+      dashboard: parseMapLayoutConfig(null),
+    };
+  }
+  const obj = raw as Record<string, unknown>;
+  if (isNestedLayouts(obj)) {
+    return {
+      knowledgeMap: parseMapLayoutConfig(obj.knowledgeMap ?? null),
+      dashboard: parseMapLayoutConfig(obj.dashboard ?? null),
+    };
+  }
+  return {
+    knowledgeMap: parseMapLayoutConfig(obj),
+    dashboard: parseMapLayoutConfig(obj),
+  };
+}
+
+export function withUpdatedSurface(
+  layouts: StreamMapLayouts,
+  surface: MapLayoutSurface,
+  config: MapLayoutConfig,
+): StreamMapLayouts {
+  return { ...layouts, [surface]: config };
+}
+
+export function bothLayoutsAreDefault(layouts: StreamMapLayouts): boolean {
+  return (
+    mapLayoutConfigsEqual(layouts.knowledgeMap, DEFAULT_MAP_LAYOUT_CONFIG) &&
+    mapLayoutConfigsEqual(layouts.dashboard, DEFAULT_MAP_LAYOUT_CONFIG)
+  );
+}
+
+/** Admin "?" copy — keep in one place so the panel and docs stay aligned. */
+export const MAP_LAYOUT_FIELD_HELP: Record<string, string> = {
+  chargeStrength:
+    "How strongly nodes push each other apart. More negative = more spread out; closer to zero = a tighter cluster.",
+  linkDistance:
+    "Target length of the line between two connected nodes. Larger = more space along each link.",
+  linkStrength:
+    "How tightly connected nodes try to stay at the link distance. Higher = stiffer springs, less drift.",
+  collidePadding:
+    "Extra breathing room around each node so circles, sprites, and labels are less likely to overlap.",
+  radiusConcept:
+    "Circle size for Concepts (named ideas). Also the hit target. Largest by default.",
+  radiusFramework:
+    "Circle size for Frameworks (named models or methods).",
+  radiusTheme:
+    "Circle size for Themes (recurring topics).",
+  radiusAtom:
+    "Circle size for Atoms (single observations or quotes). Smallest by default.",
+  radiusHighCloseness:
+    "Circle size for the most central nodes (highest SNA closeness — fewest steps to everyone else).",
+  radiusLowCloseness:
+    "Circle size for nodes on the edge of the network (lowest closeness, including isolates).",
+  radiusSession:
+    "Sprite / hit-target size for Sessions (gatherings) on the Dashboard.",
+  radiusChat:
+    "Sprite / hit-target size for Reflect (Chat) contributions on the Dashboard.",
+  radiusRecord:
+    "Sprite / hit-target size for Record transcripts on the Dashboard.",
+  radiusUpload:
+    "Sprite / hit-target size for Uploads on the Dashboard.",
+  spriteScale:
+    "How large the nature icons are relative to the node radius. Dashboard only — the Knowledge Map uses coloured circles.",
+  labelFontSize: "Size of the name drawn under each node, in pixels.",
+  labelMaxLength:
+    "How many characters of a name to show before replacing the rest with an ellipsis.",
+};

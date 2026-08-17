@@ -20,7 +20,7 @@ const COLUMNS: {
     id: "topics",
     title: "What’s humming",
     blurb:
-      "Ideas that keep showing up across Public Commons — tags, summaries, and map themes.",
+      "Ideas nearest the centre of the Knowledge Map — then how often they show up in Public Commons.",
     empty:
       "No topics yet. Public reflections, recordings, and uploads grow this list as their tags and summaries land.",
     countLabel: (n) => (n === 1 ? "1 place" : `${n} places`),
@@ -29,7 +29,7 @@ const COLUMNS: {
     id: "differences",
     title: "Spaces of difference",
     blurb:
-      "Tensions and polarities the stream is holding — two true things at once. Difference is data.",
+      "Tensions and polarities the stream is holding, ordered by how central those ideas are on the map. Difference is data.",
     empty:
       "No named tensions yet. Either the stream is unusually aligned, or summaries haven’t had polarities to report.",
     countLabel: (n) => (n === 1 ? "held in 1 place" : `held in ${n} places`),
@@ -38,7 +38,7 @@ const COLUMNS: {
     id: "questions",
     title: "Still asking",
     blurb:
-      "Questions people actually asked, plus the inquiries sessions were built around.",
+      "Questions people actually asked, plus session inquiries — ordered by closeness when the idea sits on the Knowledge Map.",
     empty:
       "No questions harvested yet. Session inquiries and “Key questions” in summaries will appear here.",
     countLabel: (n) => (n === 1 ? "asked in 1 place" : `asked in ${n} places`),
@@ -68,8 +68,9 @@ export function Top10BoardView({ board }: { board: Top10Board }) {
         </p>
         <p className="mt-2 max-w-xl text-sm leading-6 text-ink/65">
           Top 10 grows from Public Commons — tags, element summaries, session
-          inquiries, and Knowledge Map contrast links. Add something Public,
-          wait for its summary, and this page will start to hum.
+          inquiries, and Knowledge Map links — then orders them by closeness
+          (how central an idea is on the map). Add something Public, wait
+          for its summary, and this page will start to hum.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link

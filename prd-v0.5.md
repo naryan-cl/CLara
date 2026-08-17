@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-17 (Synthesis Top 10)  
+**Last updated:** 2026-08-17 (Knowledge Map legend + split layout admin)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Knowledge Map closeness + Top 10 order (2026-08-17):** `/map` circle size is SNA **harmonic closeness** (fewest steps to other nodes), not type. Top 10 lists order by that same closeness (then mention count). See §6, §7.3, §7.4.
 *   **Dashboard list recency + outside-CL flag (2026-08-17):** Dashboard List sorts newest activity first; **Hide external** pill in the panel header (beside close); **New** / **External** labels on cards. Upload can flag “from outside CL” (`documents.is_external`). Detail pane: date + Created by sit on the type-pill row; session Join code is in Edit. Map stays unfiltered. Apply **`0032_document_is_external.sql`**. See §5.1, §7.1.
 *   **Synthesis Top 10 (2026-08-17):** New Synthesis child at `/top10` ranks the stream’s top topics, spaces of difference (tensions/polarities), and questions/inquiries from Public Commons — tags, element-summary sections, session inquiries, and Knowledge Map contrast links. Source chips open the original document or session. Private stays off the board (same as the map). Not an Ask CLara pipeline. See §5.3, §7.4.
 *   **Connect without join code (2026-08-17):** Stream members can nest Reflect / Record / Upload under an **open Session** from a Connect dropdown (newest first). Join code + share/QR remain for people who were given a code, including late Adds after Finalize. Session detail shows the join code and a link to the live board. See §5.1.
@@ -174,13 +175,13 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 1.  **Ask CLara** (`/ask`) — *(Shipped.)* RAG over stream Commons; separate from Chatbot.
 2.  **Knowledge Map** (`/map`) — nodes/edges, stream-scoped. *(Shipped.)*
-3.  **Top 10** (`/top10`) — *(Shipped 2026-08-17.)* Ranked topics, spaces of difference, and questions from Public Commons, with source chips back to the original document or session. Count/aggregate — not an Ask CLara answer. Private documents never appear.
+3.  **Top 10** (`/top10`) — *(Shipped 2026-08-17.)* Ranked topics, spaces of difference, and questions from Public Commons, ordered by Knowledge Map closeness then mention count, with source chips back to the original document or session. Not an Ask CLara answer. Private documents never appear.
 
 ---
 
 ## 6. The Knowledge Graph (Nodes & Edges)
 
-*(Shipped.)* Atoms → concepts → frameworks/themes; edges relational; stream-scoped; no manual approval gate for map appearance — unchanged intent from prior versions. An Inngest job (`clara-extract-graph`) proposes nodes/edges via LLM on every new **Public** document (same `clara/document.created` event OKF enrichment and Ask CLara's embeddings pipeline already listen on); Private documents never feed the graph, since nodes/edges have no per-node privacy field and nothing gates their visibility once created. Nodes are deduped per stream by label, so the same concept mentioned across documents converges on one node rather than fragmenting. `/map` renders the graph as an interactive force-directed canvas (dark surface, glowing nodes by type, click for a detail panel with a link back to the source document) per `DESIGN_GUIDE.md`.
+*(Shipped.)* Atoms → concepts → frameworks/themes; edges relational; stream-scoped; no manual approval gate for map appearance — unchanged intent from prior versions. An Inngest job (`clara-extract-graph`) proposes nodes/edges via LLM on every new **Public** document (same `clara/document.created` event OKF enrichment and Ask CLara's embeddings pipeline already listen on); Private documents never feed the graph, since nodes/edges have no per-node privacy field and nothing gates their visibility once created. Nodes are deduped per stream by label, so the same concept mentioned across documents converges on one node rather than fragmenting. `/map` renders the graph as an interactive force-directed canvas (dark surface, glowing nodes **by type**, **sized by SNA closeness**) per `DESIGN_GUIDE.md`.
 
 ---
 
@@ -211,8 +212,8 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 7.4 Synthesis — Ask CLara / Knowledge Map / Top 10
 *   **Ask CLara** (`/ask`) — *(Shipped.)* Grounded Q&A over the Commons with source citations. Nested under Synthesis in nav. **Follow-up thread** *(2026-08-05):* same-session conversation history in the Ask UI (client-held; still a separate pipeline from Chatbot). **Scoped Ask from dashboard map** *(2026-08-06):* map node detail shows summary/transcript + participants; asking about that element closes the overlay and continues in Ask grounded only in that document or session (`0016` RPC filters).
-*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel with a link back to its source document. Nested under Synthesis in nav. **Dashboard** map uses Commons items with the same interactive canvas plus **theme wallpapers + theme sprites** (Plant / Ocean / Desert). **`/map` keeps circles on a dark canvas** (no wallpaper / no sprites).
-*   **Top 10** (`/top10`) — *(Shipped 2026-08-17.)* Nested under Synthesis. Three ranked lists (up to 10 each): **What’s humming** (topics from OKF tags + summary theme tags + map Themes/Concepts), **Spaces of difference** (summary tensions/polarities + map contrast edges), **Still asking** (summary key questions + session inquiries). Rank = how many distinct Public sources mention it. Source chips open `/sessions/documents/[id]` or `/sessions/archive/[id]`. Private and drafts stay out. No new LLM call and no shared state with Ask or Reflect — ranking lives in `src/lib/top10/`.
+*   **Knowledge Map** (`/map`) — *(Shipped.)* Force-directed graph from Public Commons documents; click a node for a detail panel (circular **×** to close) with a link back to its source document. **Colour is type; size is SNA closeness** (how central the idea is). Legend + hover definitions. Fullscreen control on the canvas. Nested under Synthesis in nav. **Dashboard** map uses Commons items with the same interactive canvas plus **theme wallpapers + theme sprites** (Plant / Ocean / Desert). **`/map` keeps circles on a dark canvas** (no wallpaper / no sprites).
+*   **Top 10** (`/top10`) — *(Shipped 2026-08-17.)* Nested under Synthesis. Three ranked lists (up to 10 each): **What’s humming** (topics from OKF tags + summary theme tags + map Themes/Concepts), **Spaces of difference** (summary tensions/polarities + map contrast edges), **Still asking** (summary key questions + session inquiries). **Order = SNA closeness** on the Knowledge Map (same measure as circle size), then how many distinct Public sources mention it. Ideas not on the map sort after those that are. Source chips open `/sessions/documents/[id]` or `/sessions/archive/[id]`. Private and drafts stay out. No new LLM call and no shared state with Ask or Reflect — ranking lives in `src/lib/top10/`.
 *   Pipelines stay separate from Chatbot — no shared prompt/state.
 
 ### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has these sections:
@@ -222,7 +223,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **CLara prompts** *(2026-08-06; summarize 2026-08-17):* view and edit the Reflect (Chatbot), Ask CLara, and per-element summary system prompts for the active stream. Overrides live on `streams.reflect_system_prompt` / `streams.ask_system_prompt` / `streams.summarize_system_prompt` (NULL = product default in `src/lib/prompts/defaults.ts`). Reset clears the override. Admin-only for v1; pipelines stay separate. Apply **`0030`** to persist a summarize override. `/admin` sections start collapsed with Expand on the right.
 *   **Map themes** *(shipped 2026-08-07):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only). Apply **`0017_map_themes.sql`**.
 *   **Analytics** *(2026-08-10):* `/admin/analytics` — stream-scoped Commons / membership / graph aggregates (creations by type over time, summary cards). Site-wide pageviews via **Vercel Web Analytics** (not in-app). Ask question counts later.
-*   **Map & Dashboard layout** *(2026-08-10):* `/admin/map-layout` — tune force physics + node/label sizes; live preview; persist on `streams.map_layout_config` (`0022`). Applies to Dashboard map and Knowledge Map.
+*   **Map & Dashboard layout** *(2026-08-10; split 2026-08-17):* `/admin/map-layout` — two tabs (**Knowledge Map** and **Dashboard**), each with its own physics + sizes, live preview, and Save. Hover **?** explains each knob. Persists on `streams.map_layout_config` as `{ knowledgeMap, dashboard }` (legacy flat JSON still applies to both until a tab is saved). Sprite scale is Dashboard-only.
 *   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---

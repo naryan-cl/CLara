@@ -21,6 +21,11 @@ export type Top10Item = {
   detail: string | null;
   /** Distinct Commons places this showed up (same as sources.length). */
   mentionCount: number;
+  /**
+   * Harmonic closeness on the Knowledge Map (0–1). Ideas that are not on
+   * the map score 0 and sort after map-central items.
+   */
+  closeness: number;
   sources: Top10Source[];
 };
 

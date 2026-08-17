@@ -80,7 +80,7 @@ export async function saveDocumentEdits(
       sessionId = session.id;
     }
 
-    const { document, error } = await updateDocument({
+    const { document, error, contentChanged } = await updateDocument({
       id,
       title: title || null,
       type: type || null,
@@ -118,10 +118,9 @@ export async function saveDocumentEdits(
       }
     }
 
-    // Re-index Ask (and refresh OKF / graph) when content is present.
-    // Why: edits used to update documents.content only — Ask kept stale or
-    // empty embeddings until a full re-create.
-    if (document.content?.trim()) {
+    // Re-index Ask / OKF / summary only when the Markdown body changed.
+    // Metadata (External, privacy, nest) must not spend another LLM pass.
+    if (contentChanged && document.content?.trim()) {
       await enqueueDocumentCreated(document.id, document.stream_id);
     }
 

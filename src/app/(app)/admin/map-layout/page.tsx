@@ -1,5 +1,5 @@
 import { MapLayoutAdminPanel } from "@/components/admin/MapLayoutAdminPanel";
-import { getStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
+import { getStreamMapLayouts } from "@/lib/graph/get-map-layout-config";
 import { listGraph } from "@/lib/graph/list-graph";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 
@@ -26,15 +26,15 @@ export default async function AdminMapLayoutPage() {
     );
   }
 
-  const [{ config }, { nodes, edges }] = await Promise.all([
-    getStreamMapLayoutConfig(stream.id),
+  const [{ layouts }, { nodes, edges }] = await Promise.all([
+    getStreamMapLayouts(stream.id),
     listGraph(stream.id),
   ]);
 
   return (
     <MapLayoutAdminPanel
       streamName={stream.name}
-      initialConfig={config}
+      initialLayouts={layouts}
       previewNodes={nodes}
       previewEdges={edges}
     />

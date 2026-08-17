@@ -9,6 +9,10 @@ import {
   normalizeLabel,
   sessionHref,
 } from "./normalize";
+import {
+  closenessByNormalizedLabel,
+  harmonicClosenessById,
+} from "@/lib/graph/closeness";
 import type {
   Top10Board,
   Top10DocumentInput,
@@ -73,17 +77,40 @@ function bestLabel(cluster: Cluster, fallback: string): string {
   return winner;
 }
 
-function toItems(clusters: Map<string, Cluster>): Top10Item[] {
+function closenessForKey(
+  key: string,
+  closenessByLabel: Map<string, number>,
+): number {
+  if (key.includes("↔")) {
+    const parts = key.split("↔").map((part) => part.trim());
+    let best = 0;
+    for (const part of parts) {
+      const score = closenessByLabel.get(part) ?? 0;
+      if (score > best) best = score;
+    }
+    return best;
+  }
+  return closenessByLabel.get(key) ?? 0;
+}
+
+function toItems(
+  clusters: Map<string, Cluster>,
+  closenessByLabel: Map<string, number>,
+): Top10Item[] {
   const ranked = [...clusters.entries()]
     .map(([key, cluster]) => ({
       key,
       label: bestLabel(cluster, key),
       detail: cluster.detail,
       mentionCount: cluster.sources.length,
+      closeness: closenessForKey(key, closenessByLabel),
       sources: cluster.sources,
     }))
     .filter((item) => item.mentionCount > 0)
     .sort((a, b) => {
+      if (b.closeness !== a.closeness) {
+        return b.closeness - a.closeness;
+      }
       if (b.mentionCount !== a.mentionCount) {
         return b.mentionCount - a.mentionCount;
       }
@@ -96,6 +123,7 @@ function toItems(clusters: Map<string, Cluster>): Top10Item[] {
     label: item.label,
     detail: item.detail && item.detail !== item.label ? item.detail : null,
     mentionCount: item.mentionCount,
+    closeness: item.closeness,
     sources: item.sources,
   }));
 }
@@ -134,6 +162,7 @@ function polarityKey(left: string, right: string): string {
 
 /**
  * Rank Top 10 lists from already-loaded Commons evidence.
+ * Order is SNA closeness on the Knowledge Map, then mention count.
  * Pure: no I/O, so it is easy to reason about (and unit-test later).
  */
 export function rankTop10(input: {
@@ -208,10 +237,18 @@ export function rankTop10(input: {
     differences,
   });
 
+  const graph = input.graph;
+  const closenessById = graph
+    ? harmonicClosenessById(graph.nodes, graph.edges)
+    : new Map<string, number>();
+  const closenessByLabel = graph
+    ? closenessByNormalizedLabel(graph.nodes, closenessById, normalizeLabel)
+    : new Map<string, number>();
+
   return {
-    topics: toItems(topics),
-    differences: toItems(differences),
-    questions: toItems(questions),
+    topics: toItems(topics, closenessByLabel),
+    differences: toItems(differences, closenessByLabel),
+    questions: toItems(questions, closenessByLabel),
     documentCount: input.documents.length,
     inquiryCount,
   };

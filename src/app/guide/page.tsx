@@ -304,19 +304,20 @@ export default async function GuidePage() {
             The Knowledge Map (<Code>/map</Code>) is a stream-scoped graph of
             Atoms, Concepts, Frameworks, and Themes, automatically extracted
             from public Commons documents and rendered as an interactive,
-            force-directed canvas. Private documents never feed the map.
+            force-directed canvas. Colour is type; circle size is closeness
+            (how central an idea is). Private documents never feed the map.
           </P>
           <H3>4.3 Top 10</H3>
           <P>
             Top 10 (<Code>/top10</Code>) is a live reading of the Public
             Commons: the topics that keep showing up, the spaces of
             difference (tensions and polarities), and the questions still in
-            the air. Ranked by how often they appear in tags, element
-            summaries, session inquiries, and Knowledge Map contrast links.
-            Each item has source chips that open the original document or
-            session. Private items never appear — same rule as the map.
-            This is a count of what people already wrote, not an Ask CLara
-            answer.
+            the air. Ordered by closeness on the Knowledge Map (how central
+            an idea is in the network), then by how often they appear in
+            tags, summaries, session inquiries, and map links. Each item has
+            source chips that open the original document or session. Private
+            items never appear — same rule as the map. This is a reading of
+            what people already wrote, not an Ask CLara answer.
           </P>
           <Callout label="Try it">
             Ask CLara a question that can only be answered using something

@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { CloseXButton } from "@/components/CloseXButton";
+import { HelpTip } from "@/components/HelpTip";
+import { glossaryForNodeType } from "@/lib/graph/node-glossary";
 import type { GraphNode } from "@/lib/graph/types";
 
 /**
@@ -14,6 +19,8 @@ export function NodeDetailPanel({
   onClose: () => void;
   className?: string;
 }) {
+  const glossary = glossaryForNodeType(node.type);
+
   return (
     <aside
       data-km-detail
@@ -23,16 +30,19 @@ export function NodeDetailPanel({
       onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
-          {node.type}
+        <span className="mt-1 inline-flex items-center gap-1.5 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
+          {glossary ? (
+            <HelpTip
+              variant="term"
+              label={node.type}
+              description={glossary}
+              placement="bottom"
+            />
+          ) : (
+            node.type
+          )}
         </span>
-        <button
-          type="button"
-          className="min-h-11 px-3 text-sm text-ink/50 hover:text-ink"
-          onClick={onClose}
-        >
-          Close
-        </button>
+        <CloseXButton onClick={onClose} />
       </div>
       <h2 className="mt-2 font-display text-lg font-medium text-ink">
         {node.label}

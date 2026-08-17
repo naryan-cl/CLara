@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { HelpTip } from "@/components/HelpTip";
 import { KnowledgeMap } from "@/components/KnowledgeMap";
 import {
   saveMapLayoutConfig,
@@ -10,10 +11,13 @@ import {
 } from "@/app/(app)/admin/actions";
 import {
   DEFAULT_MAP_LAYOUT_CONFIG,
+  MAP_LAYOUT_FIELD_HELP,
   MAP_LAYOUT_RANGES,
   mapLayoutConfigsEqual,
   parseMapLayoutConfig,
   type MapLayoutConfig,
+  type MapLayoutSurface,
+  type StreamMapLayouts,
 } from "@/lib/graph/map-layout-config";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
 
@@ -24,6 +28,7 @@ type FieldSpec =
   | {
       key: keyof Omit<MapLayoutConfig, "radii">;
       label: string;
+      helpKey: string;
       min: number;
       max: number;
       step: number;
@@ -32,6 +37,7 @@ type FieldSpec =
       key: "radii";
       radiusKey: keyof MapLayoutConfig["radii"];
       label: string;
+      helpKey: string;
       min: number;
       max: number;
       step: number;
@@ -41,69 +47,108 @@ const PHYSICS_FIELDS: FieldSpec[] = [
   {
     key: "chargeStrength",
     label: "Repulsion (charge)",
+    helpKey: "chargeStrength",
     ...MAP_LAYOUT_RANGES.chargeStrength,
   },
   {
     key: "linkDistance",
     label: "Link distance",
+    helpKey: "linkDistance",
     ...MAP_LAYOUT_RANGES.linkDistance,
   },
   {
     key: "linkStrength",
     label: "Link strength",
+    helpKey: "linkStrength",
     ...MAP_LAYOUT_RANGES.linkStrength,
   },
   {
     key: "collidePadding",
     label: "Collision padding",
+    helpKey: "collidePadding",
     ...MAP_LAYOUT_RANGES.collidePadding,
   },
 ];
 
-const SIZE_FIELDS: FieldSpec[] = [
+const KNOWLEDGE_MAP_SIZE_FIELDS: FieldSpec[] = [
   {
     key: "radii",
     radiusKey: "Concept",
-    label: "Concept radius",
-    ...MAP_LAYOUT_RANGES.radius,
-  },
-  {
-    key: "radii",
-    radiusKey: "Framework",
-    label: "Framework radius",
-    ...MAP_LAYOUT_RANGES.radius,
-  },
-  {
-    key: "radii",
-    radiusKey: "Theme",
-    label: "Theme radius",
+    label: "High-closeness radius",
+    helpKey: "radiusHighCloseness",
     ...MAP_LAYOUT_RANGES.radius,
   },
   {
     key: "radii",
     radiusKey: "Atom",
-    label: "Atom radius",
+    label: "Low-closeness radius",
+    helpKey: "radiusLowCloseness",
     ...MAP_LAYOUT_RANGES.radius,
-  },
-  {
-    key: "spriteScale",
-    label: "Sprite scale",
-    ...MAP_LAYOUT_RANGES.spriteScale,
   },
   {
     key: "labelFontSize",
     label: "Label font size",
+    helpKey: "labelFontSize",
     ...MAP_LAYOUT_RANGES.labelFontSize,
   },
   {
     key: "labelMaxLength",
     label: "Label max length",
+    helpKey: "labelMaxLength",
     ...MAP_LAYOUT_RANGES.labelMaxLength,
   },
 ];
 
-/** Tiny sample graph when the stream has no nodes yet — preview still works. */
-const SAMPLE_NODES: GraphNode[] = [
+const DASHBOARD_SIZE_FIELDS: FieldSpec[] = [
+  {
+    key: "radii",
+    radiusKey: "Framework",
+    label: "Session radius",
+    helpKey: "radiusSession",
+    ...MAP_LAYOUT_RANGES.radius,
+  },
+  {
+    key: "radii",
+    radiusKey: "Concept",
+    label: "Chat radius",
+    helpKey: "radiusChat",
+    ...MAP_LAYOUT_RANGES.radius,
+  },
+  {
+    key: "radii",
+    radiusKey: "Theme",
+    label: "Record radius",
+    helpKey: "radiusRecord",
+    ...MAP_LAYOUT_RANGES.radius,
+  },
+  {
+    key: "radii",
+    radiusKey: "Atom",
+    label: "Upload radius",
+    helpKey: "radiusUpload",
+    ...MAP_LAYOUT_RANGES.radius,
+  },
+  {
+    key: "spriteScale",
+    label: "Sprite scale",
+    helpKey: "spriteScale",
+    ...MAP_LAYOUT_RANGES.spriteScale,
+  },
+  {
+    key: "labelFontSize",
+    label: "Label font size",
+    helpKey: "labelFontSize",
+    ...MAP_LAYOUT_RANGES.labelFontSize,
+  },
+  {
+    key: "labelMaxLength",
+    label: "Label max length",
+    helpKey: "labelMaxLength",
+    ...MAP_LAYOUT_RANGES.labelMaxLength,
+  },
+];
+
+const SAMPLE_KM_NODES: GraphNode[] = [
   {
     id: "sample-concept",
     streamId: "preview",
@@ -146,7 +191,7 @@ const SAMPLE_NODES: GraphNode[] = [
   },
 ];
 
-const SAMPLE_EDGES: GraphEdge[] = [
+const SAMPLE_KM_EDGES: GraphEdge[] = [
   {
     id: "e1",
     streamId: "preview",
@@ -179,6 +224,82 @@ const SAMPLE_EDGES: GraphEdge[] = [
   },
 ];
 
+const SAMPLE_DASH_NODES: GraphNode[] = [
+  {
+    id: "sample-session",
+    streamId: "preview",
+    type: "Session",
+    label: "Morning circle",
+    description: null,
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "sample-chat",
+    streamId: "preview",
+    type: "Chat",
+    label: "What shifted",
+    description: null,
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "sample-record",
+    streamId: "preview",
+    type: "Record",
+    label: "Plenary take",
+    description: null,
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "sample-upload",
+    streamId: "preview",
+    type: "Upload",
+    label: "Reading notes",
+    description: null,
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+];
+
+const SAMPLE_DASH_EDGES: GraphEdge[] = [
+  {
+    id: "de1",
+    streamId: "preview",
+    sourceNodeId: "sample-chat",
+    targetNodeId: "sample-session",
+    relationship: "nested",
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "de2",
+    streamId: "preview",
+    sourceNodeId: "sample-record",
+    targetNodeId: "sample-session",
+    relationship: "nested",
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "de3",
+    streamId: "preview",
+    sourceNodeId: "sample-upload",
+    targetNodeId: "sample-chat",
+    relationship: "related",
+    sourceDocumentId: null,
+    createdAt: "",
+    updatedAt: "",
+  },
+];
+
 function fieldValue(config: MapLayoutConfig, field: FieldSpec): number {
   if (field.key === "radii") {
     return config.radii[field.radiusKey];
@@ -200,35 +321,91 @@ function setFieldValue(
   return { ...config, [field.key]: value };
 }
 
+function FieldInput({
+  field,
+  value,
+  disabled,
+  onChange,
+}: {
+  field: FieldSpec;
+  value: number;
+  disabled: boolean;
+  onChange: (raw: string) => void;
+}) {
+  const help = MAP_LAYOUT_FIELD_HELP[field.helpKey] ?? "";
+  return (
+    <div className="block text-sm text-ink">
+      <span className="inline-flex items-center gap-1.5">
+        {field.label}
+        {help ? <HelpTip description={help} /> : null}
+      </span>
+      <input
+        type="number"
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={field.label}
+        className={inputClassName}
+      />
+    </div>
+  );
+}
+
 export function MapLayoutAdminPanel({
   streamName,
-  initialConfig,
+  initialLayouts,
   previewNodes,
   previewEdges,
 }: {
   streamName: string;
-  initialConfig: MapLayoutConfig;
+  initialLayouts: StreamMapLayouts;
   previewNodes: GraphNode[];
   previewEdges: GraphEdge[];
 }) {
   const router = useRouter();
-  const [config, setConfig] = useState(initialConfig);
+  const [surface, setSurface] = useState<MapLayoutSurface>("knowledgeMap");
+  const [mapConfig, setMapConfig] = useState(initialLayouts.knowledgeMap);
+  const [dashConfig, setDashConfig] = useState(initialLayouts.dashboard);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const dirty = !mapLayoutConfigsEqual(config, initialConfig);
+  const config = surface === "knowledgeMap" ? mapConfig : dashConfig;
+  const savedConfig =
+    surface === "knowledgeMap"
+      ? initialLayouts.knowledgeMap
+      : initialLayouts.dashboard;
+  const dirty = !mapLayoutConfigsEqual(config, savedConfig);
   const isDefault = mapLayoutConfigsEqual(config, DEFAULT_MAP_LAYOUT_CONFIG);
-
-  const nodes = previewNodes.length > 0 ? previewNodes : SAMPLE_NODES;
-  const edges = previewNodes.length > 0 ? previewEdges : SAMPLE_EDGES;
-
   const liveConfig = useMemo(() => parseMapLayoutConfig(config), [config]);
+
+  const isDashboard = surface === "dashboard";
+  const sizeFields = isDashboard
+    ? DASHBOARD_SIZE_FIELDS
+    : KNOWLEDGE_MAP_SIZE_FIELDS;
+  const nodes = isDashboard
+    ? SAMPLE_DASH_NODES
+    : previewNodes.length > 0
+      ? previewNodes
+      : SAMPLE_KM_NODES;
+  const edges = isDashboard
+    ? SAMPLE_DASH_EDGES
+    : previewNodes.length > 0
+      ? previewEdges
+      : SAMPLE_KM_EDGES;
+
+  function setActiveConfig(next: MapLayoutConfig) {
+    if (surface === "knowledgeMap") setMapConfig(next);
+    else setDashConfig(next);
+  }
 
   function onNumberChange(field: FieldSpec, raw: string) {
     const value = Number(raw);
     if (!Number.isFinite(value)) return;
-    setConfig((current) => setFieldValue(current, field, value));
+    setActiveConfig(setFieldValue(config, field, value));
     setMessage(null);
     setError(null);
   }
@@ -237,12 +414,16 @@ export function MapLayoutAdminPanel({
     setError(null);
     setMessage(null);
     startTransition(async () => {
-      const result = await saveMapLayoutConfig(config);
+      const result = await saveMapLayoutConfig(surface, config);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setMessage("Saved — Dashboard and Knowledge Map use these knobs.");
+      setMessage(
+        surface === "knowledgeMap"
+          ? "Saved — Knowledge Map uses these knobs."
+          : "Saved — Dashboard map uses these knobs.",
+      );
       router.refresh();
     });
   }
@@ -251,13 +432,13 @@ export function MapLayoutAdminPanel({
     setError(null);
     setMessage(null);
     startTransition(async () => {
-      const result = await resetMapLayoutConfig();
+      const result = await resetMapLayoutConfig(surface);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setConfig(DEFAULT_MAP_LAYOUT_CONFIG);
-      setMessage("Reset to product defaults.");
+      setActiveConfig(DEFAULT_MAP_LAYOUT_CONFIG);
+      setMessage("Reset this tab to product defaults.");
       router.refresh();
     });
   }
@@ -279,12 +460,46 @@ export function MapLayoutAdminPanel({
           Map &amp; Dashboard layout
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Play with physics and sizes for {streamName}. Changes preview live
-          below; Save applies them to the Dashboard map and Knowledge Map.
-          Apply migration{" "}
-          <span className="font-mono text-xs">0022_map_layout_config</span>{" "}
-          first.
+          Tune physics and sizes for {streamName}. Knowledge Map and Dashboard
+          each have their own knobs — save the tab you are on. Hover the{" "}
+          <span className="font-mono text-xs">?</span> next to a field for what
+          it does. The preview updates as you type.
         </p>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Layout surface"
+        className="flex flex-wrap gap-1 border-b border-cloud"
+      >
+        {(
+          [
+            ["knowledgeMap", "Knowledge Map"],
+            ["dashboard", "Dashboard"],
+          ] as const
+        ).map(([id, label]) => {
+          const selected = surface === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={`-mb-px border-b-2 px-3 py-2 font-mono text-[11px] uppercase tracking-wide transition-colors ${
+                selected
+                  ? "border-forest text-forest"
+                  : "border-transparent text-ink/45 hover:text-ink/70"
+              }`}
+              onClick={() => {
+                setSurface(id);
+                setMessage(null);
+                setError(null);
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -295,24 +510,13 @@ export function MapLayoutAdminPanel({
             </h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {PHYSICS_FIELDS.map((field) => (
-                <label
+                <FieldInput
                   key={field.key === "radii" ? field.radiusKey : field.key}
-                  className="block text-sm text-ink"
-                >
-                  {field.label}
-                  <input
-                    type="number"
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    value={fieldValue(config, field)}
-                    disabled={pending}
-                    onChange={(event) =>
-                      onNumberChange(field, event.target.value)
-                    }
-                    className={inputClassName}
-                  />
-                </label>
+                  field={field}
+                  value={fieldValue(config, field)}
+                  disabled={pending}
+                  onChange={(raw) => onNumberChange(field, raw)}
+                />
               ))}
             </div>
           </section>
@@ -322,29 +526,18 @@ export function MapLayoutAdminPanel({
               Sizes
             </h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {SIZE_FIELDS.map((field) => (
-                <label
+              {sizeFields.map((field) => (
+                <FieldInput
                   key={
                     field.key === "radii"
                       ? `r-${field.radiusKey}`
                       : field.key
                   }
-                  className="block text-sm text-ink"
-                >
-                  {field.label}
-                  <input
-                    type="number"
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    value={fieldValue(config, field)}
-                    disabled={pending}
-                    onChange={(event) =>
-                      onNumberChange(field, event.target.value)
-                    }
-                    className={inputClassName}
-                  />
-                </label>
+                  field={field}
+                  value={fieldValue(config, field)}
+                  disabled={pending}
+                  onChange={(raw) => onNumberChange(field, raw)}
+                />
               ))}
             </div>
           </section>
@@ -356,7 +549,7 @@ export function MapLayoutAdminPanel({
               onClick={onSave}
               className="rounded-md border border-ink bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
             >
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Saving…" : "Save this tab"}
             </button>
             <button
               type="button"
@@ -364,7 +557,7 @@ export function MapLayoutAdminPanel({
               onClick={onReset}
               className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm text-ink disabled:opacity-50"
             >
-              Reset to defaults
+              Reset this tab
             </button>
           </div>
 
@@ -379,15 +572,24 @@ export function MapLayoutAdminPanel({
             Live preview
           </h2>
           <p className="text-xs text-ink/50">
-            {previewNodes.length > 0
-              ? "Using this stream’s Knowledge Map nodes."
-              : "Sample nodes (stream graph is empty)."}
+            {isDashboard
+              ? "Sample Commons types (Session, Chat, Record, Upload) with Plant sprites."
+              : previewNodes.length > 0
+                ? "Using this stream’s Knowledge Map nodes."
+                : "Sample nodes (stream graph is empty)."}
           </p>
           <div className="min-h-[320px] flex-1 overflow-hidden rounded-lg border border-cloud bg-forest-deep">
             <KnowledgeMap
               nodes={nodes}
               edges={edges}
               hideDetailPanel
+              hideChrome
+              showLegend
+              allowFullscreen={false}
+              legendVariant={isDashboard ? "dashboard" : "knowledgeMap"}
+              wallpaperTheme={isDashboard ? "plant" : null}
+              wallpaperSeed="admin-preview"
+              useSprites={isDashboard}
               layoutConfig={liveConfig}
               className="h-full min-h-[320px]"
             />

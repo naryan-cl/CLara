@@ -16,8 +16,12 @@ import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-create
 import {
   parseMapLayoutConfig,
   type MapLayoutConfig,
+  type MapLayoutSurface,
 } from "@/lib/graph/map-layout-config";
-import { updateStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
+import {
+  getStreamMapLayouts,
+  updateStreamMapLayouts,
+} from "@/lib/graph/get-map-layout-config";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -213,15 +217,24 @@ export async function backfillMissingEmbeddings(): Promise<BackfillResult> {
   return { ok: true, queued: documents.length };
 }
 
-/** Persist stream map physics + size knobs (Dashboard + Knowledge Map). */
+/** Persist physics + size knobs for one surface (Knowledge Map or Dashboard). */
 export async function saveMapLayoutConfig(
+  surface: MapLayoutSurface,
   raw: MapLayoutConfig,
 ): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return auth;
 
-  const config = parseMapLayoutConfig(raw);
-  const { error } = await updateStreamMapLayoutConfig(auth.streamId, config);
+  const { layouts, error: loadError } = await getStreamMapLayouts(auth.streamId);
+  if (loadError) {
+    return { ok: false, error: loadError };
+  }
+
+  const next = {
+    ...layouts,
+    [surface]: parseMapLayoutConfig(raw),
+  };
+  const { error } = await updateStreamMapLayouts(auth.streamId, next);
   if (error) {
     return { ok: false, error };
   }
@@ -233,12 +246,23 @@ export async function saveMapLayoutConfig(
   return { ok: true };
 }
 
-/** Clear overrides so product defaults apply again. */
-export async function resetMapLayoutConfig(): Promise<ActionResult> {
+/** Reset one surface to product defaults (the other tab is unchanged). */
+export async function resetMapLayoutConfig(
+  surface: MapLayoutSurface,
+): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return auth;
 
-  const { error } = await updateStreamMapLayoutConfig(auth.streamId, null);
+  const { layouts, error: loadError } = await getStreamMapLayouts(auth.streamId);
+  if (loadError) {
+    return { ok: false, error: loadError };
+  }
+
+  const next = {
+    ...layouts,
+    [surface]: parseMapLayoutConfig(null),
+  };
+  const { error } = await updateStreamMapLayouts(auth.streamId, next);
   if (error) {
     return { ok: false, error };
   }

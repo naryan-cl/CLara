@@ -54,7 +54,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       : { state: null, error: null };
 
   const layoutResult = stream
-    ? await getStreamMapLayoutConfig(stream.id)
+    ? await getStreamMapLayoutConfig(stream.id, "dashboard")
     : { config: null, error: null };
 
   if (!stream || !user) {

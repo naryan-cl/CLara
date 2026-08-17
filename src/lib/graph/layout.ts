@@ -11,6 +11,7 @@ import {
   DEFAULT_MAP_LAYOUT_CONFIG,
   type MapLayoutConfig,
 } from "./map-layout-config";
+import { closenessRadiiByNodeId } from "./closeness";
 
 export type LaidOutNode = GraphNode & { x: number; y: number };
 
@@ -22,6 +23,8 @@ export type SimNode = GraphNode & {
   vy: number;
   fx: number | null;
   fy: number | null;
+  /** Draw / collide radius — closeness on `/map`, type on the dashboard. */
+  radius: number;
 };
 
 const SIMULATION_TICKS = 300;
@@ -45,11 +48,19 @@ export function radiusFor(
   return config.radii.fallback;
 }
 
+export function applySimRadii(
+  simNodes: SimNode[],
+  radiusById: Map<string, number> | null,
+  config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
+): void {
+  for (const node of simNodes) {
+    node.radius = radiusById?.get(node.id) ?? radiusFor(node.type, config);
+  }
+}
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
-
-type SeedNode = GraphNode & { x?: number; y?: number };
 
 function findExistingNeighbor(
   nodeId: string,
@@ -99,6 +110,7 @@ export function seedSimNodes(
         vy: 0,
         fx: prior.fx,
         fy: prior.fy,
+        radius: prior.radius,
       };
     }
 
@@ -115,6 +127,7 @@ export function seedSimNodes(
           vy: 0,
           fx: null,
           fy: null,
+          radius: radiusFor(node.type),
         };
       }
     }
@@ -128,6 +141,7 @@ export function seedSimNodes(
       vy: 0,
       fx: null,
       fy: null,
+      radius: radiusFor(node.type),
     };
   });
 }
@@ -162,10 +176,7 @@ export function createGraphSimulation(
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide(
-        (d) =>
-          radiusFor((d as SimNode).type, config) + config.collidePadding,
-      ),
+      forceCollide((d) => (d as SimNode).radius + config.collidePadding),
     );
 }
 
@@ -184,7 +195,8 @@ export function computeGraphLayout(
   height: number,
   config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
 ): LaidOutNode[] {
-  const simNodes: SeedNode[] = seedSimNodes(nodes, width, height);
+  const simNodes = seedSimNodes(nodes, width, height);
+  applySimRadii(simNodes, closenessRadiiByNodeId(nodes, edges, config), config);
 
   const simLinks = edges.map((edge) => ({
     source: edge.sourceNodeId,
@@ -195,7 +207,7 @@ export function computeGraphLayout(
     .force(
       "link",
       forceLink(simLinks)
-        .id((d) => (d as SeedNode).id)
+        .id((d) => (d as SimNode).id)
         .distance(config.linkDistance)
         .strength(config.linkStrength),
     )
@@ -203,10 +215,7 @@ export function computeGraphLayout(
     .force("center", forceCenter(width / 2, height / 2))
     .force(
       "collide",
-      forceCollide(
-        (d) =>
-          radiusFor((d as SeedNode).type, config) + config.collidePadding,
-      ),
+      forceCollide((d) => (d as SimNode).radius + config.collidePadding),
     )
     .stop();
 

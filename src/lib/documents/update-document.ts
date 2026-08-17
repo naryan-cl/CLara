@@ -7,8 +7,13 @@ import type {
 } from "@/lib/documents/types";
 import {
   parseListensJobMeta,
+  stripListensJobMeta,
   withListensJobMeta,
 } from "@/lib/listens/job-meta";
+
+function comparableDocumentBody(value: string): string {
+  return stripListensJobMeta(value).replace(/\r\n/g, "\n").trimEnd();
+}
 
 export type UpdateDocumentInput = {
   id: string;
@@ -21,12 +26,20 @@ export type UpdateDocumentInput = {
   isExternal?: boolean;
 };
 
+export type UpdateDocumentResult = {
+  document: CommonsDocument | null;
+  error: string | null;
+  /** True only when the Markdown body changed — callers use this to skip re-summarize. */
+  contentChanged: boolean;
+};
+
 export async function updateDocument(
   input: UpdateDocumentInput,
-): Promise<{ document: CommonsDocument | null; error: string | null }> {
+): Promise<UpdateDocumentResult> {
   const supabase = await createClient();
 
   const patch: Record<string, unknown> = {};
+  let contentChanged = false;
   if (input.title !== undefined) {
     patch.title = input.title?.trim() || null;
   }
@@ -40,15 +53,23 @@ export async function updateDocument(
       .select("content")
       .eq("id", input.id)
       .maybeSingle();
-    const meta = existing?.content
-      ? parseListensJobMeta(String(existing.content))
+    const existingContent =
+      existing?.content != null ? String(existing.content) : "";
+    const meta = existingContent
+      ? parseListensJobMeta(existingContent)
       : null;
     if (meta) {
       nextContent = withListensJobMeta(nextContent, meta);
     }
-    patch.content = nextContent;
-    // Clear so the summarize job rewrites it and the UI shows Summarizing…
-    patch.summary = null;
+    // Compare the visible body so a metadata-only save (External, privacy,
+    // nest) does not look like a rewrite and burn a summarize call.
+    const existingBody = comparableDocumentBody(existingContent);
+    const nextBody = comparableDocumentBody(nextContent);
+    if (existingBody !== nextBody) {
+      patch.content = nextContent;
+      patch.summary = null;
+      contentChanged = true;
+    }
   }
   if (input.privacyStatus !== undefined) {
     patch.privacy_status = input.privacyStatus;
@@ -85,15 +106,16 @@ export async function updateDocument(
     .maybeSingle();
 
   if (error) {
-    return { document: null, error: error.message };
+    return { document: null, error: error.message, contentChanged: false };
   }
 
   if (!data) {
     return {
       document: null,
       error: "Document not found, or you don't have permission to edit it.",
+      contentChanged: false,
     };
   }
 
-  return { document: data as CommonsDocument, error: null };
+  return { document: data as CommonsDocument, error: null, contentChanged };
 }
