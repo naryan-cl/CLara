@@ -12,6 +12,7 @@ import {
   themeAccentButtonStyle,
   type MapThemeId,
 } from "@/lib/map-theme";
+import { useIsPhone } from "@/lib/ui/use-is-phone";
 
 type AskHostMode = "minimized" | "conversation" | "detail";
 
@@ -30,7 +31,9 @@ const ASK_MINIMIZED_HEIGHT = 148;
  * Modes:
  * - minimized: title + entry only
  * - conversation: expanded thread (auto after ask / handoff)
- * - detail: element opens inside the host; title changes; entry stays at bottom
+ * - detail: element opens inside the host; on phone this fills the map
+ *   view as an overlay so it cannot paint off-screen. Title changes;
+ *   Ask entry stays at the bottom.
  *
  * Clicking away re-minimizes when there is no active conversation (and no
  * open element detail). Expanded panes are resizable (left + bottom grips).
@@ -97,6 +100,7 @@ export function AskClaraPanel({
     null,
   );
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const isPhone = useIsPhone();
 
   const { size, dragging, startDrag } = useResizablePanel({
     storageKey: "clara.dashboard.askPanel",
@@ -216,7 +220,11 @@ export function AskClaraPanel({
     canEdit &&
     (detailKind === "document" || detailKind === "session");
 
-  const panelWidth = Math.min(size.width, typeof window !== "undefined" ? window.innerWidth - 32 : size.width);
+  const fillOverlay = isPhone && mode === "detail";
+  const panelWidth = Math.min(
+    size.width,
+    typeof window !== "undefined" ? window.innerWidth - 32 : size.width,
+  );
   const panelHeight =
     mode === "minimized"
       ? ASK_MINIMIZED_HEIGHT
@@ -231,20 +239,26 @@ export function AskClaraPanel({
   return (
     <section
       ref={rootRef}
-      className={`organic-ask relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
+      className={`organic-ask relative flex min-h-0 min-w-0 flex-col overflow-hidden border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
         mode === "minimized"
           ? "max-sm:!h-auto max-sm:!max-h-none"
-          : "max-sm:!h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))] max-sm:!max-h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))]"
+          : mode === "detail"
+            ? "max-sm:!h-full max-sm:!w-full max-sm:!max-h-none max-sm:!max-w-none max-sm:flex-1"
+            : "max-sm:!h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))] max-sm:!max-h-[min(82dvh,calc(100dvh-var(--clara-header-height)-2.5rem))]"
       } ${
         dragging
           ? ""
           : "transition-[width,height,max-height] duration-[var(--duration-ui)] ease-[var(--ease)]"
       }`}
       style={{
-        width: panelWidth,
-        height: panelHeight,
-        maxWidth: "min(100vw - 2rem, 45rem)",
-        maxHeight: mode === "minimized" ? undefined : "min(85vh, 56rem)",
+        width: fillOverlay ? "100%" : panelWidth,
+        height: fillOverlay ? "100%" : panelHeight,
+        maxWidth: fillOverlay ? "none" : "min(100vw - 2rem, 45rem)",
+        maxHeight: fillOverlay
+          ? "none"
+          : mode === "minimized"
+            ? undefined
+            : "min(85vh, 56rem)",
         paddingBottom:
           keyboardInset > 0 ? keyboardInset : undefined,
       }}

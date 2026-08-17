@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   loadCommonsDetail,
@@ -14,7 +15,9 @@ import { SessionEditor } from "@/components/SessionEditor";
 import type { CommonsListItem } from "@/lib/commons/types";
 
 /**
- * Commons detail popup (close via ✕ or backdrop).
+ * Commons detail overlay (close via ✕, backdrop, or Escape).
+ * Portaled to `document.body` so page overflow / transform cannot clip it.
+ * On phone it fills the view below the header so it cannot paint off-screen.
  * Parent remounts via key when selection changes so load state resets cleanly.
  */
 export function CommonsDetailPopup({
@@ -29,6 +32,27 @@ export function CommonsDetailPopup({
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,8 +71,10 @@ export function CommonsDetailPopup({
     };
   }, [item.kind, item.id]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-x-0 bottom-0 top-[var(--clara-header-height)] z-[60] flex p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:inset-0 sm:items-center sm:justify-center sm:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-ink/40 animate-overlay-fade motion-reduce:animate-none"
@@ -59,15 +85,15 @@ export function CommonsDetailPopup({
         role="dialog"
         aria-modal="true"
         aria-label={item.title}
-        className="relative z-10 flex max-h-[90dvh] w-full max-w-3xl flex-col rounded-t-lg border border-cloud bg-paper shadow-soft animate-fade-rise motion-reduce:animate-none sm:rounded-lg"
+        className="relative z-10 flex h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-cloud bg-paper shadow-soft animate-fade-rise motion-reduce:animate-none sm:h-auto sm:max-h-[min(90dvh,56rem)] sm:max-w-3xl"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-cloud px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-cloud px-4 py-3">
           <p className="truncate font-mono text-[11px] uppercase tracking-wide text-ink/40">
             {item.kind === "session" ? "Session" : item.elementType}
           </p>
           <button
             type="button"
-            className="rounded-md px-2.5 py-1.5 text-sm text-ink/50 hover:text-danger"
+            className="min-h-11 min-w-11 rounded-md px-2.5 py-1.5 text-sm text-ink/50 hover:text-danger"
             onClick={onClose}
             aria-label="Close"
           >
@@ -75,7 +101,7 @@ export function CommonsDetailPopup({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-5">
           {loading ? (
             <p className="text-sm text-ink/50">Loading…</p>
           ) : null}
@@ -84,7 +110,7 @@ export function CommonsDetailPopup({
           ) : null}
 
           {detail?.kind === "document" ? (
-            <div className="flex flex-col gap-8">
+            <div className="flex min-w-0 flex-col gap-8">
               <DocumentEditor
                 document={detail.document}
                 sessions={detail.sessions}
@@ -117,7 +143,7 @@ export function CommonsDetailPopup({
           ) : null}
 
           {detail?.kind === "session" ? (
-            <div className="flex flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-6">
               <SessionEditor
                 session={detail.session}
                 nestedDocuments={detail.documents}
@@ -185,6 +211,7 @@ export function CommonsDetailPopup({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

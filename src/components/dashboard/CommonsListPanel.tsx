@@ -78,7 +78,7 @@ export function CommonsListPanel({
 
   return (
     <aside
-      className={`organic-list relative flex flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none max-sm:!h-[min(62dvh,calc(100dvh-var(--clara-header-height)-10rem))] max-sm:!w-[calc(100vw-2rem)] max-sm:!max-w-none ${
+      className={`organic-list relative flex min-w-0 flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none max-sm:!h-[min(62dvh,calc(100dvh-var(--clara-header-height)-10rem))] max-sm:!w-full max-sm:!max-w-none ${
         dragging ? "" : ""
       }`}
       style={{

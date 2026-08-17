@@ -38,11 +38,13 @@ export default async function CommonsPage() {
           <p className="mt-2 text-sm text-ink/60">
             If this mentions <span className="font-mono">infinite recursion</span>{" "}
             on <span className="font-mono">documents</span>, run migration{" "}
-            <span className="font-mono">0013_fix_document_sessions_rls.sql</span>{" "}
-            in the Supabase SQL editor. If it mentions missing tables (comments /
-            profiles), run{" "}
-            <span className="font-mono">0011_comments_and_attendee_edit.sql</span>.
-            If it mentions a missing <span className="font-mono">summary</span>{" "}
+            <span className="font-mono">0013_fix_document_sessions_rls.sql</span>
+            . On <span className="font-mono">sessions</span> (often while
+            deleting), run{" "}
+            <span className="font-mono">0029_fix_session_delete_rls.sql</span>
+            . If it mentions missing tables (comments / profiles), run{" "}
+            <span className="font-mono">0011_comments_and_attendee_edit.sql</span>
+            . If it mentions a missing <span className="font-mono">summary</span>{" "}
             column, run{" "}
             <span className="font-mono">0028_document_summary.sql</span>.
           </p>

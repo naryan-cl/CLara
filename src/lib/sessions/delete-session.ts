@@ -113,6 +113,13 @@ export async function deleteSession(
     .maybeSingle();
 
   if (error) {
+    if (/infinite recursion/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "Could not delete this session because of a database policy loop. Apply migration 0029_fix_session_delete_rls.sql in the Supabase SQL editor, then try again.",
+      };
+    }
     return { ok: false, error: error.message };
   }
   if (!data) {

@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0028`**). **`0026`** session delete RLS; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail).
+5. Apply newer Supabase migrations if missing (`0011`–**`0029`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -82,9 +82,10 @@
 *   **`0023_session_edit_rls.sql`** — session UPDATE for attendees + nested document authors. **Required for dashboard session rename.**
 *   **`0024_auto_join_camp_clai.sql`** — new `auth.users` auto-join Camp CLAI as `member`; backfill existing accounts; `ensure_my_camp_clai_membership()` self-heal RPC. **Required so new colleagues are not stuck with "no active stream".**
 *   **`0026_session_delete_rls.sql`** — DELETE policies on `sessions` for host, stream admins, attendees, and nested document authors (same gate as session edit). **Required for Commons / dashboard session Delete.**
+*   **`0029_fix_session_delete_rls.sql`** — `is_session_attendee` + `is_nested_session_document_author` SECURITY DEFINER helpers; rewrites 0023 UPDATE + 0026 DELETE attendee/nested-author policies so they do not recurse through `session_attendees` / `documents` RLS. **Required if Delete shows “infinite recursion detected in policy for relation sessions”.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0028** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0029** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -145,6 +146,8 @@
 
 ### Current phase
 *   **CLara tab + app icon (2026-08-17):** Replaced the default Next.js/Vercel triangle (`src/app/favicon.ico`) with the CLara flower-and-C mark. File conventions: `src/app/icon.png` (browser tab / high-DPI), `src/app/apple-icon.png` (Add to Home Screen), `src/app/favicon.ico` (legacy `/favicon.ico` request). Auth proxy skips those paths so the icon is not gated. Works on Vercel Hobby without a custom domain. **Manual test:** (1) `npm run dev` → tab shows the green flower + C, not the Vercel triangle (hard-refresh or private window if cached); (2) after deploy to `clara-cl.vercel.app`, same check; (3) optional: iOS Safari Share → Add to Home Screen → CLara icon.
+*   **Session delete RLS recursion (2026-08-17):** Delete failed with `infinite recursion detected in policy for relation "sessions"`. 0026 (and 0023 UPDATE) queried `session_attendees` / `documents` under RLS; those policies query `sessions` again. **`0029_fix_session_delete_rls.sql`** uses SECURITY DEFINER helpers (same pattern as 0013 / 0025). **Apply `0029` in Supabase.** **Manual test:** (1) run `0029`; (2) Dashboard or Commons → session → Delete → Keep documents; (3) another session → Delete session and documents; (4) attendee (not host/admin) can still delete a session they attended.
+
 *   **Commons phone overlay (2026-08-16):** Clicking a Commons card (or a dashboard map/list node) no longer opens a desktop-sized popup that paints off-screen. `/commons` `CommonsDetailPopup` is portaled to `document.body` and fills the view below the header (inset overlay, inner scroll, safe-area, Escape/backdrop close). Dashboard detail on phone fills the map viewport over a dimmed backdrop; Ask stays a centered organic blob when minimized. List panel uses parent width instead of `100vw`. Markdown in popups wraps; code/tables scroll horizontally. **Manual test:** (1) phone ~390px → Commons → tap a card → overlay covers the list, nothing off-screen, body scrolls inside; (2) close via ✕ / backdrop / Escape; (3) desktop Commons still a centered modal; (4) dashboard tap a sprite → detail overlay on the map, Add/List still reachable after close; (5) long transcript scrolls inside the overlay.
 
 *   **Ask CLara organic blob restored (2026-08-16):** Phone chrome no longer uses a square-bottom **bottom sheet**. Ask keeps `.organic-ask` on all breakpoints (the `sm:` prefix never applied — custom `@layer` utilities do not get variants; they are now `@utility`). Phone: floating blob **centered** with side/bottom inset so Add/List stay tappable. Desktop: top-right, same asymmetric radius. List and Ask/detail stay mutually exclusive on phone; resize grips stay desktop-only. **Manual test:** (1) desktop Dashboard — Ask is an uneven field shape, not a rectangle; (2) phone ~390px — Ask is centered, not stuck left, organic corners on all sides; (3) Add/List still tappable with Ask minimized; (4) open a node — detail still opens in the Ask host.

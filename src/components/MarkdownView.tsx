@@ -16,7 +16,9 @@ export function MarkdownView({
   return (
     <div
       className={[
-        "text-sm leading-6 text-ink",
+        "min-w-0 break-words text-sm leading-6 text-ink",
+        "[&_pre]:max-w-full [&_pre]:overflow-x-auto",
+        "[&_img]:max-w-full [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
         "[&_h1]:mb-3 [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-medium",
         "[&_h2]:mb-2 [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-medium",
         "[&_h3]:mb-2 [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-medium",

@@ -367,9 +367,15 @@ export function DashboardGrid({
           bottom-centered Ask blob does not cover it. */}
       <div
         ref={listChromeRef}
-        className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5"
+        className={`pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5 ${
+          listOpen ? "max-sm:right-4 max-sm:items-stretch" : ""
+        }`}
       >
-        <div className="pointer-events-auto flex flex-col items-start gap-3">
+        <div
+          className={`pointer-events-auto flex flex-col items-start gap-3 ${
+            listOpen ? "max-sm:w-full" : ""
+          }`}
+        >
           <div className="flex items-center gap-3">
             <AddFab menuAlign="start" />
             <ListFab
@@ -410,9 +416,30 @@ export function DashboardGrid({
         <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
       </div>
 
-      {/* Ask host — floating organic blob, centered on phone, top-right on sm+. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-4 sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20 sm:block sm:px-0">
-        <div className="pointer-events-auto">
+      {/* Ask host — floating organic blob, centered on phone, top-right on sm+.
+          Phone detail: fill the map view so the panel cannot paint off-screen. */}
+      <div
+        className={
+          selectedItem || selectedNode
+            ? "pointer-events-none absolute inset-0 z-40 flex items-stretch p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20 sm:block sm:p-0"
+            : "pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-4 sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20 sm:block sm:px-0"
+        }
+      >
+        {selectedItem || selectedNode ? (
+          <button
+            type="button"
+            className="pointer-events-auto absolute inset-0 bg-ink/40 sm:hidden"
+            aria-label="Close detail"
+            onClick={clearSelection}
+          />
+        ) : null}
+        <div
+          className={
+            selectedItem || selectedNode
+              ? "pointer-events-auto relative z-10 flex h-full min-h-0 min-w-0 w-full flex-col sm:h-auto sm:w-auto"
+              : "pointer-events-auto relative z-10"
+          }
+        >
           <AskClaraPanel
             formKey={askHandoff?.key ?? "default"}
             scope={askScope}
