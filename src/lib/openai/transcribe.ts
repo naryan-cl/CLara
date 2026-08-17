@@ -14,6 +14,7 @@ import {
   openaiAudioUploadMeta,
   type OpenAiAudioUploadMeta,
 } from "@/lib/listens/audio-format";
+import { stripWhisperArtifacts } from "@/lib/listens/strip-whisper-artifacts";
 
 /**
  * Sync Receives / legacy Listens body-size cap (Vercel ~4.5MB request limit).
@@ -182,7 +183,7 @@ async function transcribeWithModels(
         file: await nextFile(),
         model,
       });
-      const text = transcription.text?.trim() ?? "";
+      const text = stripWhisperArtifacts(transcription.text?.trim() ?? "");
       if (text) {
         return {
           ok: true,
@@ -253,7 +254,9 @@ async function transcribeDiarized(
   }));
 
   const formatted = formatTranscriptMarkdown(segments, 0);
-  const text = formatted || (transcription.text?.trim() ?? "");
+  const text = stripWhisperArtifacts(
+    formatted || (transcription.text?.trim() ?? ""),
+  );
   if (!text) {
     return { ok: false, error: "No speech detected in the recording." };
   }
@@ -291,7 +294,9 @@ async function transcribeWhisperVerbose(
   }));
 
   const formatted = formatTranscriptMarkdown(segments, 0);
-  const text = formatted || (transcription.text?.trim() ?? "");
+  const text = stripWhisperArtifacts(
+    formatted || (transcription.text?.trim() ?? ""),
+  );
   if (!text) {
     return { ok: false, error: "No speech detected in the recording." };
   }
@@ -313,7 +318,7 @@ async function transcribeWhisperPlain(
     file,
     model,
   });
-  const text = transcription.text?.trim() ?? "";
+  const text = stripWhisperArtifacts(transcription.text?.trim() ?? "");
   if (!text) {
     return { ok: false, error: "No speech detected in the recording." };
   }

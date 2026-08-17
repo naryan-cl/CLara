@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 import { listensFileExtension } from "@/lib/listens/audio-format";
+import { requestScreenWakeLock } from "@/lib/listens/screen-wake-lock";
 
 /** Brief celebration before handing off to the dashboard (matches Reflect). */
 const THANKS_NAV_MS = 2400;
@@ -78,6 +79,16 @@ function isAppleTouchDevice(): boolean {
   const ua = navigator.userAgent;
   if (/iPad|iPhone|iPod/i.test(ua)) return true;
   return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+/** Phones/tablets that will likely freeze Record if the screen sleeps. */
+function isLikelyMobileRecord(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") {
+    return false;
+  }
+  if (isAppleTouchDevice()) return true;
+  if (/Android/i.test(navigator.userAgent)) return true;
+  return navigator.maxTouchPoints > 1 && window.innerWidth < 800;
 }
 
 function isSystemAudioCaptureAvailable(): boolean {
@@ -328,9 +339,14 @@ export const ListensRecorder = forwardRef<
   const [audioHint, setAudioHint] = useState(
     'Only works with Chrome or Edge — pick a Chrome Tab and enable share audio (“Share tab audio” on Mac, or “Also share system audio” on Windows).',
   );
+  const [mobileRecordHint, setMobileRecordHint] = useState(false);
+  const [screenStayAwake, setScreenStayAwake] = useState<
+    "off" | "held" | "unavailable"
+  >("off");
 
   useEffect(() => {
     setAudioHint(tabSystemAudioHint());
+    setMobileRecordHint(isLikelyMobileRecord());
     const systemAudioOk = isSystemAudioCaptureAvailable();
     setSystemAudioAvailable(systemAudioOk);
     // Phones cannot share tab audio; default the checkbox off there so Record
@@ -372,6 +388,43 @@ export const ListensRecorder = forwardRef<
   relatedSessionIdsRef.current = relatedSessionIds;
   const onPhaseChangeRef = useRef(onPhaseChange);
   onPhaseChangeRef.current = onPhaseChange;
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
+  const releaseWakeLock = useCallback(async () => {
+    const current = wakeLockRef.current;
+    wakeLockRef.current = null;
+    if (current) {
+      try {
+        if (!current.released) await current.release();
+      } catch {
+        // Ignore — already released by the browser (screen lock, tab hide).
+      }
+    }
+    setScreenStayAwake("off");
+  }, []);
+
+  const acquireWakeLock = useCallback(async () => {
+    const sentinel = await requestScreenWakeLock();
+    if (!sentinel) {
+      if (!wakeLockRef.current) setScreenStayAwake("unavailable");
+      return;
+    }
+    const previous = wakeLockRef.current;
+    wakeLockRef.current = sentinel;
+    if (previous && previous !== sentinel) {
+      try {
+        if (!previous.released) await previous.release();
+      } catch {
+        // ignore
+      }
+    }
+    setScreenStayAwake("held");
+    sentinel.addEventListener("release", () => {
+      if (wakeLockRef.current === sentinel) {
+        wakeLockRef.current = null;
+      }
+    });
+  }, []);
 
   const updatePhase = useCallback((next: CapturePhase) => {
     phaseRef.current = next;
@@ -799,9 +852,10 @@ export const ListensRecorder = forwardRef<
     if (!recorder || recorder.state !== "paused") return;
     recorder.resume();
     updatePhase("recording");
+    void acquireWakeLock();
     void audioContextRef.current?.resume().catch(() => {});
     runMeterLoop();
-  }, [runMeterLoop, updatePhase]);
+  }, [acquireWakeLock, runMeterLoop, updatePhase]);
 
   useEffect(() => {
     if (phase !== "recording") return;
@@ -828,6 +882,26 @@ export const ListensRecorder = forwardRef<
 
     return () => clearInterval(interval);
   }, [phase, requestStop]);
+
+  useEffect(() => {
+    if (phase !== "recording") {
+      void releaseWakeLock();
+      return;
+    }
+
+    void acquireWakeLock();
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") {
+        void acquireWakeLock();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      void releaseWakeLock();
+    };
+  }, [phase, acquireWakeLock, releaseWakeLock]);
 
   function attachMicEndedHandlers(micStream: MediaStream) {
     micStream.getAudioTracks().forEach((track) => {
@@ -886,6 +960,7 @@ export const ListensRecorder = forwardRef<
     pendingStartRef.current = null;
     setSystemAudioPrompt(null);
     pending?.micStream.getTracks().forEach((track) => track.stop());
+    void releaseWakeLock();
   }
 
   function continueWithMicOnly() {
@@ -920,6 +995,8 @@ export const ListensRecorder = forwardRef<
     setError(null);
     setSystemAudioSkippedNote(false);
     setSystemAudioPrompt(null);
+    // Request in this tap so Safari/Chrome still count it as a user gesture.
+    void acquireWakeLock();
     if (pendingStartRef.current) {
       pendingStartRef.current.micStream
         .getTracks()
@@ -929,18 +1006,21 @@ export const ListensRecorder = forwardRef<
 
     if (phase === "stopped" && uploadedCountRef.current > 0) {
       setError("Trash the saved take first, or Submit it below.");
+      void releaseWakeLock();
       return;
     }
 
     const mimeType = pickMimeType();
     if (mimeType == null) {
       setError("Recording isn't supported in this browser yet.");
+      void releaseWakeLock();
       return;
     }
 
     const prepared = await prepareListensRecording();
     if (!prepared.ok) {
       setError(prepared.error);
+      void releaseWakeLock();
       return;
     }
 
@@ -958,6 +1038,7 @@ export const ListensRecorder = forwardRef<
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
         setError(mapMicCaptureError(err));
+        void releaseWakeLock();
         return;
       }
     }
@@ -1143,12 +1224,29 @@ export const ListensRecorder = forwardRef<
                 up soon
               </p>
             ) : null}
+
+            {phase === "recording" && screenStayAwake === "held" ? (
+              <p className="text-xs text-ink/50">
+                Keeping the screen on so capture doesn’t stop if the phone
+                idles. Locking the phone or switching apps still ends the take
+                — dim brightness to save battery.
+              </p>
+            ) : null}
+
+            {phase === "recording" && screenStayAwake === "unavailable" ? (
+              <p className="text-xs text-ink/50">
+                Leave this page open with the screen on. Sleep or switching
+                apps usually stops a web recording.
+              </p>
+            ) : null}
           </div>
         ) : (
           <p className="text-center text-sm text-ink/50">
             {awaitingSystemAudioChoice
               ? "Choose how to continue — mic only, or retry share audio"
-              : "Tap the mic to start capturing"}
+              : mobileRecordHint
+                ? "Tap the mic to start. Leave this page open with the screen on — sleep or switching apps usually stops a web recording."
+                : "Tap the mic to start capturing"}
           </p>
         )}
       </div>

@@ -219,7 +219,7 @@ export default async function GuidePage() {
           <Ul
             items={[
               "The title you give a recording names the recording itself — it does not create a session.",
-              "On mobile, Record uses the device microphone.",
+              "On mobile, Record uses the device microphone. Keep the Record page in front with the screen on (CLara asks the phone not to sleep). Locking the phone or switching apps still stops capture.",
               "Same Connect chrome (Relate + join code) as Reflect and Upload.",
             ]}
           />
