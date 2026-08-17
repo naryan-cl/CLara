@@ -10,6 +10,7 @@ import {
   shiftTranscriptClocks,
   transcribeAudio,
 } from "@/lib/openai/transcribe";
+import { listensStagingExtension } from "@/lib/listens/audio-format";
 import {
   isListensFailureBody,
   isListensPendingBody,
@@ -51,7 +52,10 @@ function readRecordingPayload(event: unknown): RecordingPayload {
     recordingId: data.recordingId,
     segmentCount,
     mimeType: data.mimeType || "audio/webm",
-    fileExtension: data.fileExtension === "m4a" ? "m4a" : "webm",
+    fileExtension: listensStagingExtension({
+      fileExtension: data.fileExtension,
+      mimeType: data.mimeType,
+    }),
   };
 }
 
@@ -108,7 +112,10 @@ function jobMetaFromPayload(payload: RecordingPayload): ListensJobMeta {
     recordingId: payload.recordingId,
     segmentCount: payload.segmentCount,
     mimeType: payload.mimeType,
-    fileExtension: payload.fileExtension === "m4a" ? "m4a" : "webm",
+    fileExtension: listensStagingExtension({
+      fileExtension: payload.fileExtension,
+      mimeType: payload.mimeType,
+    }),
   };
 }
 
@@ -144,7 +151,10 @@ export const transcribeRecordingFn = inngest.createFunction(
       mimeType,
       fileExtension,
     } = readRecordingPayload(event);
-    const ext = fileExtension === "m4a" ? "m4a" : "webm";
+    const ext = listensStagingExtension({
+      fileExtension,
+      mimeType,
+    });
 
     const parts: string[] = [];
     let timeOffsetSeconds = 0;

@@ -5,6 +5,12 @@ import type {
   CommonsComment,
   UserPublicProfile,
 } from "@/lib/comments/types";
+import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { listStreamPeers } from "@/lib/streams/list-stream-peers";
+import {
+  avatarUrlFromMetadata,
+  displayNameFromParts,
+} from "@/lib/users/display-name";
 
 export async function listComments(
   streamId: string,
@@ -124,6 +130,25 @@ export async function deleteComment(
   return { error: error?.message ?? null };
 }
 
+function mapRpcProfile(row: {
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}): UserPublicProfile {
+  const fromRpc = (row.display_name ?? "").trim();
+  return {
+    user_id: row.user_id,
+    email: row.email,
+    display_name:
+      fromRpc ||
+      displayNameFromParts({
+        email: row.email,
+      }),
+    avatar_url: row.avatar_url,
+  };
+}
+
 export async function getUserPublicProfiles(
   userIds: string[],
 ): Promise<{ profiles: UserPublicProfile[]; error: string | null }> {
@@ -139,24 +164,67 @@ export async function getUserPublicProfiles(
   });
 
   if (error) {
-    return { profiles: [], error: error.message };
+    console.error("get_user_public_profiles:", error);
+  }
+
+  const profiles: UserPublicProfile[] = (data ?? []).map(
+    (row: {
+      user_id: string;
+      email: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    }) => mapRpcProfile(row),
+  );
+
+  const have = new Set(profiles.map((profile) => profile.user_id));
+  const missing = unique.filter((id) => !have.has(id));
+
+  if (missing.length > 0) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user && missing.includes(user.id)) {
+      const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+      profiles.push({
+        user_id: user.id,
+        email: user.email ?? null,
+        display_name: displayNameFromParts({
+          email: user.email,
+          metadata,
+        }),
+        avatar_url: avatarUrlFromMetadata(metadata),
+      });
+    }
+  }
+
+  const stillMissing = unique.filter(
+    (id) => !profiles.some((profile) => profile.user_id === id),
+  );
+  if (stillMissing.length > 0) {
+    const { stream } = await getActiveStream();
+    if (stream) {
+      const { peers } = await listStreamPeers(stream.id);
+      const missingSet = new Set(stillMissing);
+      for (const peer of peers) {
+        if (!missingSet.has(peer.user_id)) continue;
+        if (profiles.some((profile) => profile.user_id === peer.user_id)) {
+          continue;
+        }
+        profiles.push({
+          user_id: peer.user_id,
+          email: peer.email,
+          display_name:
+            (peer.display_name ?? "").trim() ||
+            displayNameFromParts({ email: peer.email }),
+          avatar_url: null,
+        });
+      }
+    }
   }
 
   return {
-    profiles: (data ?? []).map(
-      (row: {
-        user_id: string;
-        email: string | null;
-        display_name: string;
-        avatar_url: string | null;
-      }) => ({
-        user_id: row.user_id,
-        email: row.email,
-        display_name: row.display_name || "Member",
-        avatar_url: row.avatar_url,
-      }),
-    ),
-    error: null,
+    profiles,
+    error: error && profiles.length === 0 ? error.message : null,
   };
 }
 

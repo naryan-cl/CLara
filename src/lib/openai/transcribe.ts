@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import type { TranscriptionDiarized } from "openai/resources/audio/transcriptions";
 import {
   getOpenAiApiKey,
@@ -42,10 +42,30 @@ function isWhisperModel(model: string): boolean {
   return model.toLowerCase().includes("whisper");
 }
 
+function openaiErrorMessage(err: unknown): string {
+  if (err && typeof err === "object") {
+    const body = err as {
+      message?: string;
+      error?: { message?: string };
+    };
+    const msg = body.error?.message?.trim() || body.message?.trim();
+    if (msg) return msg;
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return "Transcription failed. Please try again.";
+}
+
+async function cloneUploadable(file: File, buffer: Buffer) {
+  return toFile(Buffer.from(buffer), file.name || "recording.webm", {
+    type: file.type || "application/octet-stream",
+  });
+}
+
 /**
  * Transcribe one audio clip. Prefer gpt-4o-transcribe-diarize (speakers +
  * clocks); fall back to whisper-1 verbose segments (clocks only) when the
- * env model is Whisper. Never throws.
+ * env model is Whisper. Phone AAC/mp4 sometimes fails diarize — retry Whisper
+ * on API/format errors. Never throws.
  */
 export async function transcribeAudio(file: File): Promise<TranscribeResult> {
   const apiKey = getOpenAiApiKey();
@@ -54,21 +74,36 @@ export async function transcribeAudio(file: File): Promise<TranscribeResult> {
   }
 
   const model = getOpenAiTranscriptionModel();
+  const client = new OpenAI({ apiKey });
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const makeFile = () => cloneUploadable(file, buffer);
 
   try {
-    const client = new OpenAI({ apiKey });
-
     if (isDiarizeModel(model)) {
-      return await transcribeDiarized(client, file, model);
+      try {
+        const diarized = await transcribeDiarized(client, await makeFile(), model);
+        if (diarized.ok) return diarized;
+        console.error(
+          "transcribeAudio diarize empty, trying whisper-1:",
+          diarized.error,
+        );
+      } catch (err) {
+        console.error("transcribeAudio diarize failed, trying whisper-1:", err);
+      }
+      return await transcribeWhisperVerbose(
+        client,
+        await makeFile(),
+        "whisper-1",
+      );
     }
 
     if (isWhisperModel(model)) {
-      return await transcribeWhisperVerbose(client, file, model);
+      return await transcribeWhisperVerbose(client, await makeFile(), model);
     }
 
     // Other models (e.g. gpt-4o-transcribe): plain text only.
     const transcription = await client.audio.transcriptions.create({
-      file,
+      file: await makeFile(),
       model,
     });
     const text = transcription.text?.trim() ?? "";
@@ -83,7 +118,7 @@ export async function transcribeAudio(file: File): Promise<TranscribeResult> {
     };
   } catch (err) {
     console.error("transcribeAudio failed:", err);
-    return { ok: false, error: "Transcription failed. Please try again." };
+    return { ok: false, error: openaiErrorMessage(err) };
   }
 }
 

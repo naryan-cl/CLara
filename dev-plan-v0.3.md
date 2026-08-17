@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-17 (structured element-summary brief)  
+**Last updated:** 2026-08-17 (phone Record transcription + Created by names)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0030`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt.
+5. Apply newer Supabase migrations if missing (`0011`–**`0031`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -84,9 +84,10 @@
 *   **`0026_session_delete_rls.sql`** — DELETE policies on `sessions` for host, stream admins, attendees, and nested document authors (same gate as session edit). **Required for Commons / dashboard session Delete.**
 *   **`0029_fix_session_delete_rls.sql`** — `is_session_attendee` + `is_nested_session_document_author` SECURITY DEFINER helpers; rewrites 0023 UPDATE + 0026 DELETE attendee/nested-author policies so they do not recurse through `session_attendees` / `documents` RLS. **Required if Delete shows “infinite recursion detected in policy for relation sessions”.**
 *   **`0030_summarize_system_prompt.sql`** — `streams.summarize_system_prompt` (nullable text). NULL = product default in `src/lib/prompts/defaults.ts`. **Required to save an Admin override for per-element summaries.**
+*   **`0031_user_display_names.sql`** — richer `get_user_public_profiles` / `list_stream_peers` names (`display_name`, given+family, email local-part). Optional for Created by (app fallbacks exist); run so SQL and UI stay in sync.
 
 ### Not yet migrated
-*   (ensure **0012**–**0030** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0031** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -146,6 +147,7 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Phone Record + Created by names (2026-08-17):** Two production bugs. (1) Short phone recordings showed **Transcription failed** because iOS/Chrome-iOS often claims WebM, then writes AAC/mp4 (or silent audio) after mixing the mic through Web Audio `MediaStreamDestination`. Record now uses the raw mic track when tab audio is off, prefers `audio/mp4` on iPhone/iPad, writes one blob on Stop (no 250ms timeslice fragments), and Whisper falls back to `whisper-1` if diarize rejects the file. Tab/system audio stays desktop-only. (2) **Created by** always said **Member** when `get_user_public_profiles` missed a row — we now fall back to the signed-in user’s Google/email name, then `list_stream_peers`, and SQL also reads `display_name` / given+family. Apply **`0031_user_display_names.sql`** (app fallbacks work before that). **Manual test:** (1) phone Safari or Chrome — Record ~30s of speech, Submit, dashboard should go Transcribing → transcript (not failed); (2) open that item — Created by is your Google name or the part before `@` in your email, not “Member”; (3) desktop Record with tab audio still works; (4) optional: Retry on the earlier failed take — if the audio was silent it will still fail, record a new one.
 *   **Structured element-summary brief (2026-08-17):** Default summarize prompt is no longer “1–3 short paragraphs.” New Commons summaries use a long Markdown brief: **Brief summary**, categorized **Highlights**, **Balcony observations** (Transcripts only — omit for Reflection/Upload), **Tensions and polarities**, **Key questions**, **Theme tags**. Job allows ~4k output tokens and sends more of the source (~24k chars). Admins can still override on `/admin`. Existing summaries are not rewritten. **Manual test:** (1) Admin → CLara prompts → Element summary shows the new default (Reset if an old override is saved); (2) submit a Record with 2+ speakers → Summary has balcony + tags; (3) submit a Reflect → no balcony heading; (4) thin upload stays honest, not padded.
 *   **Ask button floats on the blob (2026-08-17):** Desktop Ask submit was clipped by `.organic-ask` + `overflow-hidden`. The button (and Clear thread) now sits on the blob’s bottom edge (`sm:translate-y-1/2`, panel `sm:overflow-visible`). Phone keeps the in-flow button inside the blob. **Manual test:** (1) desktop Dashboard — minimized Ask: the Ask button is fully visible, overlapping the bottom of the field shape, not cut off; (2) type a question and submit; (3) expanded thread — Ask follow-up / Clear thread still float on the edge; (4) select a map node — detail Ask button same treatment; (5) phone ~390px — Ask button stays inside the blob.
 *   **Admin summarize prompt + collapsible sections (2026-08-17):** Per-element Commons summaries used a hardcoded system prompt in `clara-summarize-document`. That prompt now lives in `src/lib/prompts/defaults.ts` (`DEFAULT_SUMMARIZE_SYSTEM_PROMPT`) and is editable on `/admin` → **CLara prompts** like Reflect and Ask (per-stream override on `streams.summarize_system_prompt`; NULL = code default). Reflect ≠ Ask ≠ Summarize stay separate. `/admin` content sections (Isolation, Map themes, Ask index, CLara prompts, Membership, Admin Queue) start **collapsed**, with **Expand** on the right. Apply **`0030_summarize_system_prompt.sql`** to save a summarize override (the editor still shows the default before that). **Manual test:** (1) run `0030` in Supabase; (2) Admin — sections collapsed, Expand/Collapse works; (3) CLara prompts → see Element summary; (4) edit it → Save → submit a short Reflect/Upload and confirm the Summary tab follows the new instructions; (5) Reset restores the product default; (6) Reflect and Ask prompts unchanged.

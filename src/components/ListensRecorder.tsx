@@ -20,11 +20,18 @@ import { FlowerMark } from "@/components/FlowerMark";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
+import { listensFileExtension } from "@/lib/listens/audio-format";
 
 /** Brief celebration before handing off to the dashboard (matches Reflect). */
 const THANKS_NAV_MS = 2400;
 
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+/** iOS reports WebM support then writes a file Whisper cannot decode. */
+const IOS_MIME_CANDIDATES = [
+  "audio/mp4",
+  "audio/mp4;codecs=mp4a.40.2",
+  "audio/aac",
+];
 
 /** Rotate MediaRecorder so each .webm stays under Whisper's 25MB cap. */
 const SEGMENT_SECONDS = 12 * 60;
@@ -66,15 +73,60 @@ type ListensRecorderProps = {
   onPhaseChange?: (phase: CapturePhase) => void;
 };
 
+function isAppleTouchDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/i.test(ua)) return true;
+  return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+function isSystemAudioCaptureAvailable(): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (isAppleTouchDevice()) return false;
+  return Boolean(navigator.mediaDevices?.getDisplayMedia);
+}
+
 function pickMimeType(): string | null {
   if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
     return null;
   }
-  return (
-    MIME_CANDIDATES.find((candidate) =>
-      MediaRecorder.isTypeSupported(candidate),
-    ) ?? null
+  const candidates = isAppleTouchDevice()
+    ? IOS_MIME_CANDIDATES
+    : MIME_CANDIDATES;
+  const supported = candidates.find((candidate) =>
+    MediaRecorder.isTypeSupported(candidate),
   );
+  // Empty string = let the browser pick (iOS sometimes rejects listed types).
+  return supported ?? "";
+}
+
+function createSegmentRecorder(
+  stream: MediaStream,
+  mimeType: string,
+): MediaRecorder {
+  const attempts: MediaRecorderOptions[] = [];
+  if (mimeType) {
+    attempts.push({ mimeType, audioBitsPerSecond: BITRATE });
+    attempts.push({ mimeType });
+  }
+  attempts.push({ audioBitsPerSecond: BITRATE });
+  attempts.push({});
+
+  for (const options of attempts) {
+    try {
+      if (
+        options.mimeType &&
+        typeof MediaRecorder.isTypeSupported === "function" &&
+        !MediaRecorder.isTypeSupported(options.mimeType)
+      ) {
+        continue;
+      }
+      return new MediaRecorder(stream, options);
+    } catch {
+      continue;
+    }
+  }
+  return new MediaRecorder(stream);
 }
 
 function formatElapsed(totalSeconds: number) {
@@ -260,6 +312,7 @@ export const ListensRecorder = forwardRef<
   const [segmentLabel, setSegmentLabel] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [includeSystemAudio, setIncludeSystemAudio] = useState(true);
+  const [systemAudioAvailable, setSystemAudioAvailable] = useState(true);
   const [systemAudioActive, setSystemAudioActive] = useState(false);
   const [systemAudioSkippedNote, setSystemAudioSkippedNote] = useState(false);
   const [systemAudioPrompt, setSystemAudioPrompt] = useState<string | null>(
@@ -278,6 +331,11 @@ export const ListensRecorder = forwardRef<
 
   useEffect(() => {
     setAudioHint(tabSystemAudioHint());
+    const systemAudioOk = isSystemAudioCaptureAvailable();
+    setSystemAudioAvailable(systemAudioOk);
+    // Phones cannot share tab audio; default the checkbox off there so Record
+    // starts the mic immediately instead of an extra "continue with mic" dialog.
+    setIncludeSystemAudio(systemAudioOk);
   }, []);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -291,6 +349,7 @@ export const ListensRecorder = forwardRef<
   const rafRef = useRef<number | null>(null);
 
   const mimeTypeRef = useRef("audio/webm");
+  const meterCloneRef = useRef<MediaStream | null>(null);
   const streamIdRef = useRef<string | null>(null);
   const recordingIdRef = useRef<string | null>(null);
   const segmentIndexRef = useRef(0);
@@ -370,8 +429,10 @@ export const ListensRecorder = forwardRef<
   const stopAllTracks = useCallback(() => {
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
     systemStreamRef.current?.getTracks().forEach((track) => track.stop());
+    meterCloneRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
     systemStreamRef.current = null;
+    meterCloneRef.current = null;
     recordStreamRef.current = null;
   }, []);
 
@@ -435,24 +496,43 @@ export const ListensRecorder = forwardRef<
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
-      const ctx = new AudioCtx();
-      const destination = ctx.createMediaStreamDestination();
+      const ctx = new AudioContext();
 
-      const micSource = ctx.createMediaStreamSource(micStream);
+      // Mic-only: record the raw getUserMedia track. Routing through
+      // MediaStreamDestination (needed to mix tab audio) is a known iOS
+      // failure mode — meters move, Whisper gets silence or a corrupt file.
+      const mixing =
+        Boolean(systemStream && systemStream.getAudioTracks().length > 0);
+      let meterMic = micStream;
+      if (!mixing) {
+        try {
+          meterMic = micStream.clone();
+          meterCloneRef.current = meterMic;
+        } catch {
+          meterCloneRef.current = null;
+        }
+      }
+
+      const destination = mixing ? ctx.createMediaStreamDestination() : null;
+      const micSource = ctx.createMediaStreamSource(meterMic);
       const micAnalyser = ctx.createAnalyser();
       micAnalyser.fftSize = 256;
       micAnalyser.smoothingTimeConstant = 0.7;
       micSource.connect(micAnalyser);
-      micSource.connect(destination);
+      if (destination) {
+        micSource.connect(destination);
+      }
 
       let systemAnalyser: AnalyserNode | null = null;
-      if (systemStream && systemStream.getAudioTracks().length > 0) {
+      if (mixing && systemStream) {
         const systemSource = ctx.createMediaStreamSource(systemStream);
         systemAnalyser = ctx.createAnalyser();
         systemAnalyser.fftSize = 256;
         systemAnalyser.smoothingTimeConstant = 0.7;
         systemSource.connect(systemAnalyser);
-        systemSource.connect(destination);
+        if (destination) {
+          systemSource.connect(destination);
+        }
       }
 
       audioContextRef.current = ctx;
@@ -461,7 +541,7 @@ export const ListensRecorder = forwardRef<
       void ctx.resume().catch(() => {});
       runMeterLoop();
 
-      return destination.stream;
+      return destination?.stream ?? micStream;
     },
     [runMeterLoop],
   );
@@ -477,6 +557,12 @@ export const ListensRecorder = forwardRef<
       setError("Empty audio segment. Try again.");
       return false;
     }
+    if (blob.size < 2048) {
+      setError(
+        "The browser saved an empty audio file (common on phones). Trash this take and record again.",
+      );
+      return false;
+    }
     if (blob.size > MAX_LISTENS_STAGING_BYTES) {
       setError(
         `Segment ${index + 1} is too large for Whisper (${Math.round(blob.size / 1024 / 1024)}MB). Try again.`,
@@ -486,12 +572,12 @@ export const ListensRecorder = forwardRef<
 
     setSegmentUploading(true);
     const supabase = createClient();
-    const ext = (mimeTypeRef.current || "").includes("mp4") ? "m4a" : "webm";
+    const ext = listensFileExtension(mimeTypeRef.current);
     const path = `${streamId}/${recordingId}/${index}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("listens-staging")
       .upload(path, blob, {
-        contentType: mimeTypeRef.current || "audio/webm",
+        contentType: mimeTypeRef.current || blob.type || "audio/webm",
         upsert: false,
       });
     setSegmentUploading(false);
@@ -513,7 +599,7 @@ export const ListensRecorder = forwardRef<
     const recordingId = recordingIdRef.current;
     const segmentCount = uploadedCountRef.current;
     const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
-    const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
+    const fileExtension = listensFileExtension(mimeTypeForUpload);
     const titleForUpload = documentTitleRef.current.trim();
 
     if (!recordingId || segmentCount < 1) {
@@ -605,19 +691,22 @@ export const ListensRecorder = forwardRef<
     segmentElapsedRef.current = 0;
     setSegmentLabel(segmentIndexRef.current + 1);
 
-    const recorder = new MediaRecorder(recordStream, {
-      mimeType,
-      audioBitsPerSecond: BITRATE,
-    });
+    const recorder = createSegmentRecorder(recordStream, mimeType);
+    const actualMime = recorder.mimeType || mimeType || "audio/webm";
+    mimeTypeRef.current = actualMime;
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
 
+    recorder.onerror = () => {
+      setError("Recording stopped unexpectedly. Try again from this phone, or use Chrome on a computer.");
+    };
+
     recorder.onstop = () => {
       const reason = stopReasonRef.current;
       stopReasonRef.current = null;
-      const blob = new Blob(chunksRef.current, { type: mimeType });
+      const blob = new Blob(chunksRef.current, { type: actualMime });
       const index = segmentIndexRef.current;
       chunksRef.current = [];
 
@@ -628,9 +717,7 @@ export const ListensRecorder = forwardRef<
           const uploaded = uploadedCountRef.current;
           const recordingId = recordingIdRef.current;
           const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
-          const fileExtension = mimeTypeForUpload.includes("mp4")
-            ? "m4a"
-            : "webm";
+          const fileExtension = listensFileExtension(mimeTypeForUpload);
           if (recordingId && uploaded > 0) {
             await discardListensStaging({
               recordingId,
@@ -670,7 +757,8 @@ export const ListensRecorder = forwardRef<
       })();
     };
 
-    recorder.start(250);
+    // One blob on stop — timeslice fragments concatenate into invalid mp4 on iOS.
+    recorder.start();
     mediaRecorderRef.current = recorder;
   }, [resetAll, runFinalize, teardownLiveCapture, updatePhase, uploadSegment]);
 
@@ -845,7 +933,7 @@ export const ListensRecorder = forwardRef<
     }
 
     const mimeType = pickMimeType();
-    if (!mimeType) {
+    if (mimeType == null) {
       setError("Recording isn't supported in this browser yet.");
       return;
     }
@@ -859,11 +947,19 @@ export const ListensRecorder = forwardRef<
     let micStream: MediaStream;
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1 },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          channelCount: { ideal: 1 },
+        },
       });
-    } catch (err) {
-      setError(mapMicCaptureError(err));
-      return;
+    } catch {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        setError(mapMicCaptureError(err));
+        return;
+      }
     }
 
     // If the mic dies mid-take, treat it like Stop — keep what we have.
@@ -876,7 +972,7 @@ export const ListensRecorder = forwardRef<
       recordingId: prepared.recordingId,
     };
 
-    if (includeSystemAudio) {
+    if (includeSystemAudio && isSystemAudioCaptureAvailable()) {
       const systemResult = await requestSystemTabAudio();
       if (!systemResult.ok) {
         // Hold the mic open and let the user continue, retry, or cancel.
@@ -904,7 +1000,7 @@ export const ListensRecorder = forwardRef<
       const recordingId = recordingIdRef.current;
       const uploaded = uploadedCountRef.current;
       const mimeTypeForUpload = mimeTypeRef.current || "audio/webm";
-      const fileExtension = mimeTypeForUpload.includes("mp4") ? "m4a" : "webm";
+      const fileExtension = listensFileExtension(mimeTypeForUpload);
       if (recordingId && uploaded > 0) {
         const result = await discardListensStaging({
           recordingId,
@@ -1057,23 +1153,25 @@ export const ListensRecorder = forwardRef<
         )}
       </div>
 
-      <label className="flex items-start gap-2 text-sm text-ink/80">
-        <input
-          type="checkbox"
-          className="mt-1"
-          checked={includeSystemAudio}
-          disabled={
-            isLive || busy || phase === "stopped" || awaitingSystemAudioChoice
-          }
-          onChange={(event) => setIncludeSystemAudio(event.target.checked)}
-        />
-        <span>
-          <span className="font-medium text-ink">Include tab / system audio</span>
-          <span className="mt-0.5 block text-ink/55">
-            {audioHint}
+      {systemAudioAvailable ? (
+        <label className="flex items-start gap-2 text-sm text-ink/80">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={includeSystemAudio}
+            disabled={
+              isLive || busy || phase === "stopped" || awaitingSystemAudioChoice
+            }
+            onChange={(event) => setIncludeSystemAudio(event.target.checked)}
+          />
+          <span>
+            <span className="font-medium text-ink">
+              Include tab / system audio
+            </span>
+            <span className="mt-0.5 block text-ink/55">{audioHint}</span>
           </span>
-        </span>
-      </label>
+        </label>
+      ) : null}
 
       {systemAudioSkippedNote && isLive ? (
         <p className="text-sm text-ink/55">

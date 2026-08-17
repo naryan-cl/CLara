@@ -27,6 +27,7 @@ import {
   type RecordingProcessStatus,
 } from "@/lib/listens/process-status";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
+import { listensStagingExtension } from "@/lib/listens/audio-format";
 import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
 import type { CommonsDocument } from "@/lib/documents/types";
 
@@ -157,10 +158,10 @@ export async function finalizeListensUpload(input: {
       };
     }
 
-    const ext =
-      input.fileExtension === "m4a" || input.fileExtension === "mp4"
-        ? "m4a"
-        : "webm";
+    const ext = listensStagingExtension({
+      fileExtension: input.fileExtension,
+      mimeType: input.mimeType,
+    });
     const prefix = `${stream.id}/${recordingId}`;
     for (let i = 0; i < segmentCount; i++) {
       uploadedPaths.push(`${prefix}/${i}.${ext}`);
@@ -289,10 +290,9 @@ export async function discardListensStaging(input: {
       return { ok: true };
     }
 
-    const ext =
-      input.fileExtension === "m4a" || input.fileExtension === "mp4"
-        ? "m4a"
-        : "webm";
+    const ext = listensStagingExtension({
+      fileExtension: input.fileExtension,
+    });
     const paths = Array.from(
       { length: segmentCount },
       (_, i) => `${stream.id}/${recordingId}/${i}.${ext}`,

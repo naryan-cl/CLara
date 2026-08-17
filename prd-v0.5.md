@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-17 (admin-editable summarize prompt; collapsible Admin sections)  
+**Last updated:** 2026-08-17 (phone Record transcription; Created by names)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Phone Record + Created by (2026-08-17):** Phone mic recordings now stay on the raw audio track (iOS was producing files Whisper could not read). **Created by** uses Google/email names instead of a generic “Member” when the profile RPC misses. Apply **`0031_user_display_names.sql`**. See §5.1, §5.2.
 *   **Structured element-summary brief (2026-08-17):** Default summarize prompt writes a long Markdown brief (overview, categorized highlights, balcony observations on transcripts only, tensions/polarities, key questions, theme tags), not a 1–3 paragraph digest. Admin-editable. See §5.2, §7.5.
 *   **Admin-editable summarize prompt + collapsible Admin (2026-08-17):** The per-element summary system prompt is editable on `/admin` alongside Reflect and Ask (`streams.summarize_system_prompt`; NULL = code default). Admin content sections start collapsed with Expand on the right. Apply **`0030_summarize_system_prompt.sql`**. See §7.5.
 *   **Per-element summaries (2026-08-16):** Every submitted Commons document gets an automatic Markdown summary on `documents.summary` (Inngest `clara-summarize-document`). Dashboard and Commons open **Summary** first, with a second tab for the original Transcript / Reflection / Uploaded text. Detail shows **Created by** (author display name) and, on sessions with two or more people, an **Attendees** list. Session Finalize synthesis is unchanged (gathering-level Summary document). Apply **`0028_document_summary.sql`**. See §5.2, §7.3.
