@@ -20,16 +20,15 @@ import {
 import { markAttended } from "@/lib/sessions/attendance";
 import { updateSessionJoinCode } from "@/lib/sessions/update-join-code";
 import { inngest, CLARA_SESSION_FINALIZED } from "@/lib/inngest/client";
+import {
+  listRelateTargets,
+  type RelateTarget,
+} from "@/lib/commons/relate-targets";
 
 export type SessionComposerBootstrap = {
   sessions: SessionSummary[];
   peers: StreamPeer[];
-  relateTargets: {
-    kind: "document" | "session";
-    id: string;
-    title: string;
-    subtitle?: string | null;
-  }[];
+  relateTargets: RelateTarget[];
   streamId: string | null;
   error: string | null;
 };
@@ -50,7 +49,7 @@ export async function loadSessionComposerData(): Promise<SessionComposerBootstra
   const [sessionsResult, peersResult, commonsResult] = await Promise.all([
     listSessions(stream.id),
     listStreamPeers(stream.id),
-    listCommonsItemsForRelate(stream.id),
+    listRelateTargets(stream.id),
   ]);
 
   return {
@@ -60,54 +59,6 @@ export async function loadSessionComposerData(): Promise<SessionComposerBootstra
     streamId: stream.id,
     error: sessionsResult.error ?? peersResult.error,
   };
-}
-
-async function listCommonsItemsForRelate(streamId: string): Promise<
-  {
-    kind: "document" | "session";
-    id: string;
-    title: string;
-    subtitle?: string | null;
-  }[]
-> {
-  const supabase = await createClient();
-  const [docs, sessionsResult] = await Promise.all([
-    supabase
-      .from("documents")
-      .select("id, title, type")
-      .eq("stream_id", streamId)
-      .eq("is_draft", false)
-      .order("created_at", { ascending: false })
-      .limit(80),
-    listSessions(streamId),
-  ]);
-
-  const targets: {
-    kind: "document" | "session";
-    id: string;
-    title: string;
-    subtitle?: string | null;
-  }[] = [];
-
-  for (const session of sessionsResult.sessions) {
-    targets.push({
-      kind: "session",
-      id: session.id,
-      title: session.name,
-      subtitle: session.join_code,
-    });
-  }
-
-  for (const doc of docs.data ?? []) {
-    targets.push({
-      kind: "document",
-      id: doc.id,
-      title: doc.title?.trim() || "Untitled",
-      subtitle: doc.type,
-    });
-  }
-
-  return targets;
 }
 
 export type CreateGroupSessionResult =

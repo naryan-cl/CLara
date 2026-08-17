@@ -1,6 +1,7 @@
 import type { CommonsListItem } from "@/lib/commons/types";
 import { topLevelCommonsItems } from "@/lib/commons/types";
 import type { DocumentLink } from "@/lib/documents/list-document-links";
+import type { SessionRelation } from "@/lib/sessions/list-session-relations";
 import type { GraphEdge, GraphNode } from "@/lib/graph/types";
 import { recordingProcessLabel } from "@/lib/listens/process-status";
 
@@ -69,6 +70,8 @@ export type CommonsGraphOptions = {
   expandedSessionId?: string | null;
   /** User-described Relate links; only drawn when both ends are visible. */
   links?: DocumentLink[];
+  /** Session ↔ session Relate edges. */
+  sessionRelations?: SessionRelation[];
 };
 
 /**
@@ -141,6 +144,22 @@ export function commonsItemsToGraph(
         targetId,
         "related",
         link.source_document_id,
+      ),
+    );
+  }
+
+  for (const relation of options.sessionRelations ?? []) {
+    const sourceId = `session:${relation.session_id}`;
+    const targetId = `session:${relation.related_session_id}`;
+    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
+    edges.push(
+      syntheticEdge(
+        `session-relate:${relation.session_id}:${relation.related_session_id}`,
+        streamId,
+        sourceId,
+        targetId,
+        "related",
+        null,
       ),
     );
   }

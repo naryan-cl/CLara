@@ -5,6 +5,7 @@ import { embedDocumentFn } from "./embed-document";
 import { extractGraphFn } from "./extract-graph";
 import { transcribeRecordingFn } from "./transcribe-recording";
 import { synthesizeSessionFn } from "./synthesize-session";
+import { summarizeDocumentFn } from "./summarize-document";
 
 export { helloWorldFn } from "./hello";
 export { okfEnrichFn } from "./okf-enrich";
@@ -13,6 +14,7 @@ export { embedDocumentFn } from "./embed-document";
 export { extractGraphFn } from "./extract-graph";
 export { transcribeRecordingFn } from "./transcribe-recording";
 export { synthesizeSessionFn } from "./synthesize-session";
+export { summarizeDocumentFn } from "./summarize-document";
 
 export const inngestFunctions = [
   helloWorldFn,
@@ -22,4 +24,5 @@ export const inngestFunctions = [
   extractGraphFn,
   transcribeRecordingFn,
   synthesizeSessionFn,
+  summarizeDocumentFn,
 ];

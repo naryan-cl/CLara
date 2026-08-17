@@ -238,6 +238,9 @@ export function KnowledgeMap({
   }, []);
 
   const layoutConfigKey = JSON.stringify(layoutConfig);
+  // Identity of who is on the canvas — not labels. Title/status tweaks must
+  // not restart physics or every click/poll shoves the map apart.
+  const topologyKey = `${nodes.map((n) => n.id).join("|")}::${edges.map((e) => e.id).join("|")}`;
 
   // Live force simulation — pinned nodes keep fx/fy; others settle around them.
   // State publishes happen in the tick callback / microtask (external d3 system),
@@ -250,7 +253,13 @@ export function KnowledgeMap({
     }
 
     const previous = new Map(nodesRef.current.map((n) => [n.id, n]));
-    const seeded = seedSimNodes(nodes, size.width, size.height, previous);
+    const seeded = seedSimNodes(
+      nodes,
+      size.width,
+      size.height,
+      previous,
+      edges,
+    );
     nodesRef.current = seeded;
 
     const simulation = createGraphSimulation(
@@ -259,6 +268,7 @@ export function KnowledgeMap({
       size.width,
       size.height,
       layoutConfig,
+      previous.size > 0 ? 0.08 : 1,
     );
     simulation.on("tick", publishNodes);
     simRef.current = simulation;
@@ -269,16 +279,33 @@ export function KnowledgeMap({
       simRef.current = null;
     };
     // layoutConfigKey encodes equal knobs so parent re-renders don't restart the sim.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see layoutConfigKey
+    // topologyKey (not `nodes`/`edges`) so label-only updates don't reheat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see layoutConfigKey / topologyKey
   }, [
     hasMounted,
-    nodes,
-    edges,
+    topologyKey,
     size.width,
     size.height,
     layoutConfigKey,
     publishNodes,
   ]);
+
+  // Patch labels in place when titles refresh without changing the graph.
+  useEffect(() => {
+    if (nodesRef.current.length === 0) return;
+    const nextById = new Map(nodes.map((n) => [n.id, n]));
+    let changed = false;
+    for (const live of nodesRef.current) {
+      const fresh = nextById.get(live.id);
+      if (!fresh) continue;
+      if (live.label !== fresh.label || live.description !== fresh.description) {
+        live.label = fresh.label;
+        live.description = fresh.description;
+        changed = true;
+      }
+    }
+    if (changed) publishNodes();
+  }, [nodes, publishNodes]);
 
   const nodeById = new Map(simNodes.map((node) => [node.id, node]));
   const selected =
@@ -357,12 +384,7 @@ export function KnowledgeMap({
 
   function cancelNodeDragForPinch() {
     if (!dragRef.current) return;
-    const live = findSimNode(dragRef.current.id);
-    if (live && !nodeDragMovedRef.current) {
-      live.fx = null;
-      live.fy = null;
-      publishNodes();
-    }
+    // Click-in-progress never set fx/fy. A started drag keeps its pin.
     simRef.current?.alphaTarget(0);
     dragRef.current = null;
   }
@@ -692,9 +714,8 @@ export function KnowledgeMap({
                       event.stopPropagation();
                       const live = findSimNode(node.id);
                       if (!live) return;
-                      const point = clientToGraph(event.clientX, event.clientY);
-                      live.fx = point.x;
-                      live.fy = point.y;
+                      // Click must not pin or reheat — that shoved neighbors
+                      // further apart after each select. Drag starts later.
                       nodeDragMovedRef.current = false;
                       dragRef.current = {
                         id: live.id,
@@ -702,7 +723,6 @@ export function KnowledgeMap({
                         lastX: event.clientX,
                         lastY: event.clientY,
                       };
-                      simRef.current?.alphaTarget(0.25).restart();
                       event.currentTarget.setPointerCapture(event.pointerId);
                     }}
                     onPointerMove={(event) => {
@@ -714,10 +734,20 @@ export function KnowledgeMap({
                       }
                       const live = findSimNode(node.id);
                       if (!live) return;
-                      const point = clientToGraph(event.clientX, event.clientY);
                       const dx = event.clientX - dragRef.current.lastX;
                       const dy = event.clientY - dragRef.current.lastY;
-                      if (Math.hypot(dx, dy) > 4) nodeDragMovedRef.current = true;
+                      if (!nodeDragMovedRef.current) {
+                        if (Math.hypot(dx, dy) <= 4) return;
+                        nodeDragMovedRef.current = true;
+                        const start = clientToGraph(
+                          dragRef.current.lastX,
+                          dragRef.current.lastY,
+                        );
+                        live.fx = start.x;
+                        live.fy = start.y;
+                        simRef.current?.alphaTarget(0.25).restart();
+                      }
+                      const point = clientToGraph(event.clientX, event.clientY);
                       dragRef.current.lastX = event.clientX;
                       dragRef.current.lastY = event.clientY;
                       live.fx = point.x;
@@ -737,10 +767,8 @@ export function KnowledgeMap({
                       if (!live) return;
                       const wasClick = !nodeDragMovedRef.current;
                       // Stay pinned after a drag so peers can settle around it.
-                      // Pure click selects and does not leave a pin.
+                      // Pure click selects and leaves layout / pins alone.
                       if (wasClick) {
-                        live.fx = null;
-                        live.fy = null;
                         selectNode(live.id);
                       } else {
                         live.fx = live.x;
@@ -803,7 +831,10 @@ export function KnowledgeMap({
                       />
                     )}
                     {/* Invisible hit target — sprites are irregular shapes. */}
-                    <circle r={r} fill="transparent" />
+                    <circle
+                      r={spriteHref ? Math.max(r, spriteSize / 2) : r}
+                      fill="transparent"
+                    />
                     {isPinned ? (
                       <circle
                         r={r + 4}
@@ -838,7 +869,7 @@ export function KnowledgeMap({
           <NodeDetailPanel
             node={selected}
             onClose={() => selectNode(null)}
-            className="absolute inset-y-3 right-3 z-10 w-[min(100%-1.5rem,18rem)] shadow-lg"
+            className="absolute inset-x-3 bottom-3 top-auto z-10 max-h-[min(50vh,24rem)] w-auto overflow-y-auto shadow-lg sm:inset-y-3 sm:bottom-auto sm:left-auto sm:right-3 sm:max-h-none sm:w-[min(100%-1.5rem,18rem)]"
           />
         ) : null}
       </div>

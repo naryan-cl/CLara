@@ -21,16 +21,16 @@ export function AddFab({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-    function onPointer(event: MouseEvent) {
+    function onPointer(event: PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("pointerdown", onPointer);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("pointerdown", onPointer);
     };
   }, [open]);
 
@@ -52,7 +52,7 @@ export function AddFab({
 
       {open ? (
         <div
-          className={`absolute top-16 flex flex-col gap-2 animate-panel-slide-in motion-reduce:animate-none sm:flex-row sm:items-center ${
+          className={`absolute top-16 z-30 flex flex-col gap-2 animate-panel-slide-in motion-reduce:animate-none sm:flex-row sm:items-center ${
             menuAlign === "end" ? "right-0" : "left-0"
           }`}
           role="menu"

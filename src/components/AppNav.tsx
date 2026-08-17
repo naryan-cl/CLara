@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { SignOutButton } from "@/components/SignOutButton";
 import {
   isNavGroup,
   isNavGroupActive,
@@ -19,29 +20,48 @@ import {
  *
  * `key={pathname}` remounts the inner nav on navigation so open menus reset
  * without calling setState inside an effect (React Compiler / eslint rule).
+ *
+ * Phone sheet always shows group children (Record, Ask, …) so destinations
+ * are not hidden behind a second tap. Account + Sign out live in the footer.
  */
-export function AppNav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function AppNav({
+  isAdmin = false,
+  userEmail,
+  streamLabel,
+}: {
+  isAdmin?: boolean;
+  userEmail?: string | null;
+  streamLabel?: string | null;
+}) {
   const pathname = usePathname();
   return (
-    <AppNavInner key={pathname} pathname={pathname} isAdmin={isAdmin} />
+    <AppNavInner
+      key={pathname}
+      pathname={pathname}
+      isAdmin={isAdmin}
+      userEmail={userEmail}
+      streamLabel={streamLabel}
+    />
   );
 }
 
 function AppNavInner({
   pathname,
   isAdmin,
+  userEmail,
+  streamLabel,
 }: {
   pathname: string;
   isAdmin: boolean;
+  userEmail?: string | null;
+  streamLabel?: string | null;
 }) {
   const items = visibleAppNavItems(isAdmin);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState<string | null>(null);
-  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const menuId = useId();
   const desktopNavRef = useRef<HTMLElement>(null);
 
-  // Escape closes whichever menu is open.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -52,19 +72,17 @@ function AppNavInner({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Click outside closes desktop dropdowns.
   useEffect(() => {
     if (!desktopOpen) return;
-    function onPointerDown(event: MouseEvent) {
+    function onPointerDown(event: PointerEvent) {
       const target = event.target as Node | null;
       if (target && desktopNavRef.current?.contains(target)) return;
       setDesktopOpen(null);
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [desktopOpen]);
 
-  // Prevent background scroll while the mobile sheet is open.
   useEffect(() => {
     if (!mobileOpen) return;
     const previous = document.body.style.overflow;
@@ -78,13 +96,8 @@ function AppNavInner({
     setDesktopOpen((current) => (current === label ? null : label));
   }
 
-  function toggleMobileGroup(label: string) {
-    setMobileExpanded((current) => (current === label ? null : label));
-  }
-
   return (
     <>
-      {/* Desktop — visible from sm and up */}
       <nav
         ref={desktopNavRef}
         className="relative hidden items-center gap-1 sm:flex"
@@ -106,12 +119,10 @@ function AppNavInner({
         )}
       </nav>
 
-      {/* Mobile hamburger — only below sm. Panel anchors under the button
-          so we don't hard-code header height. */}
-      <div className="relative sm:hidden">
+      <div className="relative z-50 sm:hidden">
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-cloud text-ink transition-colors hover:border-sage/50 hover:text-forest"
+          className="relative z-50 inline-flex h-11 w-11 items-center justify-center rounded-md border border-cloud text-ink transition-colors hover:border-sage/50 hover:text-forest"
           aria-expanded={mobileOpen}
           aria-controls={menuId}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -131,54 +142,46 @@ function AppNavInner({
             <nav
               id={menuId}
               aria-label="Main"
-              className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),18rem)] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-lg border border-cloud bg-paper p-3 shadow-soft animate-fade-rise motion-reduce:animate-none"
+              aria-modal="true"
+              role="dialog"
+              className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),18rem)] max-h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom,0px))] overflow-y-auto rounded-lg border border-cloud bg-paper p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-soft animate-fade-rise motion-reduce:animate-none"
             >
               <ul className="flex flex-col gap-1">
                 {items.map((item) =>
                   isNavGroup(item) ? (
                     <li key={item.label}>
-                      <button
-                        type="button"
-                        className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                      <p
+                        className={`px-3 pb-0.5 pt-2 font-mono text-xs font-medium uppercase tracking-wide ${
                           isNavGroupActive(pathname, item)
-                            ? "bg-sand text-forest"
-                            : "text-ink/80 hover:bg-sand hover:text-forest"
+                            ? "text-forest"
+                            : "text-ink/50"
                         }`}
-                        aria-expanded={mobileExpanded === item.label}
-                        onClick={() => toggleMobileGroup(item.label)}
                       >
                         {item.label}
-                        <ChevronIcon
-                          className={`transition-transform ${
-                            mobileExpanded === item.label ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-                      {mobileExpanded === item.label ? (
-                        <ul className="mb-1 ml-2 flex flex-col gap-0.5 border-l border-cloud pl-2">
-                          {item.children.map((child) => (
-                            <li key={child.href}>
-                              <Link
-                                href={child.href}
-                                className={`block rounded-md px-3 py-2 text-sm transition-colors ${
-                                  isNavLinkActive(pathname, child.href)
-                                    ? "bg-sand font-medium text-forest"
-                                    : "text-ink/70 hover:bg-sand hover:text-forest"
-                                }`}
-                                onClick={() => setMobileOpen(false)}
-                              >
-                                {child.label}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
+                      </p>
+                      <ul className="mb-1 ml-2 flex flex-col gap-0.5 border-l border-cloud pl-2">
+                        {item.children.map((child) => (
+                          <li key={child.href}>
+                            <Link
+                              href={child.href}
+                              className={`flex min-h-11 items-center rounded-md px-3 py-2 text-sm transition-colors ${
+                                isNavLinkActive(pathname, child.href)
+                                  ? "bg-sand font-medium text-forest"
+                                  : "text-ink/70 hover:bg-sand hover:text-forest"
+                              }`}
+                              onClick={() => setMobileOpen(false)}
+                            >
+                              {child.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
                     </li>
                   ) : (
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                        className={`flex min-h-11 items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                           isNavLinkActive(pathname, item.href)
                             ? "bg-sand text-forest"
                             : "text-ink/80 hover:bg-sand hover:text-forest"
@@ -191,6 +194,21 @@ function AppNavInner({
                   ),
                 )}
               </ul>
+              {userEmail || streamLabel ? (
+                <div className="mt-3 border-t border-cloud px-1 pt-3">
+                  {streamLabel ? (
+                    <p className="truncate font-mono text-xs uppercase tracking-wide text-sage">
+                      {streamLabel}
+                    </p>
+                  ) : null}
+                  {userEmail ? (
+                    <p className="mt-1 truncate text-sm text-ink/60">
+                      {userEmail}
+                    </p>
+                  ) : null}
+                  <SignOutButton className="mt-2 flex min-h-11 w-full items-center rounded-md px-3 text-left text-sm font-medium text-ink/70 hover:bg-sand hover:text-danger" />
+                </div>
+              ) : null}
             </nav>
           </>
         ) : null}

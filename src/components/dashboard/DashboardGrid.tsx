@@ -21,7 +21,9 @@ import {
   type MapLayoutConfig,
 } from "@/lib/graph/map-layout-config";
 import type { GraphNode } from "@/lib/graph/types";
+import type { SessionRelation } from "@/lib/sessions/list-session-relations";
 import { paletteFor, type MapThemeId } from "@/lib/map-theme";
+import { isPhoneViewport, useIsPhone } from "@/lib/ui/use-is-phone";
 import {
   isRecordingProcessing,
   type RecordingProcessStatus,
@@ -54,6 +56,7 @@ export function DashboardGrid({
   initialSelect = null,
   layoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
   documentLinks = [],
+  sessionRelations = [],
 }: {
   items: CommonsListItem[];
   streamId: string;
@@ -68,8 +71,10 @@ export function DashboardGrid({
   layoutConfig?: MapLayoutConfig;
   /** Relate edges for the map (only drawn when both ends are visible). */
   documentLinks?: DocumentLink[];
+  sessionRelations?: SessionRelation[];
 }) {
   const router = useRouter();
+  const isPhone = useIsPhone();
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [selectedListItem, setSelectedListItem] =
     useState<CommonsListItem | null>(null);
@@ -153,8 +158,9 @@ export function DashboardGrid({
       commonsItemsToGraph(displayItems, streamId, {
         expandedSessionId,
         links: documentLinks,
+        sessionRelations,
       }),
-    [displayItems, streamId, expandedSessionId, documentLinks],
+    [displayItems, streamId, expandedSessionId, documentLinks, sessionRelations],
   );
 
   // Deep-link: select the recording from Record submit and open List for context.
@@ -170,7 +176,7 @@ export function DashboardGrid({
     appliedSelectRef.current = key;
     setSelectedNode(null);
     setSelectedListItem(match);
-    setListOpen(true);
+    setListOpen(!isPhoneViewport());
     // Drop query params so a refresh doesn't re-force selection forever.
     router.replace("/dashboard", { scroll: false });
   }, [pendingSelect, displayItems, router]);
@@ -254,16 +260,16 @@ export function DashboardGrid({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setListOpen(false);
     }
-    function onPointer(event: MouseEvent) {
+    function onPointer(event: PointerEvent) {
       if (!listChromeRef.current?.contains(event.target as Node)) {
         setListOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("pointerdown", onPointer);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("pointerdown", onPointer);
     };
   }, [listOpen]);
 
@@ -275,11 +281,13 @@ export function DashboardGrid({
   function onMapNodeSelect(node: GraphNode | null) {
     setSelectedListItem(null);
     setSelectedNode(node);
+    if (node && isPhoneViewport()) setListOpen(false);
   }
 
   function onListSelect(item: CommonsListItem) {
     setSelectedNode(null);
     setSelectedListItem(item);
+    if (isPhoneViewport()) setListOpen(false);
   }
 
   function onAskAbout(payload: { question: string; scope: AskScope }) {
@@ -355,7 +363,8 @@ export function DashboardGrid({
         )}
       </div>
 
-      {/* Top-left chrome: Add / List */}
+      {/* Top-left chrome: Add / List. Theme sits here on phone so the
+          bottom Ask sheet does not cover it. */}
       <div
         ref={listChromeRef}
         className="pointer-events-none absolute left-4 top-4 z-20 flex flex-col items-start gap-3 sm:left-6 sm:top-5"
@@ -365,8 +374,20 @@ export function DashboardGrid({
             <AddFab menuAlign="start" />
             <ListFab
               open={listOpen}
-              onToggle={() => setListOpen((value) => !value)}
+              onToggle={() =>
+                setListOpen((value) => {
+                  const next = !value;
+                  if (next && isPhoneViewport()) {
+                    setSelectedNode(null);
+                    setSelectedListItem(null);
+                  }
+                  return next;
+                })
+              }
             />
+          </div>
+          <div className="sm:hidden">
+            <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
           </div>
           {listOpen ? (
             <CommonsListPanel
@@ -384,13 +405,13 @@ export function DashboardGrid({
         </div>
       </div>
 
-      {/* Theme picker — bottom-left so it stays clear of Ask */}
-      <div className="pointer-events-none absolute bottom-4 left-4 z-20 sm:bottom-6 sm:left-6">
+      {/* Theme picker — desktop bottom-left, clear of Ask. */}
+      <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-20 hidden sm:bottom-6 sm:left-6 sm:block">
         <ThemePicker activeTheme={mapTheme} unlocked={unlockedThemes} />
       </div>
 
-      {/* Ask host — top right */}
-      <div className="pointer-events-none absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
+      {/* Ask host — bottom sheet on phone, top-right on sm+. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-5 sm:z-20">
         <div className="pointer-events-auto">
           <AskClaraPanel
             formKey={askHandoff?.key ?? "default"}
@@ -398,6 +419,10 @@ export function DashboardGrid({
             initialQuestion={askHandoff?.question ?? null}
             autoSubmitInitial={Boolean(askHandoff?.question)}
             forceConversation={Boolean(askHandoff?.question)}
+            forceMinimized={listOpen && isPhone}
+            onExpand={() => {
+              if (isPhone) setListOpen(false);
+            }}
             onClearScope={() => {
               setAskScope(null);
               setAskHandoff(null);

@@ -10,7 +10,17 @@ import {
   shiftTranscriptClocks,
   transcribeAudio,
 } from "@/lib/openai/transcribe";
-import { LISTENS_FAILURE_PLACEHOLDER } from "@/lib/listens/placeholders";
+import {
+  isListensFailureBody,
+  isListensPendingBody,
+  LISTENS_FAILURE_PLACEHOLDER,
+} from "@/lib/listens/placeholders";
+import {
+  parseListensJobMeta,
+  stripListensJobMeta,
+  withListensJobMeta,
+  type ListensJobMeta,
+} from "@/lib/listens/job-meta";
 import { mapTranscriptSpeakersToNames } from "@/lib/listens/map-speakers";
 import {
   asParticipantNames,
@@ -50,11 +60,80 @@ function readRecordingPayload(event: unknown): RecordingPayload {
  * clocks so the full take is continuous, map Speaker A/B → session names,
  * write Transcript, delete staging objects, fan out clara/document.created.
  */
+async function markTranscriptionFailed(
+  documentId: string,
+  meta: ListensJobMeta | null,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("documents")
+    .select("content")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  const existingContent = existing?.content
+    ? String(existing.content)
+    : "";
+  const body = stripListensJobMeta(existingContent);
+  // Don't clobber a real transcript if this failure handler races a later success.
+  if (
+    existingContent &&
+    !isListensPendingBody(body) &&
+    !isListensFailureBody(body)
+  ) {
+    return;
+  }
+
+  const fromRow = existingContent ? parseListensJobMeta(existingContent) : null;
+  const job = meta ?? fromRow;
+  const content = job
+    ? withListensJobMeta(LISTENS_FAILURE_PLACEHOLDER, job)
+    : LISTENS_FAILURE_PLACEHOLDER;
+
+  const { error } = await admin
+    .from("documents")
+    .update({
+      content,
+      needs_review: true,
+    })
+    .eq("id", documentId);
+
+  if (error) {
+    throw new Error(`mark-transcription-failed: ${error.message}`);
+  }
+}
+
+function jobMetaFromPayload(payload: RecordingPayload): ListensJobMeta {
+  return {
+    recordingId: payload.recordingId,
+    segmentCount: payload.segmentCount,
+    mimeType: payload.mimeType,
+    fileExtension: payload.fileExtension === "m4a" ? "m4a" : "webm",
+  };
+}
+
 export const transcribeRecordingFn = inngest.createFunction(
   {
     id: "clara-transcribe-recording",
     retries: 2,
     triggers: [{ event: CLARA_RECORDING_RECEIVED }],
+    onFailure: async ({ event, error }) => {
+      try {
+        const original = (event as { data?: { event?: unknown } }).data
+          ?.event;
+        const payload = readRecordingPayload(original);
+        await markTranscriptionFailed(
+          payload.documentId,
+          jobMetaFromPayload(payload),
+        );
+      } catch (err) {
+        console.error(
+          "transcribe-recording onFailure could not mark document failed:",
+          err,
+          error,
+        );
+      }
+    },
   },
   async ({ event, step }) => {
     const {
@@ -172,8 +251,14 @@ export const transcribeRecordingFn = inngest.createFunction(
       // Keep needs_review true on success until OKF enrich settles metadata.
       // Why: the dashboard can show “Summarizing…” between Whisper and OKF
       // without a separate job-status column.
+      const failureContent = withListensJobMeta(LISTENS_FAILURE_PLACEHOLDER, {
+        recordingId,
+        segmentCount,
+        mimeType,
+        fileExtension: ext,
+      });
       const patch: Record<string, unknown> = {
-        content: success ? transcript : LISTENS_FAILURE_PLACEHOLDER,
+        content: success ? transcript : failureContent,
         needs_review: true,
       };
       if (participantNames.length > 0) {
@@ -188,19 +273,21 @@ export const transcribeRecordingFn = inngest.createFunction(
       if (error) throw new Error(`apply-transcript: ${error.message}`);
     });
 
-    await step.run("cleanup-storage", async () => {
-      const admin = createAdminClient();
-      const paths = Array.from(
-        { length: segmentCount },
-        (_, i) => `${streamId}/${recordingId}/${i}.${ext}`,
-      );
-      const { error } = await admin.storage
-        .from("listens-staging")
-        .remove(paths);
-      if (error) {
-        console.error("transcribe-recording: storage cleanup failed", error);
-      }
-    });
+    if (transcript.trim()) {
+      await step.run("cleanup-storage", async () => {
+        const admin = createAdminClient();
+        const paths = Array.from(
+          { length: segmentCount },
+          (_, i) => `${streamId}/${recordingId}/${i}.${ext}`,
+        );
+        const { error } = await admin.storage
+          .from("listens-staging")
+          .remove(paths);
+        if (error) {
+          console.error("transcribe-recording: storage cleanup failed", error);
+        }
+      });
+    }
 
     if (transcript.trim()) {
       await step.sendEvent("trigger-okf-enrich", {

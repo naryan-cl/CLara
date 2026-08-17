@@ -78,7 +78,7 @@ export function CommonsListPanel({
 
   return (
     <aside
-      className={`organic-list relative flex flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none ${
+      className={`organic-list relative flex flex-col border border-cloud/80 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm animate-panel-slide-in motion-reduce:animate-none max-sm:!h-[min(62dvh,calc(100dvh-var(--clara-header-height)-10rem))] max-sm:!w-[calc(100vw-2rem)] max-sm:!max-w-none ${
         dragging ? "" : ""
       }`}
       style={{
@@ -89,20 +89,20 @@ export function CommonsListPanel({
       }}
       aria-label="Commons list"
     >
-      {/* Right edge — grow width rightward (top-left panel). */}
+      {/* Right edge — grow width rightward (top-left panel). Hidden on phone. */}
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize Commons list width"
         onPointerDown={startDrag("width", 1)}
-        className="absolute inset-y-3 -right-1 z-10 w-2 cursor-ew-resize rounded-full hover:bg-horizon/25"
+        className="absolute inset-y-3 -right-1 z-10 hidden w-2 cursor-ew-resize rounded-full hover:bg-horizon/25 sm:block"
       />
       <div
         role="separator"
         aria-orientation="horizontal"
         aria-label="Resize Commons list height"
         onPointerDown={startDrag("height", 1)}
-        className="absolute inset-x-3 -bottom-1 z-10 h-2 cursor-ns-resize rounded-full hover:bg-horizon/25"
+        className="absolute inset-x-3 -bottom-1 z-10 hidden h-2 cursor-ns-resize rounded-full hover:bg-horizon/25 sm:block"
       />
 
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-cloud/70 px-4 py-3">
@@ -110,7 +110,7 @@ export function CommonsListPanel({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-sm text-ink/50 transition-colors hover:border-ink/30 hover:text-ink"
           aria-label="Close list"
         >
           ×
@@ -164,7 +164,9 @@ export function CommonsListPanel({
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-display text-sm text-ink">{item.title}</p>
+                      <p className="min-w-0 flex-1 line-clamp-2 font-display text-sm text-ink">
+                        {item.title}
+                      </p>
                       <span className="shrink-0 rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">
                         {elementLabel(item)}
                       </span>

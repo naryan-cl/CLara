@@ -275,6 +275,9 @@ export default async function GuidePage() {
           <P>
             The author of the element, attendees of its linked session, and
             stream admins — the same group that can edit can also delete.
+            Sessions use the same rule (host, attendees, admins, or anyone
+            who authored a nested document). Deleting a session asks whether
+            to ungroup nested documents or delete them too.
           </P>
           <Callout label="Why this comes right after Add">
             Colleagues just created something. Showing them immediately where
@@ -476,8 +479,8 @@ function RefTable({ rows }: { rows: [string, string][] }) {
       <table className="w-full border-collapse text-sm">
         <tbody>
           {rows.map(([term, def]) => (
-            <tr key={term} className="border-t border-cloud first:border-t-0">
-              <td className="w-40 py-2.5 pr-4 align-top font-medium text-forest">
+            <tr key={term} className="flex flex-col border-t border-cloud first:border-t-0 sm:table-row">
+              <td className="w-auto py-2.5 pr-4 align-top font-medium text-forest sm:w-40">
                 {term}
               </td>
               <td className="py-2.5 align-top text-ink/70">{def}</td>

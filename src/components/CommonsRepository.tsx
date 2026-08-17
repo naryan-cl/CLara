@@ -59,6 +59,7 @@ export function CommonsRepository({
     DEFAULT_COMMONS_FILTERS,
   );
   const [selected, setSelected] = useState<CommonsListItem | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const visible = useMemo(
     () =>
@@ -78,7 +79,32 @@ export function CommonsRepository({
   return (
     <div>
       <section className="rounded-lg border border-cloud bg-paper p-4 shadow-soft sm:p-5">
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <div className="flex flex-col gap-3">
+          <label className="flex w-full flex-col gap-0.5 text-xs sm:max-w-xs">
+            <span className="font-medium text-ink/55">Search</span>
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(e) => patchFilter("search", e.target.value)}
+              placeholder="Title or type…"
+              className="min-h-11 rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink placeholder:text-ink/35"
+            />
+          </label>
+
+          <button
+            type="button"
+            className="min-h-11 self-start rounded-md border border-cloud px-3 py-2 text-sm font-medium text-ink/80 sm:hidden"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            {filtersOpen ? "Hide filters" : "Filters"}
+          </button>
+
+          <div
+            className={`${
+              filtersOpen ? "flex" : "hidden"
+            } flex-wrap items-end gap-x-3 gap-y-2 sm:flex`}
+          >
           <label className="flex flex-col gap-0.5 text-xs">
             <span className="font-medium text-ink/55">Type</span>
             <select
@@ -155,20 +181,10 @@ export function CommonsRepository({
             Mine
           </label>
 
-          <label className="ml-auto flex min-w-[10rem] flex-1 flex-col gap-0.5 text-xs sm:max-w-xs">
-            <span className="font-medium text-ink/55">Search</span>
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(e) => patchFilter("search", e.target.value)}
-              placeholder="Title or type…"
-              className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink placeholder:text-ink/35"
-            />
-          </label>
-
-          <p className="pb-1 font-mono text-[11px] text-ink/40 sm:pb-1.5">
+          <p className="pb-1 font-mono text-xs text-ink/40 sm:pb-1.5">
             {visible.length} of {items.length}
           </p>
+          </div>
         </div>
 
         {visible.length === 0 ? (
@@ -190,7 +206,9 @@ export function CommonsRepository({
                     className={`flex w-full flex-col gap-1 rounded-md border border-cloud border-l-4 bg-sand/40 px-3 py-3 text-left transition-colors hover:border-cloud hover:bg-sand ${colour.borderClass}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-ink">{item.title}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium text-ink">
+                        {item.title}
+                      </span>
                       {isPrivate ? (
                         <span
                           className="shrink-0 text-ink/45"

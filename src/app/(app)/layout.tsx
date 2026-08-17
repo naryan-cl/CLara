@@ -24,8 +24,8 @@ export default async function AppLayout({
 
   return (
     <div className="flex flex-1 flex-col bg-sand">
-      <header className="relative z-50 h-[var(--clara-header-height)] border-b border-cloud bg-paper">
-        <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-6">
+      <header className="relative z-50 h-[var(--clara-header-height)] border-b border-cloud bg-paper pt-[env(safe-area-inset-top,0px)]">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-4">
             <Link
               href="/dashboard"
@@ -34,7 +34,7 @@ export default async function AppLayout({
               CLara
             </Link>
             <span
-              className="truncate rounded-pill border border-sage/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-sage shadow-[0_0_12px_rgba(143,214,196,0.2)]"
+              className="hidden truncate rounded-pill border border-sage/40 px-3 py-1 font-mono text-xs uppercase tracking-wide text-sage shadow-[0_0_12px_rgba(143,214,196,0.2)] sm:inline"
               title={
                 stream
                   ? `stream_id: ${stream.id} · role: ${stream.role}`
@@ -46,11 +46,17 @@ export default async function AppLayout({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <AppNav isAdmin={stream?.role === "admin"} />
+            <AppNav
+              isAdmin={stream?.role === "admin"}
+              userEmail={user.email}
+              streamLabel={streamLabel}
+            />
             <span className="hidden text-sm text-ink/60 sm:inline">
               {user.email}
             </span>
-            <SignOutButton />
+            <span className="hidden sm:inline">
+              <SignOutButton />
+            </span>
           </div>
         </div>
       </header>
@@ -68,7 +74,7 @@ export default async function AppLayout({
         </div>
       ) : null}
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-10">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 sm:py-10">
         {children}
       </main>
     </div>

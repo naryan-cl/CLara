@@ -144,7 +144,7 @@ export function AnalyticsDashboard({
                 type="button"
                 disabled={isPending}
                 onClick={() => shiftPeriod(-1)}
-                className="rounded border border-cloud px-2 py-0.5 hover:border-ink/40 disabled:opacity-60"
+                className="min-h-11 min-w-11 rounded border border-cloud px-2 py-2 hover:border-ink/40 disabled:opacity-60"
                 aria-label="Previous period"
               >
                 ‹
@@ -159,7 +159,7 @@ export function AnalyticsDashboard({
                 type="button"
                 disabled={isPending}
                 onClick={() => shiftPeriod(1)}
-                className="rounded border border-cloud px-2 py-0.5 hover:border-ink/40 disabled:opacity-60"
+                className="min-h-11 min-w-11 rounded border border-cloud px-2 py-2 hover:border-ink/40 disabled:opacity-60"
                 aria-label="Next period"
               >
                 ›

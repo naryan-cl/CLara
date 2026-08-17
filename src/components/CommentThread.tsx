@@ -181,14 +181,14 @@ export function CommentThread({
                           type="button"
                           disabled={pending}
                           onClick={() => onSaveEdit(comment)}
-                          className="rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-paper disabled:opacity-60"
+                          className="min-h-11 rounded-md bg-forest px-3 py-2 text-sm font-medium text-paper disabled:opacity-60"
                         >
                           Save
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
-                          className="rounded-md border border-cloud px-3 py-1.5 text-xs text-ink/70"
+                          className="min-h-11 rounded-md border border-cloud px-3 py-2 text-sm text-ink/70"
                         >
                           Cancel
                         </button>
@@ -205,7 +205,7 @@ export function CommentThread({
                       <>
                         <button
                           type="button"
-                          className="text-xs text-horizon hover:underline"
+                          className="min-h-11 px-2 text-sm text-horizon hover:underline"
                           onClick={() => {
                             setEditingId(comment.id);
                             setEditDraft(comment.body);
@@ -215,7 +215,7 @@ export function CommentThread({
                         </button>
                         <button
                           type="button"
-                          className="text-xs text-danger hover:underline"
+                          className="min-h-11 px-2 text-sm text-danger hover:underline"
                           disabled={pending}
                           onClick={() => onDelete(comment.id)}
                         >
@@ -226,7 +226,7 @@ export function CommentThread({
                     {isAdmin && comment.edited_at ? (
                       <button
                         type="button"
-                        className="text-xs text-ink/50 hover:underline"
+                        className="min-h-11 px-2 text-sm text-ink/50 hover:underline"
                         onClick={() => onShowAudit(comment.id)}
                       >
                         Audit log

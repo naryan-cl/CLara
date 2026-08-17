@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { DOCUMENT_SELECT } from "@/lib/documents/columns";
 import type { CommonsDocument } from "@/lib/documents/types";
 import { listSessions } from "@/lib/sessions/list-sessions";
 import { listAttendedSessionIds } from "@/lib/sessions/attendance";
@@ -21,9 +22,7 @@ export async function listCommonsItems(
   const [docsResult, sessionsResult, attendedResult] = await Promise.all([
     supabase
       .from("documents")
-      .select(
-        "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
-      )
+      .select(DOCUMENT_SELECT)
       .eq("stream_id", streamId)
       .eq("is_draft", false)
       .order("created_at", { ascending: false }),

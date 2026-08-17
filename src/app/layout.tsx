@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
@@ -25,6 +25,13 @@ export const metadata: Metadata = {
   title: "CLara — Camp CLAI",
   description:
     "The shared brain for Camp CLAI: capture, structure, and explore collective thinking.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#FBF9F5",
 };
 
 export default function RootLayout({

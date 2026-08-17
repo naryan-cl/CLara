@@ -8,7 +8,9 @@ import {
 } from "@/app/(app)/commons/actions";
 import { AttendanceToggle } from "@/components/AttendanceToggle";
 import { CommentThread } from "@/components/CommentThread";
+import { SessionSummaryTabs } from "@/components/commons/ElementReadView";
 import { DocumentEditor } from "@/components/DocumentEditor";
+import { SessionEditor } from "@/components/SessionEditor";
 import type { CommonsListItem } from "@/lib/commons/types";
 
 /**
@@ -88,6 +90,11 @@ export function CommonsDetailPopup({
                 sessions={detail.sessions}
                 canEdit={detail.canEdit}
                 compact
+                createdByName={detail.createdBy?.display_name ?? null}
+                attendeeNames={detail.attendees.map((person) => person.display_name)}
+                relateTargets={detail.relateTargets}
+                relatedSessionIds={detail.relatedSessionIds}
+                relatedDocumentIds={detail.relatedDocumentIds}
                 onDeleted={onClose}
               />
               <CommentThread
@@ -111,49 +118,52 @@ export function CommonsDetailPopup({
 
           {detail?.kind === "session" ? (
             <div className="flex flex-col gap-6">
-              <div>
-                <h2 className="font-display text-xl font-medium text-ink">
-                  {detail.session.name}
-                </h2>
-                <p className="mt-1 font-mono text-[11px] text-ink/40">
-                  {detail.session.occurred_at
-                    ? new Date(detail.session.occurred_at).toLocaleDateString()
-                    : new Date(detail.session.created_at).toLocaleDateString()}
-                </p>
-              </div>
+              <SessionEditor
+                session={detail.session}
+                nestedDocuments={detail.documents}
+                canEdit={detail.canEdit}
+                compact
+                relateTargets={detail.relateTargets}
+                relatedSessionIds={detail.relatedSessionIds}
+                relatedDocumentIds={detail.relatedDocumentIds}
+                onDeleted={onClose}
+              />
+
+              {detail.createdBy?.display_name ? (
+                <section className="flex flex-col gap-1">
+                  <h3 className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                    Created by
+                  </h3>
+                  <p className="text-sm text-ink/80">
+                    {detail.createdBy.display_name}
+                  </p>
+                </section>
+              ) : null}
+
+              {detail.attendees.length >= 2 ? (
+                <section className="flex flex-col gap-2">
+                  <h3 className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+                    Attendees
+                  </h3>
+                  <ul className="flex flex-wrap gap-2">
+                    {detail.attendees.map((person) => (
+                      <li
+                        key={person.user_id}
+                        className="rounded-pill border border-cloud bg-sand/50 px-3 py-1 text-xs text-ink/80"
+                      >
+                        {person.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
               <AttendanceToggle
                 sessionId={detail.session.id}
                 initialAttending={detail.attending}
               />
 
-              <div>
-                <h3 className="font-display text-base font-medium text-ink">
-                  Documents in this session
-                </h3>
-                {detail.documents.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink/50">
-                    No Commons documents tied to this session yet.
-                  </p>
-                ) : (
-                  <ul className="mt-2 flex flex-col gap-2">
-                    {detail.documents.map((doc) => (
-                      <li key={doc.id}>
-                        <Link
-                          href={`/sessions/documents/${doc.id}`}
-                          className="text-sm font-medium text-horizon hover:underline"
-                        >
-                          {doc.title?.trim() || "Untitled"}
-                        </Link>
-                        <span className="ml-2 font-mono text-[11px] text-ink/40">
-                          {doc.type ?? "untyped"}
-                          {doc.privacy_status === "private" ? " · private" : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <SessionSummaryTabs detail={detail} />
 
               <CommentThread
                 targetType="session"

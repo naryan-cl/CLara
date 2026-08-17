@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { DOCUMENT_SELECT } from "@/lib/documents/columns";
 import type { CommonsDocument } from "@/lib/documents/types";
 
 /**
@@ -13,7 +14,7 @@ export async function listDocumentsBySession(
   const { data, error } = await supabase
     .from("documents")
     .select(
-      "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
+      DOCUMENT_SELECT,
     )
     .eq("session_id", sessionId)
     .order("created_at", { ascending: false });

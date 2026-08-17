@@ -78,9 +78,32 @@ export default async function DocumentPage({ params }: PageProps) {
         ← Back to Commons
       </Link>
       <DocumentEditor
-        document={document}
-        sessions={sessions}
+        document={
+          detail?.kind === "document" ? detail.document : document
+        }
+        sessions={
+          detail?.kind === "document" ? detail.sessions : sessions
+        }
         canEdit={canEdit}
+        createdByName={
+          detail?.kind === "document"
+            ? (detail.createdBy?.display_name ?? null)
+            : null
+        }
+        attendeeNames={
+          detail?.kind === "document"
+            ? detail.attendees.map((person) => person.display_name)
+            : []
+        }
+        relateTargets={
+          detail?.kind === "document" ? detail.relateTargets : []
+        }
+        relatedSessionIds={
+          detail?.kind === "document" ? detail.relatedSessionIds : []
+        }
+        relatedDocumentIds={
+          detail?.kind === "document" ? detail.relatedDocumentIds : []
+        }
       />
       {user ? (
         <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">

@@ -7,6 +7,8 @@ import { getDocumentById } from "@/lib/documents/get-document";
 import { createSession } from "@/lib/sessions/create-session";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
+import { parseIdListFromFormData } from "@/lib/documents/parse-session-ids";
+import { setDocumentLinks } from "@/lib/documents/set-document-links";
 import type { DocumentPrivacy } from "@/lib/documents/types";
 
 const NEW_SESSION_VALUE = "__new__";
@@ -83,6 +85,29 @@ export async function saveDocumentEdits(
 
     if (error || !document) {
       return { ok: false, error: error ?? "Save failed." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const links = await setDocumentLinks({
+        streamId: document.stream_id,
+        sourceDocumentId: document.id,
+        createdBy: user.id,
+        targetDocumentIds: parseIdListFromFormData(
+          formData,
+          "relatedDocumentIds",
+        ),
+        targetSessionIds: parseIdListFromFormData(
+          formData,
+          "relatedSessionIds",
+        ),
+      });
+      if (links.error) {
+        return { ok: false, error: links.error };
+      }
     }
 
     // Re-index Ask (and refresh OKF / graph) when content is present.

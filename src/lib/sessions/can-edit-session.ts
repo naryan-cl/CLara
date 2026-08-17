@@ -1,5 +1,5 @@
 /**
- * Who may edit a Session (name, inquiry, description, date).
+ * Who may edit or delete a Session (name, inquiry, description, date).
  * Matches PRD: host (created_by), attendees, stream admins — plus authors of
  * nested documents so OKF-created gatherings (often `created_by` null) are
  * still fixable by the person who uploaded into them.

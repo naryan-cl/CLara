@@ -73,7 +73,7 @@ export default function LoginPage() {
   const busy = status === "working";
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-sand px-6">
+    <div className="flex flex-1 flex-col items-center justify-center bg-sand px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="w-full max-w-sm rounded-lg border border-cloud bg-paper p-8 shadow-soft">
         <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-sage">
           CLara Platform
@@ -94,7 +94,7 @@ export default function LoginPage() {
 
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-cloud" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-sage">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-sage">
             or email
           </span>
           <div className="h-px flex-1 bg-cloud" />
@@ -112,7 +112,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@cultivatingleadership.com"
-            className="rounded-md border border-cloud bg-white px-3 py-2 text-sm text-ink outline-none focus:border-forest focus:ring-2 focus:ring-glow/40"
+            className="min-h-11 rounded-md border border-cloud bg-white px-3 py-3 text-base text-ink outline-none focus:border-forest focus:ring-2 focus:ring-glow/40"
           />
 
           <label htmlFor="password" className="text-sm font-medium text-ink/70">
@@ -129,7 +129,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="At least 6 characters"
-            className="rounded-md border border-cloud bg-white px-3 py-2 text-sm text-ink outline-none focus:border-forest focus:ring-2 focus:ring-glow/40"
+            className="min-h-11 rounded-md border border-cloud bg-white px-3 py-3 text-base text-ink outline-none focus:border-forest focus:ring-2 focus:ring-glow/40"
           />
 
           <button

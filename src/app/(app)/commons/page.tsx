@@ -42,6 +42,9 @@ export default async function CommonsPage() {
             in the Supabase SQL editor. If it mentions missing tables (comments /
             profiles), run{" "}
             <span className="font-mono">0011_comments_and_attendee_edit.sql</span>.
+            If it mentions a missing <span className="font-mono">summary</span>{" "}
+            column, run{" "}
+            <span className="font-mono">0028_document_summary.sql</span>.
           </p>
         </section>
       ) : (

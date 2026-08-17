@@ -1,9 +1,14 @@
 import {
-  LISTENS_FAILURE_PLACEHOLDER,
-  LISTENS_PENDING_PLACEHOLDER,
+  isListensFailureBody,
+  isListensPendingBody,
 } from "@/lib/listens/placeholders";
+import { stripListensJobMeta } from "@/lib/listens/job-meta";
+import {
+  needsElementSummary,
+  SUMMARIZING_WINDOW_MS,
+} from "@/lib/documents/summary";
 
-/** User-facing pipeline state for a Listens Transcript in Commons. */
+/** User-facing pipeline state for a Commons document in Dashboard/Commons. */
 export type RecordingProcessStatus =
   | "transcribing"
   | "summarizing"
@@ -11,51 +16,60 @@ export type RecordingProcessStatus =
   | "needs_review"
   | "ready";
 
-/** How long a fresh transcript may still be OKF-enriching before we call it review. */
-const SUMMARIZING_WINDOW_MS = 120_000;
-
-function asStringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((v): v is string => typeof v === "string")
-    : [];
-}
+/**
+ * If Whisper never writes the placeholder away, stop spinning.
+ * Long takes are chunked (~12 min); an hour covers retries without
+ * looking "in progress" the next day.
+ */
+export const TRANSCRIBING_STALE_MS = 60 * 60 * 1000;
 
 /**
- * Derive recording pipeline status from document fields.
- * Why: Listens is async (Whisper → OKF). The UI needs a clear label without a
- * separate job-status column — placeholders + needs_review cover the stages.
+ * Derive pipeline status from document fields.
+ * Why: Listens is async (Whisper → summary). The UI needs a clear label
+ * without a separate job-status column — placeholders + empty `summary`
+ * cover the stages. Reflect/Upload also show Summarizing… until their
+ * per-element summary lands.
  */
 export function recordingProcessStatus(doc: {
   type: string | null;
   content: string;
+  summary?: string | null;
   needs_review: boolean;
-  tags?: unknown;
+  is_draft?: boolean | null;
   updated_at: string;
 }): RecordingProcessStatus {
-  if (doc.type !== "Transcript") {
-    return doc.needs_review ? "needs_review" : "ready";
+  const body = stripListensJobMeta(doc.content);
+
+  if (doc.type === "Transcript") {
+    if (isListensFailureBody(body)) {
+      return "failed";
+    }
+    if (isListensPendingBody(body)) {
+      const updatedAt = new Date(doc.updated_at).getTime();
+      const ageMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
+      if (ageMs >= TRANSCRIBING_STALE_MS) {
+        return "failed";
+      }
+      return "transcribing";
+    }
   }
 
-  if (doc.content === LISTENS_PENDING_PLACEHOLDER) {
-    return "transcribing";
-  }
-  if (doc.content === LISTENS_FAILURE_PLACEHOLDER) {
-    return "failed";
-  }
-  if (!doc.needs_review) {
-    return "ready";
-  }
-
-  const tags = asStringList(doc.tags);
-  const updatedAt = new Date(doc.updated_at).getTime();
-  const ageMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
-  // Fresh transcript still waiting on OKF (or OKF skipped) — show Summarizing
-  // briefly, then fall through to Needs review.
-  if (tags.length === 0 && ageMs >= 0 && ageMs < SUMMARIZING_WINDOW_MS) {
-    return "summarizing";
+  if (
+    needsElementSummary(doc) ||
+    (doc.type === "Summary" && !doc.summary?.trim() && body)
+  ) {
+    const updatedAt = new Date(doc.updated_at).getTime();
+    const ageMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
+    if (ageMs >= 0 && ageMs < SUMMARIZING_WINDOW_MS) {
+      return "summarizing";
+    }
   }
 
-  return "needs_review";
+  if (doc.needs_review) {
+    return "needs_review";
+  }
+
+  return "ready";
 }
 
 export function recordingProcessLabel(

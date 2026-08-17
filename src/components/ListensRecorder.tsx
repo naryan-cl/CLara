@@ -1307,12 +1307,12 @@ export function ConfirmDialog({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-lg border border-cloud bg-paper p-5 shadow-soft">
+      <div className="flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-soft sm:rounded-lg sm:pb-5">
         <h2
           id="confirm-dialog-title"
           className="font-display text-lg font-medium text-ink"
@@ -1320,11 +1320,11 @@ export function ConfirmDialog({
           {title}
         </h2>
         <p className="text-sm text-ink/65">{body}</p>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-cloud px-4 py-2 text-sm text-ink"
+            className="min-h-11 rounded-md border border-cloud px-4 py-2 text-sm text-ink"
           >
             {cancelLabel}
           </button>
@@ -1332,7 +1332,7 @@ export function ConfirmDialog({
             <button
               type="button"
               onClick={onSecondary}
-              className="rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5"
+              className="min-h-11 rounded-md border border-forest px-4 py-2 text-sm font-medium text-forest hover:bg-forest/5"
             >
               {secondaryLabel}
             </button>
@@ -1340,7 +1340,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className={`rounded-md px-4 py-2 text-sm font-medium text-paper ${
+            className={`min-h-11 rounded-md px-4 py-2 text-sm font-medium text-paper ${
               danger ? "bg-danger" : "btn-primary bg-forest"
             }`}
           >

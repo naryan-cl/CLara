@@ -124,6 +124,7 @@ export const synthesizeSessionFn = inngest.createFunction(
           .from("documents")
           .update({
             content: markdown,
+            summary: markdown,
             title,
             needs_review: false,
             is_draft: false,
@@ -140,6 +141,7 @@ export const synthesizeSessionFn = inngest.createFunction(
           stream_id: streamId,
           created_by: session.created_by,
           content: markdown,
+          summary: markdown,
           title,
           type: "Summary",
           session_id: sessionId,

@@ -35,8 +35,9 @@
   --radius-organic-list: 36px 24px 44px 28px / 32px 40px 28px 44px;
   --radius-organic-btn: 18px 28px 22px 30px / 24px 18px 28px 20px;
 
-  /* App chrome — dashboard map sits below the sticky header. */
-  --clara-header-height: 4.75rem;
+  /* App chrome — dashboard map sits below the sticky header.
+     Include the notch so fixed map chrome does not tuck under it. */
+  --clara-header-height: calc(4.75rem + env(safe-area-inset-top, 0px));
 }
 
 @theme inline {
@@ -74,6 +75,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: clip;
 }
 
 /* Knowledge Map edge flow — DESIGN_GUIDE.md "signature moments". Skipped
@@ -258,4 +264,13 @@ body {
 .nav-active-glow {
   text-shadow: 0 0 18px rgba(143, 214, 196, 0.35);
   animation: fade-rise var(--duration-ui) var(--ease) both;
+}
+
+/* iOS zooms focused inputs under 16px — keep phone fields at 1rem. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 1rem;
+  }
 }

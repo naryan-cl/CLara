@@ -19,10 +19,19 @@ import type {
 } from "@/lib/comments/types";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
+import { needsElementSummary } from "@/lib/documents/summary";
+import { enqueueDocumentSummarize } from "@/lib/embeddings/enqueue-document-created";
 import { getSessionById } from "@/lib/sessions/get-session";
 import { canEditSession } from "@/lib/sessions/can-edit-session";
 import { isAttending } from "@/lib/sessions/attendance";
+import { listSessionAttendeeProfiles } from "@/lib/sessions/list-attendees";
 import { listSessions } from "@/lib/sessions/list-sessions";
+import { listRelateTargets, type RelateTarget } from "@/lib/commons/relate-targets";
+import {
+  listDocumentsLinkedToSession,
+  listLinksForDocument,
+} from "@/lib/documents/list-document-links";
+import { listRelatedSessionIds } from "@/lib/sessions/list-session-relations";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
 import {
@@ -41,6 +50,11 @@ export type DocumentDetailPayload = {
   canEdit: boolean;
   comments: CommentWithAuthor[];
   isAdmin: boolean;
+  createdBy: UserPublicProfile | null;
+  attendees: UserPublicProfile[];
+  relateTargets: RelateTarget[];
+  relatedSessionIds: string[];
+  relatedDocumentIds: string[];
 };
 
 export type SessionDetailPayload = {
@@ -51,6 +65,11 @@ export type SessionDetailPayload = {
   canEdit: boolean;
   comments: CommentWithAuthor[];
   isAdmin: boolean;
+  createdBy: UserPublicProfile | null;
+  attendees: UserPublicProfile[];
+  relateTargets: RelateTarget[];
+  relatedSessionIds: string[];
+  relatedDocumentIds: string[];
 };
 
 export type DetailPayload = DocumentDetailPayload | SessionDetailPayload;
@@ -71,6 +90,31 @@ async function attachAuthors(
       avatar_url: null,
     },
   }));
+}
+
+const SUMMARY_BACKFILL_AFTER_MS = 90_000;
+
+function maybeBackfillSummary(doc: CommonsDocument) {
+  if (!needsElementSummary(doc)) return;
+  const updatedAt = new Date(doc.updated_at).getTime();
+  const ageMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
+  if (ageMs < SUMMARY_BACKFILL_AFTER_MS) return;
+  void enqueueDocumentSummarize(doc.id, doc.stream_id);
+}
+
+async function resolveCreatedBy(
+  userId: string | null,
+): Promise<UserPublicProfile | null> {
+  if (!userId) return null;
+  const { profiles } = await getUserPublicProfiles([userId]);
+  return (
+    profiles[0] ?? {
+      user_id: userId,
+      email: null,
+      display_name: "Member",
+      avatar_url: null,
+    }
+  );
 }
 
 export async function loadCommonsDetail(
@@ -99,18 +143,34 @@ export async function loadCommonsDetail(
       return { detail: null, error: "Document not found." };
     }
 
-    const [{ sessions }, commentsResult, attendingResult] = await Promise.all([
+    const [
+      { sessions },
+      commentsResult,
+      attendingResult,
+      createdBy,
+      attendeesResult,
+      relateTargets,
+      linksResult,
+    ] = await Promise.all([
       listSessions(stream.id),
       listComments(stream.id, "document", id),
       document.session_id
         ? isAttending(document.session_id, user.id)
         : Promise.resolve({ attending: false, error: null }),
+      resolveCreatedBy(document.created_by),
+      document.session_id
+        ? listSessionAttendeeProfiles(document.session_id)
+        : Promise.resolve({ attendees: [] as UserPublicProfile[], error: null }),
+      listRelateTargets(stream.id),
+      listLinksForDocument(id),
     ]);
 
     const canEdit =
       document.created_by === user.id ||
       isAdmin ||
       attendingResult.attending === true;
+
+    maybeBackfillSummary(document);
 
     return {
       detail: {
@@ -120,6 +180,11 @@ export async function loadCommonsDetail(
         canEdit,
         comments: await attachAuthors(commentsResult.comments),
         isAdmin,
+        createdBy,
+        attendees: attendeesResult.attendees,
+        relateTargets,
+        relatedSessionIds: linksResult.relatedSessionIds,
+        relatedDocumentIds: linksResult.relatedDocumentIds,
       },
       error: null,
     };
@@ -131,10 +196,24 @@ export async function loadCommonsDetail(
     return { detail: null, error: "Session not found." };
   }
 
-  const [{ documents }, attendingResult, commentsResult] = await Promise.all([
+  const [
+    { documents },
+    attendingResult,
+    commentsResult,
+    createdBy,
+    attendeesResult,
+    relateTargets,
+    relatedSessionsResult,
+    linkedDocsResult,
+  ] = await Promise.all([
     listDocumentsBySession(id),
     isAttending(id, user.id),
     listComments(stream.id, "session", id),
+    resolveCreatedBy(session.created_by),
+    listSessionAttendeeProfiles(id),
+    listRelateTargets(stream.id),
+    listRelatedSessionIds(id),
+    listDocumentsLinkedToSession(id),
   ]);
 
   const canEdit = canEditSession({
@@ -154,6 +233,11 @@ export async function loadCommonsDetail(
       canEdit,
       comments: await attachAuthors(commentsResult.comments),
       isAdmin,
+      createdBy,
+      attendees: attendeesResult.attendees,
+      relateTargets,
+      relatedSessionIds: relatedSessionsResult.ids,
+      relatedDocumentIds: linkedDocsResult.ids,
     },
     error: null,
   };

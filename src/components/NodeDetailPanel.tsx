@@ -25,7 +25,7 @@ export function NodeDetailPanel({
         </span>
         <button
           type="button"
-          className="text-xs text-ink/50 hover:text-ink"
+          className="min-h-11 px-3 text-sm text-ink/50 hover:text-ink"
           onClick={onClose}
         >
           Close

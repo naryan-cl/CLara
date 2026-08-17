@@ -72,7 +72,7 @@ export function MembersPanel({
             type="email"
             required
             placeholder="name@cultivatingleadership.com"
-            className="w-72 rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
+            className="w-full max-w-sm rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
           />
         </label>
         <button
@@ -94,22 +94,22 @@ export function MembersPanel({
         {members.map((member) => (
           <li
             key={member.user_id}
-            className="flex items-center justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
+            className="flex flex-col items-stretch gap-3 border-b border-cloud pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
             <div>
-              <p className="text-sm text-ink">{member.email}</p>
+              <p className="min-w-0 break-all text-sm text-ink">{member.email}</p>
               <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
                 {member.role}
                 {member.user_id === currentUserId ? " · you" : ""}
               </p>
             </div>
             {member.user_id === currentUserId ? null : (
-              <div className="flex shrink-0 gap-2">
+              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
                 <button
                   type="button"
                   disabled={pending}
                   onClick={() => onToggleRole(member.user_id, member.role)}
-                  className="rounded-md border border-cloud px-3 py-1.5 text-xs text-ink/70 hover:text-ink disabled:opacity-60"
+                  className="min-h-11 rounded-md border border-cloud px-3 py-2 text-sm text-ink/70 hover:text-ink disabled:opacity-60"
                 >
                   Make {member.role === "admin" ? "member" : "admin"}
                 </button>
@@ -117,7 +117,7 @@ export function MembersPanel({
                   type="button"
                   disabled={pending}
                   onClick={() => onRemove(member.user_id)}
-                  className="rounded-md border border-cloud px-3 py-1.5 text-xs text-danger hover:bg-danger/10 disabled:opacity-60"
+                  className="min-h-11 rounded-md border border-cloud px-3 py-2 text-sm text-danger hover:bg-danger/10 disabled:opacity-60"
                 >
                   Remove
                 </button>

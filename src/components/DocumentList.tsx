@@ -13,13 +13,13 @@ export function DocumentList({
       {documents.map((doc) => (
         <li
           key={doc.id}
-          className="flex items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
+          className="flex min-w-0 items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
         >
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
               <Link
                 href={`/sessions/documents/${doc.id}`}
-                className="font-medium text-ink hover:text-forest hover:underline"
+                className="truncate font-medium text-ink hover:text-forest hover:underline"
               >
                 {doc.title?.trim() || "Untitled"}
               </Link>
@@ -37,7 +37,10 @@ export function DocumentList({
               {doc.needs_review ? " · needs review" : ""}
             </p>
           </div>
-          <time className="shrink-0 font-mono text-[11px] text-ink/40">
+          <time className="shrink-0 font-mono text-[11px] text-ink/40 sm:hidden">
+            {new Date(doc.created_at).toLocaleDateString()}
+          </time>
+          <time className="hidden shrink-0 font-mono text-[11px] text-ink/40 sm:inline">
             {dateStyle === "date"
               ? new Date(doc.created_at).toLocaleDateString()
               : new Date(doc.created_at).toLocaleString()}

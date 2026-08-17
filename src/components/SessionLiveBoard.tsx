@@ -316,7 +316,7 @@ export function SessionLiveBoard({
                   />
                   <span>
                     {peer.display_name}
-                    <span className="ml-1 text-xs text-ink/40">
+                    <span className="mt-0.5 block break-all text-xs text-ink/40 sm:ml-1 sm:mt-0 sm:inline">
                       {peer.email}
                     </span>
                   </span>

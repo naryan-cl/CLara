@@ -51,17 +51,42 @@ export function clamp(value: number, min: number, max: number): number {
 
 type SeedNode = GraphNode & { x?: number; y?: number };
 
+function findExistingNeighbor(
+  nodeId: string,
+  previous: Map<string, SimNode>,
+  edges: GraphEdge[],
+): SimNode | null {
+  for (const edge of edges) {
+    if (edge.sourceNodeId === nodeId) {
+      const target = previous.get(edge.targetNodeId);
+      if (target) return target;
+    }
+    if (edge.targetNodeId === nodeId) {
+      const source = previous.get(edge.sourceNodeId);
+      if (source) return source;
+    }
+  }
+  return null;
+}
+
 /**
  * Seed nodes on a circle (deterministic — no Math.random) so SSR/hydration
  * and live sim starts agree on initial placement.
+ *
+ * When a previous layout exists, keep those positions and zero leftover
+ * velocity so a click / expand does not fling the whole map. Brand-new
+ * nodes spawn next to a connected neighbor when one is already placed.
  */
 export function seedSimNodes(
   nodes: GraphNode[],
   width: number,
   height: number,
   previous?: Map<string, SimNode>,
+  edges: GraphEdge[] = [],
 ): SimNode[] {
   const radius = Math.min(width, height) / 3;
+  const hadPrevious = Boolean(previous && previous.size > 0);
+
   return nodes.map((node, index) => {
     const prior = previous?.get(node.id);
     if (prior) {
@@ -69,12 +94,31 @@ export function seedSimNodes(
         ...node,
         x: prior.x,
         y: prior.y,
-        vx: prior.vx,
-        vy: prior.vy,
+        // Drop leftover velocity — otherwise a sim restart keeps spreading.
+        vx: 0,
+        vy: 0,
         fx: prior.fx,
         fy: prior.fy,
       };
     }
+
+    if (hadPrevious && previous) {
+      const anchor = findExistingNeighbor(node.id, previous, edges);
+      if (anchor) {
+        const angle = (index * 2.399963) % (Math.PI * 2);
+        const dist = 56;
+        return {
+          ...node,
+          x: anchor.x + dist * Math.cos(angle),
+          y: anchor.y + dist * Math.sin(angle),
+          vx: 0,
+          vy: 0,
+          fx: null,
+          fy: null,
+        };
+      }
+    }
+
     const angle = (index / Math.max(nodes.length, 1)) * Math.PI * 2;
     return {
       ...node,
@@ -98,6 +142,7 @@ export function createGraphSimulation(
   width: number,
   height: number,
   config: MapLayoutConfig = DEFAULT_MAP_LAYOUT_CONFIG,
+  initialAlpha = 1,
 ): Simulation<SimNode, undefined> {
   const simLinks = edges.map((edge) => ({
     source: edge.sourceNodeId,
@@ -105,6 +150,7 @@ export function createGraphSimulation(
   }));
 
   return forceSimulation(simNodes)
+    .alpha(initialAlpha)
     .force(
       "link",
       forceLink(simLinks)

@@ -39,15 +39,15 @@ export function IsolationToggle({
           disabled={pending}
           className={
             enabled
-              ? "relative h-6 w-11 rounded-full bg-forest transition disabled:opacity-60"
-              : "relative h-6 w-11 rounded-full bg-cloud transition disabled:opacity-60"
+              ? "relative inline-flex h-11 w-14 items-center rounded-full bg-forest px-1 transition disabled:opacity-60"
+              : "relative inline-flex h-11 w-14 items-center rounded-full bg-cloud px-1 transition disabled:opacity-60"
           }
         >
           <span
             className={
               enabled
-                ? "absolute left-6 top-1 h-4 w-4 rounded-full bg-paper transition"
-                : "absolute left-1 top-1 h-4 w-4 rounded-full bg-paper transition"
+                ? "ml-auto h-5 w-5 rounded-full bg-paper transition"
+                : "h-5 w-5 rounded-full bg-paper transition"
             }
           />
         </button>

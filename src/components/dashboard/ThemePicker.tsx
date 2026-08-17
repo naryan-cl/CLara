@@ -56,8 +56,8 @@ export function ThemePicker({
               onClick={() => onPick(theme)}
               className={
                 selected
-                  ? "rounded px-2.5 py-1 text-xs font-medium transition disabled:opacity-50"
-                  : "rounded px-2.5 py-1 text-xs font-medium text-ink/70 transition hover:bg-sand hover:text-ink disabled:opacity-50"
+                  ? "min-h-11 rounded px-3 py-2 text-sm font-medium transition disabled:opacity-50"
+                  : "min-h-11 rounded px-3 py-2 text-sm font-medium text-ink/70 transition hover:bg-sand hover:text-ink disabled:opacity-50"
               }
               style={
                 selected

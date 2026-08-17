@@ -466,25 +466,33 @@ export function SessionComposer({
             setConnectOpen((v) => !v);
             setCreateOpen(false);
           }}
-          className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
+          className="min-h-11 rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
         >
           Connect to a session / artifact
           {selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
         </button>
 
         {connectOpen ? (
-          <div className="absolute left-0 z-20 mt-2 w-full min-w-[18rem] max-w-md rounded-lg border border-cloud bg-paper p-3 shadow-soft">
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 bg-ink/30 sm:hidden"
+              aria-label="Close connect"
+              onClick={() => setConnectOpen(false)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] overflow-y-auto rounded-t-lg border border-cloud bg-paper p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:z-20 sm:mt-2 sm:max-h-none sm:w-[min(100%,24rem)] sm:min-w-0 sm:max-w-md sm:rounded-lg sm:pb-3">
             {connectionsPicker}
             <div className="mt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setConnectOpen(false)}
-                className="text-sm text-horizon hover:underline"
+                className="min-h-11 w-full rounded-md border border-cloud px-4 py-2 text-sm font-medium text-horizon sm:w-auto sm:border-0 sm:hover:underline"
               >
                 Done
               </button>
             </div>
           </div>
+          </>
         ) : null}
 
         {!connectOpen && selectedSessions.length > 0 ? (
@@ -545,14 +553,14 @@ export function SessionComposer({
 
       {createOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-session-title"
         >
           <form
             onSubmit={handleCreate}
-            className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-cloud bg-paper p-5 shadow-soft"
+            className="flex max-h-[90dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-soft sm:rounded-lg sm:pb-5"
           >
             <h2
               id="create-session-title"
@@ -597,18 +605,18 @@ export function SessionComposer({
 
             {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-            <div className="mt-1 flex flex-wrap justify-end gap-2">
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="rounded-md border border-cloud px-4 py-2 text-sm text-ink"
+                className="min-h-11 rounded-md border border-cloud px-4 py-2 text-sm text-ink"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={pending || !name.trim()}
-                className="btn-primary rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
+                className="btn-primary min-h-11 rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
               >
                 {pending ? "Creating…" : "Create"}
               </button>

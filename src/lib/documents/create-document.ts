@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { DOCUMENT_SELECT } from "@/lib/documents/columns";
 import type {
   CommonsDocument,
   DocumentPrivacy,
@@ -50,9 +51,7 @@ export async function createDocument(
       needs_review: needsReview,
       is_draft: input.isDraft ?? false,
     })
-    .select(
-      "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, is_draft, created_at, updated_at",
-    )
+    .select(DOCUMENT_SELECT)
     .single();
 
   if (error) {

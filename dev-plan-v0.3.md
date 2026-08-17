@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-14 (auto-join Camp CLAI; Make admin RLS fix)  
+**Last updated:** 2026-08-16 (map click no longer spreads nodes; edit connections)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–`0021`, **`0022`**, **`0023`**, **`0024_auto_join_camp_clai.sql`**, **`0025_stream_admin_member_select.sql`** so Make admin / Remove actually persist).
+5. Apply newer Supabase migrations if missing (`0011`–**`0028`**). **`0026`** session delete RLS; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -81,13 +81,13 @@
 *   **`0022_map_layout_config.sql`** — `streams.map_layout_config` jsonb (nullable). NULL = product defaults in `src/lib/graph/map-layout-config.ts`. **Required to persist Admin → Map layout knobs.**
 *   **`0023_session_edit_rls.sql`** — session UPDATE for attendees + nested document authors. **Required for dashboard session rename.**
 *   **`0024_auto_join_camp_clai.sql`** — new `auth.users` auto-join Camp CLAI as `member`; backfill existing accounts; `ensure_my_camp_clai_membership()` self-heal RPC. **Required so new colleagues are not stuck with "no active stream".**
-*   **`0025_stream_admin_member_select.sql`** — stream admins can SELECT other `stream_members` rows in their stream (`is_stream_admin` helper). **Required for Make admin / Make member / Remove to actually change rows.**
+*   **`0026_session_delete_rls.sql`** — DELETE policies on `sessions` for host, stream admins, attendees, and nested document authors (same gate as session edit). **Required for Commons / dashboard session Delete.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0025** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0028** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
-`id`, `stream_id`, `created_by`, `content`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
+`id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
 
 ---
 
@@ -113,6 +113,7 @@
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
 | Commons repository | `src/app/(app)/commons/*`, `src/components/CommonsRepository.tsx`, `src/lib/commons/{types,element-colours,list-items}.ts` — filters, type colours + legend, detail popup |
 | Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
+| Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`, DELETE RLS in `0026` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation,ensure-camp-clai-membership}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migration `0015` |
 | Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
@@ -131,7 +132,7 @@
 *   App id in code: `clara`
 *   Smoke event: `clara/hello` → function `clara-hello`
 *   OKF enrich event: `clara/document.created` → function `clara-okf-enrich` (sent from `receiveTextContent` after a successful create, and from `clara-convert-upload` after a successful conversion; best-effort, never blocks the user's Receive)
-*   Same `clara/document.created` event also fans out to `clara-embed-document` (Ask CLara) and `clara-extract-graph` (Knowledge Map) — all three listeners are independent, no shared state, added without ever touching `receiveTextContent`/`convert-upload`/`saveChatConversation`
+*   Same `clara/document.created` event also fans out to `clara-embed-document` (Ask CLara), `clara-extract-graph` (Knowledge Map), and **`clara-summarize-document`** (per-element `documents.summary`) — listeners are independent. Private Reflect sends `clara/document.summarize` only (summary without map extract). Older rows missing a summary are backfilled when opened (after ~90s of age).
 *   Upload conversion event: `clara/upload.received` → function `clara-convert-upload` (sent from `receiveConvertibleUpload` in `sessions/actions.ts` after the file lands in Storage; enqueue failure rolls back the placeholder doc + storage object, unlike OKF enrich's best-effort failure mode, since extracted content is the whole point of this path)
 *   Prod sync URL: `https://clara-cl.vercel.app/api/inngest`
 *   Package: `inngest@^4` (Festival-style `triggers: [{ event }]`)
@@ -143,6 +144,11 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Phone dashboard chrome (2026-08-16):** Phone (below Tailwind `sm` / 640px) is a dedicated layout, not a scaled-down desktop panel. Ask CLara is a **bottom sheet** so Add/List FABs stay tappable; List and Ask/detail are mutually exclusive; resize grips are desktop-only. Hamburger always shows Add/Synthesis children, plus stream/email/Sign out. Viewport `viewportFit: cover`, safe-area padding, 16px inputs (no iOS zoom). Connect/Members no longer overflow. **Manual test on a ~390px phone:** (1) Dashboard — Add and List tappable with Ask minimized at the bottom; (2) List → card → list closes, detail sheet opens; (3) hamburger shows Record, Ask, Sign out without extra taps; (4) Record or Upload — Connect sheet fits, upload zone is tap-to-pick.
+*   **Dashboard click no longer shoves the map (2026-08-16):** Selecting a sprite used to pin + reheat d3-force on mouse-down, so each click pushed neighbors farther away. Clicks now only select; drag still pins and reheats. Session expand still shows children, but existing nodes keep their places (new children spawn beside the parent; sim restarts at low energy). Apply nothing extra. **Manual test:** (1) dashboard — click 4–5 sprites; others stay put; (2) click a session — children appear nearby, the rest of the map does not fly apart; (3) drag a node — it pins and peers can settle; (4) double-click still unpins.
+*   **Edit connections (2026-08-16):** Session edit has a **Connections** picker (other sessions via `session_relations`, elements via `document_links` targeting the session). Document edit keeps **Nested in session** (`session_id`) and adds **Connections** (Relate to other sessions/elements without nesting). Same people as edit. Map draws session–session Relate lines when both are visible. Apply **`0027_connection_edit_rls.sql`**. **Manual test:** (1) run `0027`; (2) dashboard pencil on a session → connect another session + an ungrouped Add → Save → line on the map; (3) edit a Reflection → nest into a session *or* connect to a different session without nesting; (4) Commons popup / document page show the same fields.
+*   **Element summaries + Created by / attendees (2026-08-16, code shipped):** Each submitted Commons document gets `documents.summary` via Inngest `clara-summarize-document` (same `clara/document.created` fan-out as OKF/embed; private Reflect uses `clara/document.summarize` so the map stays public-only). Dashboard, Commons popup, and document pages open **Summary** by default with a second tab for Transcript / Reflection / Uploaded text. **Created by** shows the author's display name. Sessions with 2+ `session_attendees` list **Attendees**. Session Finalize still writes the gathering Summary document. Apply **`0028_document_summary.sql`**. **Manual test:** (1) run `0028` in Supabase; (2) `npm run inngest:dev` + `npm run dev`; (3) Record or Upload → open on Dashboard → Summary tab, then Transcript tab; (4) Reflect submit → summary appears; (5) open a session with two joiners → Attendees list + Created by; (6) open an older transcript → summary backfills after a short wait; (7) Chatbot ≠ Ask still separate.
+*   **Session edit/delete + stuck transcription (2026-08-16):** Commons popup, session archive, and dashboard pencil now share `SessionEditor` (title / date / inquiry / description) with **Delete**. Delete asks whether to **ungroup nested documents** (list them; `session_id` SET NULL) or **delete those documents too**. Apply **`0026_session_delete_rls.sql`**. Recordings stuck on the Whisper placeholder for over an hour show **Transcription failed** instead of spinning forever; Inngest `onFailure` writes the failure placeholder and keeps staging audio; **Retry** re-enqueues when job meta + Storage still exist (new recordings store a hidden `clara-listens` comment). Older placeholders without that meta cannot retry — Edit/paste or Delete. **Manual test:** (1) run `0026`; (2) Commons → session → Edit → Save; (3) Delete → see nested list → Keep documents → session gone, docs ungrouped; (4) another session → Delete session and documents; (5) open a yesterday “transcribing” Record → failed + Retry (expect a clear error if audio/meta is gone); (6) new short Record, then (optional) kill Inngest to confirm failure label + Retry after the job fails.
 *   **Make admin was a no-op (2026-08-14):** Promoting/demoting/removing a member used a table UPDATE/DELETE that Postgres silently skipped — RLS only lets you change rows you can SELECT, and `stream_members` SELECT was own-row-only. UI refreshed with no error; role stayed `member`. Fix: migration **`0025`** adds `is_stream_admin()` + a SELECT policy for stream admins; app treats 0 updated/deleted rows as an error. **Manual test:** run `0025` → Admin → Members → Make admin on a member → list shows `admin`; they refresh and see the Admin nav. Remove still works. Your own row still has no self-promote/remove buttons.
 *   **Auto-join Camp CLAI (2026-08-14):** Product decision for now: every new CLara account is inserted into `stream_members` for `camp-clai` as `member` at signup (trigger on `auth.users`), and all existing accounts that were not yet members are backfilled. Role stays `member` — existing admins are untouched (`ON CONFLICT DO NOTHING`). App self-heal: `getActiveStream` calls `ensure_my_camp_clai_membership` when the user has zero memberships (no-ops if `0024` is not applied yet). Isolation stays on; this is membership, not cross-stream access. Revisit when other streams are populated or invite-only is required. **Manual test:** (1) run `0024` in the Supabase SQL editor; (2) colleague who already registered refreshes — header badge should read **Camp CLAI**, no "join an active stream" banner; (3) create a brand-new test account → lands in Camp CLAI without an admin add; (4) Admin → Members still lists them as member (not admin).
 *   **Map pinch-to-zoom (2026-08-13):** Dashboard and `/map` share `KnowledgeMap`. **Touch:** two-finger pinch zooms around the pinch center; one finger pans (including after lifting one pinch finger); tap a node to select. **Mouse:** wheel still zooms (now toward the cursor); drag empty canvas to pan; drag a node to pin. Helpers in `src/lib/graph/view-transform.ts`. `touch-none` on the canvas so the page does not pinch-zoom instead. **Manual test:** (1) phone/tablet dashboard — pinch in/out, one-finger drag pans even over sprites; (2) tap a sprite → Ask/detail still opens; (3) `/map` same gestures + hint text; (4) desktop wheel + drag + node-pin still work.

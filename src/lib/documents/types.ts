@@ -17,6 +17,8 @@ export type CommonsDocument = {
   stream_id: string;
   created_by: string | null;
   content: string;
+  /** LLM Markdown summary of `content`. Null until the summarize job runs. */
+  summary?: string | null;
   title: string | null;
   /** FK into `sessions.id` (nullable) — see src/lib/sessions. */
   session_id: string | null;

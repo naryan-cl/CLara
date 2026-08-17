@@ -184,7 +184,7 @@ export function AskForm({
   }
 
   const scoped = askScopeIsActive(scope);
-  const showThread = !minimized || turns.length > 0 || pending;
+  const showThread = !minimized;
   const unscopedPlaceholder = streamName
     ? `Ask a question about anything in the ${streamName} Commons`
     : "What came up around psychological safety this week?";
@@ -202,12 +202,12 @@ export function AskForm({
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-horizon/30 bg-horizon/5 px-3 py-2">
           <p className="text-xs text-ink/70">
             Grounded in{" "}
-            <span className="font-medium text-ink">{scope!.label}</span>
+            <span className="min-w-0 truncate font-medium text-ink">{scope!.label}</span>
           </p>
           <button
             type="button"
             onClick={() => onClearScope?.()}
-            className="font-mono text-[11px] text-horizon hover:underline"
+            className="min-h-11 font-mono text-xs text-horizon hover:underline"
           >
             Ask whole Commons
           </button>
@@ -246,7 +246,7 @@ export function AskForm({
                 key={`${turn.role}-${index}`}
                 className={
                   turn.role === "user"
-                    ? "ml-8 rounded-md bg-sand/60 px-3 py-2 text-sm text-ink"
+                    ? "ml-2 rounded-md bg-sand/60 px-3 py-2 text-sm text-ink sm:ml-8"
                     : "mr-4 flex flex-col gap-3"
                 }
               >
@@ -271,7 +271,7 @@ export function AskForm({
                       >
                         <Link
                           href={`/sessions/documents/${source.documentId}`}
-                          className="rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon transition-[border-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-horizon hover:-translate-y-px"
+                          className="max-w-full truncate rounded-pill border border-horizon/40 bg-sand/60 px-3 py-1 font-mono text-[11px] text-horizon transition-[border-color,transform] duration-[var(--duration-ui)] ease-[var(--ease)] hover:border-horizon hover:-translate-y-px"
                         >
                           [{sourceIndex + 1}] {source.title}
                           {source.sessionName
@@ -322,7 +322,7 @@ export function AskForm({
                 ? unscopedPlaceholder
                 : "Can you say more about that?"
           }
-          className="rounded-md border border-cloud bg-sand/40 p-3 text-sm text-ink outline-none focus:border-horizon"
+          className="rounded-md border border-cloud bg-sand/40 p-3 text-base text-ink outline-none focus:border-horizon sm:text-sm"
         />
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         <div className="flex flex-wrap items-center gap-2">
@@ -331,8 +331,8 @@ export function AskForm({
             disabled={pending}
             className={
               accentTheme
-                ? "btn-primary organic-ask-btn px-4 py-2 text-sm font-medium disabled:opacity-60"
-                : "btn-primary organic-ask-btn bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
+                ? "btn-primary organic-ask-btn min-h-11 px-4 py-2 text-sm font-medium disabled:opacity-60"
+                : "btn-primary organic-ask-btn min-h-11 bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30 disabled:opacity-60"
             }
             style={
               accentTheme ? themeAccentButtonStyle(accentTheme) : undefined

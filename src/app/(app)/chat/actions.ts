@@ -8,7 +8,7 @@ import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { setDocumentLinks } from "@/lib/documents/set-document-links";
-import { enqueueDocumentCreated } from "@/lib/embeddings/enqueue-document-created";
+import { enqueueDocumentCreated, enqueueDocumentSummarize } from "@/lib/embeddings/enqueue-document-created";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -186,6 +186,9 @@ export async function saveChatConversation(
 
     if (privacy === "public") {
       await enqueueDocumentCreated(data.id, stream.id);
+    } else {
+      // Private stays off the map/Ask index; still get a per-element summary.
+      await enqueueDocumentSummarize(data.id, stream.id);
     }
 
     return { ok: true, documentId: data.id };
@@ -221,6 +224,8 @@ export async function saveChatConversation(
 
   if (privacy === "public") {
     await enqueueDocumentCreated(document.id, stream.id);
+  } else {
+    await enqueueDocumentSummarize(document.id, stream.id);
   }
 
   return { ok: true, documentId: document.id };

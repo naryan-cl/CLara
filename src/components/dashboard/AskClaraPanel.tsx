@@ -49,6 +49,8 @@ export function AskClaraPanel({
   mapTheme = null,
   watchProcessing = false,
   onItemTitleChange,
+  forceMinimized = false,
+  onExpand,
 }: {
   formKey?: string;
   scope?: AskScope | null;
@@ -69,8 +71,16 @@ export function AskClaraPanel({
   watchProcessing?: boolean;
   /** After an in-pane rename so the map/list can update immediately. */
   onItemTitleChange?: (title: string) => void;
+  /** Phone List sheet is open — collapse Ask so the two do not stack. */
+  forceMinimized?: boolean;
+  /** Fires when Ask leaves minimized (conversation or detail) so List can close. */
+  onExpand?: () => void;
 } = {}) {
   const rootRef = useRef<HTMLElement>(null);
+  const onExpandRef = useRef(onExpand);
+  useEffect(() => {
+    onExpandRef.current = onExpand;
+  }, [onExpand]);
   const [conversationOpen, setConversationOpen] = useState(
     Boolean(forceConversation || autoSubmitInitial),
   );
@@ -85,6 +95,7 @@ export function AskClaraPanel({
   const [detailTitleOverride, setDetailTitleOverride] = useState<string | null>(
     null,
   );
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const { size, dragging, startDrag } = useResizablePanel({
     storageKey: "clara.dashboard.askPanel",
@@ -98,8 +109,32 @@ export function AskClaraPanel({
 
   useEffect(() => {
     if (!(forceConversation || autoSubmitInitial)) return;
-    queueMicrotask(() => setConversationOpen(true));
+    queueMicrotask(() => {
+      setConversationOpen(true);
+      onExpandRef.current?.();
+    });
   }, [forceConversation, autoSubmitInitial, formKey]);
+
+  useEffect(() => {
+    if (!forceMinimized) return;
+    queueMicrotask(() => setConversationOpen(false));
+  }, [forceMinimized]);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    function sync() {
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardInset(inset);
+    }
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -115,7 +150,7 @@ export function AskClaraPanel({
   const inDetail = Boolean(selectedItem || selectedNode);
   const mode: AskHostMode = inDetail
     ? "detail"
-    : conversationOpen
+    : conversationOpen && !forceMinimized
       ? "conversation"
       : "minimized";
 
@@ -123,7 +158,7 @@ export function AskClaraPanel({
   useEffect(() => {
     if (inDetail || hasConversation || !conversationOpen) return;
 
-    function onPointer(event: MouseEvent) {
+    function onPointer(event: PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setConversationOpen(false);
       }
@@ -132,10 +167,10 @@ export function AskClaraPanel({
       if (event.key === "Escape") setConversationOpen(false);
     }
 
-    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
   }, [inDetail, hasConversation, conversationOpen]);
@@ -184,10 +219,17 @@ export function AskClaraPanel({
           typeof window !== "undefined" ? window.innerHeight - 96 : size.height,
         );
 
+  const iconBtnClass =
+    "flex h-11 w-11 items-center justify-center rounded-full border border-cloud text-ink/55 transition-colors hover:border-ink/30 hover:text-ink";
+
   return (
     <section
       ref={rootRef}
-      className={`organic-ask relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm ${
+      className={`relative flex flex-col border border-horizon/30 bg-paper/95 shadow-soft ring-1 ring-horizon/15 backdrop-blur-sm max-sm:w-full max-sm:max-w-none max-sm:rounded-t-[22px] max-sm:rounded-b-none max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:organic-ask ${
+        mode === "minimized"
+          ? "max-sm:!h-auto max-sm:!max-h-none"
+          : "max-sm:!h-[min(88dvh,calc(100dvh-var(--clara-header-height)))] max-sm:!max-h-[min(88dvh,calc(100dvh-var(--clara-header-height)))]"
+      } ${
         dragging
           ? ""
           : "transition-[width,height,max-height] duration-[var(--duration-ui)] ease-[var(--ease)]"
@@ -197,16 +239,18 @@ export function AskClaraPanel({
         height: panelHeight,
         maxWidth: "min(100vw - 2rem, 45rem)",
         maxHeight: mode === "minimized" ? undefined : "min(85vh, 56rem)",
+        paddingBottom:
+          keyboardInset > 0 ? keyboardInset : undefined,
       }}
       aria-label={mode === "detail" ? detailTitle : "Ask CLara"}
     >
-      {/* Left edge — grow width leftward (top-right panel). */}
+      {/* Left edge — grow width leftward (top-right panel). Hidden on phone. */}
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize Ask panel width"
         onPointerDown={startDrag("width", -1)}
-        className="absolute inset-y-3 -left-1 z-10 w-2 cursor-ew-resize rounded-full hover:bg-horizon/25"
+        className="absolute inset-y-3 -left-1 z-10 hidden w-2 cursor-ew-resize rounded-full hover:bg-horizon/25 sm:block"
       />
       {mode !== "minimized" ? (
         <div
@@ -214,7 +258,7 @@ export function AskClaraPanel({
           aria-orientation="horizontal"
           aria-label="Resize Ask panel height"
           onPointerDown={startDrag("height", 1)}
-          className="absolute inset-x-3 -bottom-1 z-10 h-2 cursor-ns-resize rounded-full hover:bg-horizon/25"
+          className="absolute inset-x-3 -bottom-1 z-10 hidden h-2 cursor-ns-resize rounded-full hover:bg-horizon/25 sm:block"
         />
       ) : null}
 
@@ -232,7 +276,7 @@ export function AskClaraPanel({
               <button
                 type="button"
                 onClick={() => setEditing((value) => !value)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-cloud text-ink/55 transition-colors hover:border-horizon/40 hover:text-horizon"
+                className={`${iconBtnClass} hover:border-horizon/40 hover:text-horizon`}
                 aria-label={
                   editing
                     ? "Stop editing"
@@ -251,12 +295,30 @@ export function AskClaraPanel({
                 setEditing(false);
                 onCloseDetail?.();
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-cloud text-ink/55 transition-colors hover:border-ink/30 hover:text-ink"
+              className={iconBtnClass}
               aria-label="Close detail"
             >
               ×
             </button>
           </div>
+        ) : mode === "conversation" ? (
+          <button
+            type="button"
+            onClick={() => setConversationOpen(false)}
+            className={iconBtnClass}
+            aria-label="Minimize Ask CLara"
+          >
+            ×
+          </button>
+        ) : hasConversation && !forceMinimized ? (
+          <button
+            type="button"
+            onClick={() => setConversationOpen(true)}
+            className={iconBtnClass}
+            aria-label="Expand Ask CLara"
+          >
+            ↑
+          </button>
         ) : null}
       </header>
 
@@ -298,7 +360,7 @@ export function AskClaraPanel({
                   ? "What themes showed up in this session?"
                   : "What stands out in this piece?"
               }
-              className="rounded-md border border-cloud bg-sand/40 p-3 text-sm text-ink outline-none focus:border-horizon"
+              className="rounded-md border border-cloud bg-sand/40 p-3 text-base text-ink outline-none focus:border-horizon sm:text-sm"
             />
             {detailAskError ? (
               <p className="text-sm text-danger">{detailAskError}</p>
@@ -307,8 +369,8 @@ export function AskClaraPanel({
               type="submit"
               className={
                 mapTheme
-                  ? "btn-primary organic-ask-btn self-start px-4 py-2 text-sm font-medium"
-                  : "btn-primary organic-ask-btn self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30"
+                  ? "btn-primary organic-ask-btn min-h-11 self-start px-4 py-2 text-sm font-medium"
+                  : "btn-primary organic-ask-btn min-h-11 self-start bg-forest px-4 py-2 text-sm font-medium text-paper ring-1 ring-glow/30"
               }
               style={mapTheme ? themeAccentButtonStyle(mapTheme) : undefined}
             >
@@ -356,7 +418,10 @@ export function AskClaraPanel({
             onClearScope={onClearScope}
             minimized={mode === "minimized"}
             streamName={streamName}
-            onConversationActive={() => setConversationOpen(true)}
+            onConversationActive={() => {
+              setConversationOpen(true);
+              onExpandRef.current?.();
+            }}
             onHasConversationChange={setHasConversation}
             accentTheme={mapTheme}
           />

@@ -2,14 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveJoinCodeAction } from "@/app/(app)/sessions/composer-actions";
+import type { RelateTarget } from "@/lib/commons/relate-targets";
 import type { SessionSummary } from "@/lib/sessions/types";
 
-export type RelateTarget = {
-  kind: "document" | "session";
-  id: string;
-  title: string;
-  subtitle?: string | null;
-};
+export type { RelateTarget };
 
 export type ConnectSelection = {
   /** Nested parent session(s) from join code / share link — typically 0–1. */
@@ -188,7 +184,7 @@ export function ConnectPanel({
         <button
           type="button"
           onClick={() => setConnectOpen((v) => !v)}
-          className="rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
+          className="min-h-11 rounded-md border border-cloud bg-paper px-4 py-2 text-sm font-medium text-ink hover:border-horizon"
         >
           Connect
           {sessionIds.length + relateCount > 0
@@ -197,7 +193,14 @@ export function ConnectPanel({
         </button>
 
         {connectOpen ? (
-          <div className="absolute left-0 z-20 mt-2 w-full min-w-[20rem] max-w-md space-y-4 rounded-lg border border-cloud bg-paper p-4 shadow-soft">
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 bg-ink/30 sm:hidden"
+              aria-label="Close connect"
+              onClick={() => setConnectOpen(false)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] space-y-4 overflow-y-auto rounded-t-lg border border-cloud bg-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-soft sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:z-20 sm:mt-2 sm:max-h-none sm:w-[min(100%,24rem)] sm:min-w-0 sm:max-w-md sm:rounded-lg sm:pb-4">
             <div>
               <p className="font-medium text-ink">Join code</p>
               <p className="mt-0.5 text-xs text-ink/50">
@@ -274,12 +277,13 @@ export function ConnectPanel({
               <button
                 type="button"
                 onClick={() => setConnectOpen(false)}
-                className="text-sm text-horizon hover:underline"
+                className="min-h-11 w-full rounded-md border border-cloud px-4 py-2 text-sm font-medium text-horizon sm:w-auto sm:border-0 sm:hover:underline"
               >
                 Done
               </button>
             </div>
           </div>
+          </>
         ) : null}
 
         {!connectOpen && nestedSessions.length > 0 ? (
@@ -303,7 +307,7 @@ export function ConnectPanel({
                 <button
                   type="button"
                   onClick={clearNesting}
-                  className="shrink-0 font-mono text-[11px] text-ink/45 hover:text-danger"
+                  className="min-h-11 shrink-0 font-mono text-xs text-ink/45 hover:text-danger"
                 >
                   Remove
                 </button>

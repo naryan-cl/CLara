@@ -7,9 +7,13 @@ import {
   saveDocumentEdits,
 } from "@/app/(app)/sessions/documents/actions";
 import type { CommonsDocument } from "@/lib/documents/types";
+import type { RelateTarget } from "@/lib/commons/relate-targets";
 import type { SessionSummary } from "@/lib/sessions/types";
+import { ConnectionsField } from "@/components/ConnectionsField";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
-import { MarkdownView } from "@/components/MarkdownView";
+import { DocumentReadView } from "@/components/commons/ElementReadView";
+import { TranscriptRetryBar } from "@/components/TranscriptRetryBar";
+import { stripListensJobMeta } from "@/lib/listens/job-meta";
 
 const NEW_SESSION_VALUE = "__new__";
 
@@ -24,10 +28,6 @@ const TYPE_OPTIONS = [
   "Theme",
 ] as const;
 
-function asStringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
-}
-
 export function DocumentEditor({
   document,
   sessions,
@@ -35,8 +35,13 @@ export function DocumentEditor({
   compact = false,
   hideEditButton = false,
   forceEditing = false,
+  createdByName = null,
+  attendeeNames = [],
   onCancelEditing,
   onDeleted,
+  relateTargets = [],
+  relatedSessionIds: initialRelatedSessionIds = [],
+  relatedDocumentIds: initialRelatedDocumentIds = [],
 }: {
   document: CommonsDocument;
   sessions: SessionSummary[];
@@ -48,22 +53,33 @@ export function DocumentEditor({
   hideEditButton?: boolean;
   /** Open directly in the edit form (dashboard pencil toggle). */
   forceEditing?: boolean;
+  createdByName?: string | null;
+  attendeeNames?: string[];
   /** Called when Cancel leaves edit mode while forceEditing was set. */
   onCancelEditing?: () => void;
   /** Called after a successful delete (parent closes popup / clears selection). */
   onDeleted?: () => void;
+  relateTargets?: RelateTarget[];
+  relatedSessionIds?: string[];
+  relatedDocumentIds?: string[];
 }) {
-  const tags = asStringList(document.tags);
-  const participants = asStringList(document.participants);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyAction, setBusyAction] = useState<"save" | "delete" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(forceEditing);
-  const [contentMarkdown, setContentMarkdown] = useState(document.content);
+  const [contentMarkdown, setContentMarkdown] = useState(
+    stripListensJobMeta(document.content),
+  );
   const [sessionChoice, setSessionChoice] = useState(
     document.session_id ?? "",
+  );
+  const [relatedSessionIds, setRelatedSessionIds] = useState(
+    initialRelatedSessionIds,
+  );
+  const [relatedDocumentIds, setRelatedDocumentIds] = useState(
+    initialRelatedDocumentIds,
   );
   const currentSessionName = sessions.find(
     (s) => s.id === document.session_id,
@@ -72,11 +88,15 @@ export function DocumentEditor({
   // Parent pencil can flip forceEditing on; stay in sync.
   useEffect(() => {
     if (forceEditing) {
-      setContentMarkdown(document.content);
+      setContentMarkdown(stripListensJobMeta(document.content));
       setEditing(true);
       setMessage(null);
       setError(null);
+      setRelatedSessionIds(initialRelatedSessionIds);
+      setRelatedDocumentIds(initialRelatedDocumentIds);
     }
+    // Connection lists come from the loaded detail; reset on document/pencil only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forceEditing, document.content, document.id]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -85,6 +105,8 @@ export function DocumentEditor({
     setError(null);
     const formData = new FormData(event.currentTarget);
     formData.set("content", contentMarkdown);
+    formData.set("relatedSessionIds", relatedSessionIds.join(","));
+    formData.set("relatedDocumentIds", relatedDocumentIds.join(","));
 
     setBusyAction("save");
     startTransition(async () => {
@@ -132,32 +154,17 @@ export function DocumentEditor({
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-              {document.type ?? "untyped"}
-              {document.needs_review ? " · needs review" : ""}
-              {" · "}
-              {document.privacy_status}
-            </p>
-            {compact ? (
-              <h2 className="mt-1 font-display text-xl font-medium text-ink">
-                {document.title?.trim() || "Untitled"}
-              </h2>
-            ) : (
-              <h1 className="mt-1 font-display text-2xl font-medium text-ink">
-                {document.title?.trim() || "Untitled"}
-              </h1>
-            )}
-            <p className="mt-1 font-mono text-[11px] text-ink/40">
-              Updated {new Date(document.updated_at).toLocaleString()}
-              {currentSessionName ? ` · session ${currentSessionName}` : ""}
-            </p>
-          </div>
+          <p className="font-mono text-[11px] text-ink/40">
+            Updated {new Date(document.updated_at).toLocaleString()}
+            {currentSessionName ? ` · session ${currentSessionName}` : ""}
+          </p>
           {canEdit && !hideEditButton ? (
             <button
               type="button"
               onClick={() => {
-                setContentMarkdown(document.content);
+                setContentMarkdown(stripListensJobMeta(document.content));
+                setRelatedSessionIds(initialRelatedSessionIds);
+                setRelatedDocumentIds(initialRelatedDocumentIds);
                 setEditing(true);
                 setMessage(null);
                 setError(null);
@@ -169,44 +176,14 @@ export function DocumentEditor({
           ) : null}
         </div>
 
-        {tags.length > 0 || participants.length > 0 ? (
-          <div className="flex flex-wrap gap-4 text-xs">
-            {tags.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="font-mono uppercase tracking-wide text-ink/40">
-                  Tags
-                </span>
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-pill bg-cloud px-2.5 py-1 text-ink/70"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {participants.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="font-mono uppercase tracking-wide text-ink/40">
-                  Participants
-                </span>
-                {participants.map((person) => (
-                  <span
-                    key={person}
-                    className="rounded-pill border border-sage/40 px-2.5 py-1 text-sage"
-                  >
-                    {person}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <DocumentReadView
+          document={document}
+          createdByName={createdByName}
+          attendeeNames={attendeeNames}
+          hideTitle={false}
+        />
 
-        <article className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
-          <MarkdownView markdown={document.content} />
-        </article>
+        <TranscriptRetryBar document={document} canEdit={canEdit} />
 
         {message ? (
           <p className="text-sm text-success">{message}</p>
@@ -220,7 +197,7 @@ export function DocumentEditor({
       <input type="hidden" name="id" value={document.id} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-medium text-ink">
+        <h1 className={`font-display font-medium text-ink ${compact ? "text-xl" : "text-2xl"}`}>
           Edit document
         </h1>
         <div className="flex flex-wrap gap-2">
@@ -295,7 +272,10 @@ export function DocumentEditor({
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-ink">Session (optional)</span>
+        <span className="font-medium text-ink">Nested in session</span>
+        <p className="text-xs text-ink/45">
+          This Add lives inside the gathering. Leave empty if it stands alone.
+        </p>
         <select
           name="sessionId"
           value={sessionChoice}
@@ -320,13 +300,28 @@ export function DocumentEditor({
         ) : null}
       </label>
 
+      <ConnectionsField
+        targets={relateTargets}
+        relatedSessionIds={relatedSessionIds}
+        relatedDocumentIds={relatedDocumentIds}
+        onRelatedSessionIdsChange={setRelatedSessionIds}
+        onRelatedDocumentIdsChange={setRelatedDocumentIds}
+        excludeIds={[
+          document.id,
+          ...(sessionChoice && sessionChoice !== NEW_SESSION_VALUE
+            ? [sessionChoice]
+            : []),
+        ]}
+        helpText="Connect to another session or element without nesting. Nesting is the field above."
+      />
+
       <div className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Content</span>
         <MarkdownEditor
           key={document.id + document.updated_at}
           initialMarkdown={document.content}
           onChangeMarkdown={setContentMarkdown}
-          minHeightClassName="min-h-[280px]"
+          minHeightClassName={compact ? "min-h-[160px]" : "min-h-[280px]"}
         />
       </div>
 

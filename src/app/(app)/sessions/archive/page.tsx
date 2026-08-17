@@ -36,11 +36,11 @@ export default async function SessionArchivePage() {
             {sessions.map((session) => (
               <li
                 key={session.id}
-                className="flex items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
+                className="flex min-w-0 items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
               >
                 <Link
                   href={`/sessions/archive/${session.id}`}
-                  className="font-medium text-ink hover:text-forest hover:underline"
+                  className="min-w-0 flex-1 truncate font-medium text-ink hover:text-forest hover:underline"
                 >
                   {session.name}
                 </Link>

@@ -35,7 +35,7 @@ function ToolbarButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-40 ${
+      className={`rounded px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-40 min-h-10 min-w-10 ${
         active
           ? "bg-forest text-paper"
           : "text-ink/70 hover:bg-cloud hover:text-ink"
@@ -111,7 +111,7 @@ export function MarkdownEditor({
 
   return (
     <div className="overflow-hidden rounded-md border border-cloud bg-sand">
-      <div className="flex flex-wrap gap-1 border-b border-cloud bg-paper px-2 py-1.5">
+      <div className="flex flex-wrap gap-1 overflow-x-auto border-b border-cloud bg-paper px-2 py-1.5">
         <ToolbarButton
           label="Bold"
           active={editor.isActive("bold")}
@@ -187,7 +187,9 @@ export function MarkdownEditor({
         />
       </div>
 
-      <EditorContent editor={editor} />
+      <div className="overflow-x-auto">
+        <EditorContent editor={editor} />
+      </div>
 
       {hiddenInputName ? (
         <input type="hidden" name={hiddenInputName} value={markdown} readOnly />

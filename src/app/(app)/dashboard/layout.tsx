@@ -9,7 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="relative -mx-6 -my-10 min-h-[calc(100vh-var(--clara-header-height))] w-[calc(100%+3rem)] flex-1">
+    <div className="relative -mx-4 -my-8 min-h-[calc(100vh-var(--clara-header-height))] w-[calc(100%+2rem)] flex-1 overflow-x-clip sm:-mx-6 sm:-my-10 sm:w-[calc(100%+3rem)]">
       {children}
     </div>
   );

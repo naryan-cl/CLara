@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 
-const MAX_RELATED = 3;
+const MAX_RELATED = 8;
 
 /**
- * Replace related-session links for a session (creator/admin via RLS).
- * Caps at 3; ignores self-links.
+ * Replace related-session links for a session (creator/admin/attendee via RLS).
+ * Caps at 8; ignores self-links.
  */
 export async function setSessionRelations(
   sessionId: string,

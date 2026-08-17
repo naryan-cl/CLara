@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { saveSessionEdits } from "@/app/(app)/sessions/session-edit-actions";
+import { ConnectionsField } from "@/components/ConnectionsField";
+import type { RelateTarget } from "@/lib/commons/relate-targets";
+import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
 
 function dateInputValue(value: string | null): string {
@@ -18,24 +21,48 @@ export function SessionEditor({
   forceEditing = false,
   onCancelEditing,
   onSaved,
+  relateTargets = [],
+  relatedSessionIds: initialRelatedSessionIds = [],
+  relatedDocumentIds: initialRelatedDocumentIds = [],
+  nestedDocuments = [],
+  canEdit = true,
 }: {
   session: SessionSummary;
   forceEditing?: boolean;
   onCancelEditing?: () => void;
   onSaved?: (session: SessionSummary) => void;
+  relateTargets?: RelateTarget[];
+  relatedSessionIds?: string[];
+  relatedDocumentIds?: string[];
+  nestedDocuments?: CommonsDocument[];
+  canEdit?: boolean;
+  compact?: boolean;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [relatedSessionIds, setRelatedSessionIds] = useState(
+    initialRelatedSessionIds,
+  );
+  const [relatedDocumentIds, setRelatedDocumentIds] = useState(
+    initialRelatedDocumentIds,
+  );
 
   useEffect(() => {
     setError(null);
+    setRelatedSessionIds(initialRelatedSessionIds);
+    setRelatedDocumentIds(initialRelatedDocumentIds);
+    // Reset when the session (or pencil) changes, not on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, forceEditing]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     const formData = new FormData(event.currentTarget);
+    formData.set("relatedSessionIds", relatedSessionIds.join(","));
+    formData.set("relatedDocumentIds", relatedDocumentIds.join(","));
 
     startTransition(async () => {
       const result = await saveSessionEdits(formData);
@@ -48,6 +75,8 @@ export function SessionEditor({
       router.refresh();
     });
   }
+
+  const nestedIds = nestedDocuments.map((doc) => doc.id);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -71,7 +100,7 @@ export function SessionEditor({
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !canEdit}
             className="rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper disabled:opacity-60"
           >
             {pending ? "Saving…" : "Save"}
@@ -117,9 +146,21 @@ export function SessionEditor({
           name="description"
           rows={3}
           defaultValue={session.description ?? ""}
+          placeholder=""
           className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
         />
       </label>
+
+      <ConnectionsField
+        targets={relateTargets}
+        relatedSessionIds={relatedSessionIds}
+        relatedDocumentIds={relatedDocumentIds}
+        onRelatedSessionIdsChange={setRelatedSessionIds}
+        onRelatedDocumentIdsChange={setRelatedDocumentIds}
+        excludeIds={[session.id, ...nestedIds]}
+        disabled={!canEdit}
+        helpText="Link this gathering to other sessions or stand-alone elements. Nested Adds already live inside this session."
+      />
 
       {error ? (
         <p className="font-mono text-sm text-danger">{error}</p>

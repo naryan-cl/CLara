@@ -50,6 +50,20 @@ export type ClaraRecordingReceivedEvent = {
   };
 };
 
+/**
+ * Backfill or private-doc summary without re-running embed/graph/OKF.
+ * New public docs still get a summary via `clara/document.created`.
+ */
+export const CLARA_DOCUMENT_SUMMARIZE = "clara/document.summarize";
+
+export type ClaraDocumentSummarizeEvent = {
+  name: typeof CLARA_DOCUMENT_SUMMARIZE;
+  data: {
+    documentId: string;
+    streamId: string;
+  };
+};
+
 /** Host Finalize on a gathering — synthesize submitted children into a Summary. */
 export const CLARA_SESSION_FINALIZED = "clara/session.finalized";
 

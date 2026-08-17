@@ -250,40 +250,35 @@ export function ReceiveUploadForm({
             const dropped = e.dataTransfer.files?.[0];
             if (dropped) selectFile(dropped);
           }}
-          className={`flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-10 text-center transition-colors ${
+          className={`relative flex min-h-[8rem] flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-10 text-center transition-colors ${
             dragOver
               ? "border-glow bg-glow/10"
               : "border-cloud bg-sand/60 hover:border-sage"
           }`}
         >
-          <p className="text-sm font-medium text-ink">
-            {file ? file.name : "Drop a file here"}
-          </p>
-          <p className="text-xs text-ink/50">
-            {file
-              ? `${Math.max(1, Math.round(file.size / 1024))} KB · click to replace`
-              : ".md, .txt, .pdf, .docx, or short audio · or click to browse"}
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            name="file"
-            accept=".md,.txt,.pdf,.docx,.mp3,.m4a,.wav,.webm,.ogg,.mp4,.mpeg,.mpga,.oga,.flac,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/*"
-            className="absolute h-0 w-0 opacity-0"
-            onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="mt-1 text-sm font-medium text-horizon underline-offset-2 hover:underline"
-          >
-            {file ? "Choose a different file" : "Browse files"}
-          </button>
+          <label className="flex min-h-[8rem] w-full cursor-pointer flex-col items-center justify-center gap-2">
+            <p className="text-sm font-medium text-ink">
+              {file ? file.name : "Tap to choose a file"}
+            </p>
+            <p className="text-xs text-ink/50">
+              {file
+                ? `${Math.max(1, Math.round(file.size / 1024))} KB · tap to replace`
+                : ".md, .txt, .pdf, .docx, or short audio · or drop a file here"}
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="file"
+              accept=".md,.txt,.pdf,.docx,.mp3,.m4a,.wav,.webm,.ogg,.mp4,.mpeg,.mpga,.oga,.flac,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,audio/*"
+              className="sr-only"
+              onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
           {file ? (
             <button
               type="button"
               onClick={() => clearFile()}
-              className="text-xs text-ink/50 hover:text-ink"
+              className="min-h-11 text-sm text-ink/50 hover:text-ink"
             >
               Clear file
             </button>

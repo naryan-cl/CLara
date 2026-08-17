@@ -1,5 +1,6 @@
 import { listCommonsItems } from "@/lib/commons/list-items";
 import { listDocumentLinks } from "@/lib/documents/list-document-links";
+import { listSessionRelations } from "@/lib/sessions/list-session-relations";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getThemeUnlockState } from "@/lib/map-theme/theme-state";
@@ -41,6 +42,11 @@ export default async function DashboardPage({ searchParams }: Props) {
     stream && user
       ? await listDocumentLinks(stream.id)
       : { links: [] };
+
+  const { relations: sessionRelations } =
+    stream && user
+      ? await listSessionRelations(stream.id)
+      : { relations: [] };
 
   const themeResult =
     stream && user
@@ -94,6 +100,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       initialSelect={initialSelect}
       layoutConfig={layoutResult.config ?? undefined}
       documentLinks={documentLinks}
+      sessionRelations={sessionRelations}
     />
   );
 }

@@ -1,17 +1,34 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { createDocument } from "@/lib/documents/create-document";
+import { getDocumentById } from "@/lib/documents/get-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { setDocumentLinks } from "@/lib/documents/set-document-links";
+import { isAttending } from "@/lib/sessions/attendance";
 import {
   inngest,
   CLARA_RECORDING_RECEIVED,
 } from "@/lib/inngest/client";
-import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
+import {
+  isListensFailureBody,
+  isListensPendingBody,
+  LISTENS_PENDING_PLACEHOLDER,
+} from "@/lib/listens/placeholders";
+import {
+  parseListensJobMeta,
+  stripListensJobMeta,
+  withListensJobMeta,
+} from "@/lib/listens/job-meta";
+import {
+  recordingProcessStatus,
+  type RecordingProcessStatus,
+} from "@/lib/listens/process-status";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
+import type { CommonsDocument } from "@/lib/documents/types";
 
 const INNGEST_SEND_TIMEOUT_MS = 5_000;
 
@@ -180,7 +197,12 @@ export async function finalizeListensUpload(input: {
     const { document, error } = await createDocument({
       streamId: stream.id,
       createdBy: user.id,
-      content: LISTENS_PENDING_PLACEHOLDER,
+      content: withListensJobMeta(LISTENS_PENDING_PLACEHOLDER, {
+        recordingId,
+        segmentCount,
+        mimeType: input.mimeType || "audio/webm",
+        fileExtension: ext,
+      }),
       title,
       type: "Transcript",
       privacyStatus: "public",
@@ -286,6 +308,138 @@ export async function discardListensStaging(input: {
   } catch (err) {
     console.error("discardListensStaging failed:", err);
     return { ok: false, error: "Could not delete the recording. Try again." };
+  }
+}
+
+export type RetryListensResult =
+  | {
+      ok: true;
+      document: CommonsDocument;
+      processStatus: RecordingProcessStatus;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Re-enqueue Whisper for a stuck/failed Transcript when staging audio is
+ * still in Storage. Older placeholders (no job meta) cannot be retried.
+ */
+export async function retryListensTranscription(
+  documentId: string,
+): Promise<RetryListensResult> {
+  try {
+    const id = documentId.trim();
+    if (!id) {
+      return { ok: false, error: "Missing document id." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { ok: false, error: "You must be signed in." };
+    }
+
+    const { stream } = await getActiveStream();
+    if (!stream) {
+      return { ok: false, error: "No active stream." };
+    }
+
+    const { document, error } = await getDocumentById(id);
+    if (error || !document || document.stream_id !== stream.id) {
+      return { ok: false, error: error ?? "Document not found." };
+    }
+    if (document.type !== "Transcript") {
+      return { ok: false, error: "Retry is only for recordings." };
+    }
+
+    const attending = document.session_id
+      ? (await isAttending(document.session_id, user.id)).attending
+      : false;
+    const canEdit =
+      document.created_by === user.id ||
+      stream.role === "admin" ||
+      attending === true;
+    if (!canEdit) {
+      return {
+        ok: false,
+        error: "You don't have permission to retry this recording.",
+      };
+    }
+
+    const body = stripListensJobMeta(document.content);
+    if (!isListensPendingBody(body) && !isListensFailureBody(body)) {
+      return {
+        ok: false,
+        error: "This recording already has a transcript.",
+      };
+    }
+
+    const meta = parseListensJobMeta(document.content);
+    if (!meta) {
+      return {
+        ok: false,
+        error:
+          "This recording was saved before retry info was stored, so the audio can’t be found. Edit to paste a transcript, or Delete and record again.",
+      };
+    }
+
+    const prefix = `${stream.id}/${meta.recordingId}`;
+    const { error: probeError } = await supabase.storage
+      .from("listens-staging")
+      .createSignedUrl(`${prefix}/0.${meta.fileExtension}`, 60);
+    if (probeError) {
+      return {
+        ok: false,
+        error:
+          "The audio is no longer in staging (Whisper may have already cleaned it up). Edit to paste a transcript, or Delete and record again.",
+      };
+    }
+
+    const pendingContent = withListensJobMeta(LISTENS_PENDING_PLACEHOLDER, meta);
+    const { data, error: updateError } = await supabase
+      .from("documents")
+      .update({
+        content: pendingContent,
+        needs_review: true,
+      })
+      .eq("id", document.id)
+      .select(
+        "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
+      )
+      .maybeSingle();
+
+    if (updateError || !data) {
+      return {
+        ok: false,
+        error:
+          updateError?.message ??
+          "Could not reset this recording for retry.",
+      };
+    }
+
+    await enqueueRecordingTranscription({
+      documentId: document.id,
+      streamId: stream.id,
+      recordingId: meta.recordingId,
+      segmentCount: meta.segmentCount,
+      mimeType: meta.mimeType,
+      fileExtension: meta.fileExtension,
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/commons");
+    revalidatePath(`/sessions/documents/${document.id}`);
+
+    const next = data as CommonsDocument;
+    return {
+      ok: true,
+      document: next,
+      processStatus: recordingProcessStatus(next),
+    };
+  } catch (err) {
+    console.error("retryListensTranscription failed:", err);
+    return { ok: false, error: "Could not retry transcription. Try again." };
   }
 }
 
