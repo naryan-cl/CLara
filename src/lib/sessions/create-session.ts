@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import {
+  coerceSession,
   generateJoinCode,
+  isMissingHighlightColorSchemaError,
   SESSION_SELECT,
+  SESSION_SELECT_NO_HIGHLIGHT,
+  sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
 
@@ -51,20 +55,60 @@ export async function createSession(
       .single();
 
     if (!error) {
-      return { session: data as SessionSummary, error: null };
+      return {
+        session: coerceSession(data as Record<string, unknown>),
+        error: null,
+      };
+    }
+
+    if (isMissingHighlightColorSchemaError(error.message)) {
+      const retry = await supabase
+        .from("sessions")
+        .insert({
+          stream_id: input.streamId,
+          created_by: input.createdBy,
+          name,
+          occurred_at: input.occurredAt ?? null,
+          seed_question: seedQuestion,
+          description,
+          join_code: joinCode,
+        })
+        .select(SESSION_SELECT_NO_HIGHLIGHT)
+        .single();
+      if (!retry.error && retry.data) {
+        return {
+          session: coerceSession(retry.data as Record<string, unknown>),
+          error: null,
+        };
+      }
     }
 
     if (error.code === UNIQUE_VIOLATION) {
       // Name collision → return existing; join_code collision → retry.
-      const { data: existing, error: fetchError } = await supabase
+      let existing = await supabase
         .from("sessions")
         .select(SESSION_SELECT)
         .eq("stream_id", input.streamId)
         .eq("name", name)
         .maybeSingle();
 
-      if (!fetchError && existing) {
-        return { session: existing as SessionSummary, error: null };
+      if (existing.error) {
+        const fallback = sessionSelectFallback(existing.error.message);
+        if (fallback) {
+          existing = await supabase
+            .from("sessions")
+            .select(fallback)
+            .eq("stream_id", input.streamId)
+            .eq("name", name)
+            .maybeSingle();
+        }
+      }
+
+      if (!existing.error && existing.data) {
+        return {
+          session: coerceSession(existing.data as Record<string, unknown>),
+          error: null,
+        };
       }
       continue;
     }
@@ -97,19 +141,7 @@ export async function createSession(
       }
 
       return {
-        session: {
-          ...(legacy as Omit<
-            SessionSummary,
-            "join_code" | "finalized_at" | "synthesis_document_id"
-          >),
-          join_code:
-            (legacy as { share_token: string }).share_token
-              .replace(/-/g, "")
-              .slice(0, 6)
-              .toUpperCase() || "LEGACY",
-          finalized_at: null,
-          synthesis_document_id: null,
-        },
+        session: coerceSession(legacy as Record<string, unknown>),
         error: null,
       };
     }

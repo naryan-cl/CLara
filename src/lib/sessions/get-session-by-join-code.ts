@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import {
+  coerceSession,
+  isMissingHighlightColorSchemaError,
   normalizeJoinCode,
   SESSION_SELECT,
+  SESSION_SELECT_NO_HIGHLIGHT,
   type SessionSummary,
 } from "@/lib/sessions/types";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
@@ -26,12 +29,23 @@ export async function getSessionByJoinCode(
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .eq("stream_id", stream.id)
     .eq("join_code", code)
     .maybeSingle();
+
+  if (error && isMissingHighlightColorSchemaError(error.message)) {
+    const retry = await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_NO_HIGHLIGHT)
+      .eq("stream_id", stream.id)
+      .eq("join_code", code)
+      .maybeSingle();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) {
     // Pre-migration: try matching share_token prefix.
@@ -52,5 +66,8 @@ export async function getSessionByJoinCode(
     return { session: null, error: "No session matches that join code." };
   }
 
-  return { session: data as SessionSummary, error: null };
+  return {
+    session: coerceSession(data as Record<string, unknown>),
+    error: null,
+  };
 }

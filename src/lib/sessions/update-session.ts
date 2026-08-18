@@ -4,8 +4,15 @@ import { canEditSession } from "@/lib/sessions/can-edit-session";
 import { isAttending } from "@/lib/sessions/attendance";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
 import {
+  parseHighlightColor,
+  type SessionHighlightColor,
+} from "@/lib/sessions/highlight";
+import {
   coerceSession,
+  isMissingHighlightColorSchemaError,
   SESSION_SELECT,
+  SESSION_SELECT_NO_HIGHLIGHT,
+  sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
 
@@ -15,6 +22,8 @@ export type UpdateSessionInput = {
   occurredAt?: string | null;
   seedQuestion?: string | null;
   description?: string | null;
+  /** Pass `null` to clear. Omit to leave unchanged. */
+  highlightColor?: SessionHighlightColor | null;
 };
 
 export type UpdateSessionResult =
@@ -48,14 +57,25 @@ export async function updateSession(
     return { ok: false, error: "No active stream." };
   }
 
-  const existing = await supabase
+  let existing = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .eq("id", input.sessionId)
     .maybeSingle();
 
   if (existing.error) {
-    return { ok: false, error: existing.error.message };
+    const fallback = sessionSelectFallback(existing.error.message);
+    if (!fallback) {
+      return { ok: false, error: existing.error.message };
+    }
+    existing = await supabase
+      .from("sessions")
+      .select(fallback)
+      .eq("id", input.sessionId)
+      .maybeSingle();
+    if (existing.error) {
+      return { ok: false, error: existing.error.message };
+    }
   }
   if (!existing.data) {
     return { ok: false, error: "Session not found." };
@@ -86,18 +106,45 @@ export async function updateSession(
   const occurredAt = input.occurredAt?.trim() || null;
   const seedQuestion = input.seedQuestion?.trim() || null;
   const description = input.description?.trim() || null;
+  const patch: Record<string, unknown> = {
+    name,
+    occurred_at: occurredAt,
+    seed_question: seedQuestion,
+    description,
+  };
+  if (input.highlightColor !== undefined) {
+    patch.highlight_color = parseHighlightColor(input.highlightColor);
+  }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("sessions")
-    .update({
-      name,
-      occurred_at: occurredAt,
-      seed_question: seedQuestion,
-      description,
-    })
+    .update(patch)
     .eq("id", session.id)
     .select(SESSION_SELECT)
     .maybeSingle();
+
+  if (error && isMissingHighlightColorSchemaError(error.message)) {
+    if (parseHighlightColor(input.highlightColor)) {
+      return {
+        ok: false,
+        error:
+          "Session highlights need migration 0033_session_highlight_color.sql.",
+      };
+    }
+    const retry = await supabase
+      .from("sessions")
+      .update({
+        name,
+        occurred_at: occurredAt,
+        seed_question: seedQuestion,
+        description,
+      })
+      .eq("id", session.id)
+      .select(SESSION_SELECT_NO_HIGHLIGHT)
+      .maybeSingle();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) {
     if (

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CommonsDetailPopup } from "@/components/CommonsDetailPopup";
+import { SessionHighlightMark } from "@/components/SessionHighlightMark";
 import {
   COMMONS_TYPE_LEGEND,
   colourForElementType,
@@ -13,6 +14,7 @@ import {
   type CommonsFilterState,
   type CommonsListItem,
 } from "@/lib/commons/types";
+import { SESSION_HIGHLIGHTS } from "@/lib/sessions/highlight";
 
 function EyeIcon({ className = "" }: { className?: string }) {
   return (
@@ -198,16 +200,26 @@ export function CommonsRepository({
               const isPrivate =
                 item.kind === "document" && item.privacy_status === "private";
               const colour = colourForElementType(item.elementType);
+              const highlight =
+                item.kind === "session" ? item.highlight_color : null;
+              const highlightSpec = highlight
+                ? SESSION_HIGHLIGHTS[highlight]
+                : null;
               return (
                 <li key={`${item.kind}-${item.id}`}>
                   <button
                     type="button"
                     onClick={() => setSelected(item)}
-                    className={`flex w-full flex-col gap-1 rounded-md border border-cloud border-l-4 bg-sand/40 px-3 py-3 text-left transition-colors hover:border-cloud hover:bg-sand ${colour.borderClass}`}
+                    className={`flex w-full flex-col gap-1 rounded-md border border-cloud border-l-4 px-3 py-3 text-left transition-colors hover:border-cloud hover:bg-sand ${
+                      highlightSpec
+                        ? `${highlightSpec.barClass} ${highlightSpec.washClass}`
+                        : `bg-sand/40 ${colour.borderClass}`
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate font-medium text-ink">
-                        {item.title}
+                      <span className="flex min-w-0 flex-1 items-start gap-1.5 font-medium text-ink">
+                        <SessionHighlightMark color={highlight} />
+                        <span className="truncate">{item.title}</span>
                       </span>
                       {isPrivate ? (
                         <span

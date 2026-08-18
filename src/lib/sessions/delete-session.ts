@@ -5,7 +5,7 @@ import { canEditSession } from "@/lib/sessions/can-edit-session";
 import { isAttending } from "@/lib/sessions/attendance";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
 import { deleteDocument } from "@/lib/documents/delete-document";
-import { SESSION_SELECT, coerceSession } from "@/lib/sessions/types";
+import { SESSION_SELECT, coerceSession, sessionSelectFallback } from "@/lib/sessions/types";
 
 export type NestedSessionDocument = {
   id: string;
@@ -46,14 +46,25 @@ export async function deleteSession(
     return { ok: false, error: "No active stream." };
   }
 
-  const existing = await supabase
+  let existing = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
     .eq("id", id)
     .maybeSingle();
 
   if (existing.error) {
-    return { ok: false, error: existing.error.message };
+    const fallback = sessionSelectFallback(existing.error.message);
+    if (!fallback) {
+      return { ok: false, error: existing.error.message };
+    }
+    existing = await supabase
+      .from("sessions")
+      .select(fallback)
+      .eq("id", id)
+      .maybeSingle();
+    if (existing.error) {
+      return { ok: false, error: existing.error.message };
+    }
   }
   if (!existing.data) {
     return { ok: false, error: "Session not found." };

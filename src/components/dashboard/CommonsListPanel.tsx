@@ -9,6 +9,8 @@ import {
   isRecentActivity,
   type CommonsListItem,
 } from "@/lib/commons/types";
+import { SessionHighlightMark } from "@/components/SessionHighlightMark";
+import { highlightListClasses } from "@/lib/sessions/highlight";
 import {
   isRecordingProcessing,
   recordingProcessLabel,
@@ -190,23 +192,30 @@ export function CommonsListPanel({
                 const showNew = isRecentActivity(item);
                 const showExternal =
                   item.kind === "document" && item.is_external;
+                const highlight =
+                  item.kind === "session" ? item.highlight_color : null;
                 return (
                   <button
                     key={id}
                     type="button"
                     onClick={() => onSelect(item)}
                     className={`card-press rounded-lg border p-3 text-left shadow-soft transition-[box-shadow,transform,border-color] duration-[var(--duration-ui)] ease-[var(--ease)] animate-fade-rise motion-reduce:animate-none ${
+                      highlight ? `border-l-4 ${highlightListClasses(highlight)}` : ""
+                    } ${
                       selected
                         ? "border-horizon/50 bg-horizon/5"
-                        : "border-cloud bg-sand/40 hover:border-sage/50 hover:bg-sand hover:shadow-glow"
+                        : highlight
+                          ? "border-cloud hover:border-sage/50 hover:shadow-glow"
+                          : "border-cloud bg-sand/40 hover:border-sage/50 hover:bg-sand hover:shadow-glow"
                     }`}
                     style={{
                       animationDelay: `${Math.min(index, 5) * 40}ms`,
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 line-clamp-2 font-display text-sm text-ink">
-                        {item.title}
+                      <p className="flex min-w-0 flex-1 items-start gap-1.5 font-display text-sm text-ink">
+                        <SessionHighlightMark color={highlight} />
+                        <span className="line-clamp-2">{item.title}</span>
                       </p>
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">
                         <span className="rounded-pill border border-sage/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-sage">

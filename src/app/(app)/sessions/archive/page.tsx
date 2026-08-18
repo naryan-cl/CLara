@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { SessionHighlightMark } from "@/components/SessionHighlightMark";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { highlightListClasses } from "@/lib/sessions/highlight";
 import { listSessions } from "@/lib/sessions/list-sessions";
 
 export default async function SessionArchivePage() {
@@ -36,13 +38,18 @@ export default async function SessionArchivePage() {
             {sessions.map((session) => (
               <li
                 key={session.id}
-                className="flex min-w-0 items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0"
+                className={`flex min-w-0 items-baseline justify-between gap-4 border-b border-cloud pb-3 last:border-0 last:pb-0 ${
+                  session.highlight_color
+                    ? `rounded-md border-l-4 px-3 py-2 ${highlightListClasses(session.highlight_color)}`
+                    : ""
+                }`}
               >
                 <Link
                   href={`/sessions/archive/${session.id}`}
-                  className="min-w-0 flex-1 truncate font-medium text-ink hover:text-forest hover:underline"
+                  className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-medium text-ink hover:text-forest hover:underline"
                 >
-                  {session.name}
+                  <SessionHighlightMark color={session.highlight_color} />
+                  <span className="truncate">{session.name}</span>
                 </Link>
                 <time className="shrink-0 font-mono text-[11px] text-ink/40">
                   {session.occurred_at

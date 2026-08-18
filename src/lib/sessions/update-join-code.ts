@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   coerceSession,
+  isMissingHighlightColorSchemaError,
   joinPathForSession,
   SESSION_SELECT,
+  SESSION_SELECT_NO_HIGHLIGHT,
   validateJoinCode,
   type JoinMode,
   type SessionSummary,
@@ -54,13 +56,25 @@ export async function updateSessionJoinCode(
     return { ok: false, error: "Only the session host can change the join code." };
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("sessions")
     .update({ join_code: validated.code })
     .eq("id", sessionId)
     .eq("created_by", user.id)
     .select(SESSION_SELECT)
     .maybeSingle();
+
+  if (error && isMissingHighlightColorSchemaError(error.message)) {
+    const retry = await supabase
+      .from("sessions")
+      .update({ join_code: validated.code })
+      .eq("id", sessionId)
+      .eq("created_by", user.id)
+      .select(SESSION_SELECT_NO_HIGHLIGHT)
+      .maybeSingle();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) {
     if (

@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   coerceSession,
+  isMissingHighlightColorSchemaError,
   isMissingJoinCodeSchemaError,
   SESSION_SELECT,
   SESSION_SELECT_LEGACY,
+  SESSION_SELECT_NO_HIGHLIGHT,
   type SessionSummary,
 } from "@/lib/sessions/types";
 
@@ -29,6 +31,23 @@ export async function listSessions(
       ),
       error: null,
     };
+  }
+
+  if (isMissingHighlightColorSchemaError(primary.error.message)) {
+    const withoutHighlight = await supabase
+      .from("sessions")
+      .select(SESSION_SELECT_NO_HIGHLIGHT)
+      .eq("stream_id", streamId)
+      .order("created_at", { ascending: false });
+
+    if (!withoutHighlight.error) {
+      return {
+        sessions: (withoutHighlight.data ?? []).map((row) =>
+          coerceSession(row as Record<string, unknown>),
+        ),
+        error: null,
+      };
+    }
   }
 
   if (!isMissingJoinCodeSchemaError(primary.error.message)) {

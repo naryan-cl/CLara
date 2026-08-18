@@ -46,7 +46,11 @@ export default async function CommonsPage() {
             <span className="font-mono">0011_comments_and_attendee_edit.sql</span>
             . If it mentions a missing <span className="font-mono">summary</span>{" "}
             column, run{" "}
-            <span className="font-mono">0028_document_summary.sql</span>.
+            <span className="font-mono">0028_document_summary.sql</span>
+            . If it mentions{" "}
+            <span className="font-mono">highlight_color</span>, run{" "}
+            <span className="font-mono">0033_session_highlight_color.sql</span>
+            .
           </p>
         </section>
       ) : (

@@ -5,6 +5,7 @@ import { updateSession } from "@/lib/sessions/update-session";
 import { setSessionRelations } from "@/lib/sessions/set-session-relations";
 import { setSessionDocumentLinks } from "@/lib/sessions/set-session-document-links";
 import { parseIdListFromFormData } from "@/lib/documents/parse-session-ids";
+import { parseHighlightColor } from "@/lib/sessions/highlight";
 import { createClient } from "@/lib/supabase/server";
 import {
   deleteSession,
@@ -31,6 +32,7 @@ export async function saveSessionEdits(
       occurredAt: String(formData.get("occurredAt") ?? ""),
       seedQuestion: String(formData.get("seedQuestion") ?? ""),
       description: String(formData.get("description") ?? ""),
+      highlightColor: parseHighlightColor(formData.get("highlightColor")),
     });
 
     if (!result.ok) return result;

@@ -8,10 +8,16 @@ import {
   saveSessionEdits,
 } from "@/app/(app)/sessions/session-edit-actions";
 import { ConnectionsField } from "@/components/ConnectionsField";
+import { HelpTip } from "@/components/HelpTip";
 import { SessionDeleteDialog } from "@/components/SessionDeleteDialog";
 import type { RelateTarget } from "@/lib/commons/relate-targets";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { DeleteSessionMode } from "@/lib/sessions/delete-session";
+import {
+  SESSION_HIGHLIGHT_COLORS,
+  SESSION_HIGHLIGHTS,
+  type SessionHighlightColor,
+} from "@/lib/sessions/highlight";
 import type { SessionSummary } from "@/lib/sessions/types";
 
 function dateInputValue(value: string | null): string {
@@ -65,12 +71,16 @@ export function SessionEditor({
   const [relatedDocumentIds, setRelatedDocumentIds] = useState(
     initialRelatedDocumentIds,
   );
+  const [highlightColor, setHighlightColor] = useState<
+    SessionHighlightColor | ""
+  >(session.highlight_color ?? "");
 
   useEffect(() => {
     setError(null);
     setConfirmDelete(false);
     setRelatedSessionIds(initialRelatedSessionIds);
     setRelatedDocumentIds(initialRelatedDocumentIds);
+    setHighlightColor(session.highlight_color ?? "");
     // Reset when the session (or pencil) changes, not on every parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, forceEditing]);
@@ -122,6 +132,7 @@ export function SessionEditor({
     <>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={session.id} />
+        <input type="hidden" name="highlightColor" value={highlightColor} />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl font-medium text-ink">
@@ -226,6 +237,50 @@ export function SessionEditor({
             className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
           />
         </label>
+
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="flex items-center gap-1.5 text-sm font-medium text-ink">
+            Highlight
+            <HelpTip description="A quiet colour mark in Commons, dashboard, and archive lists so you can find this gathering later. It does not change the map." />
+          </legend>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHighlightColor("")}
+              disabled={!canEdit}
+              aria-pressed={highlightColor === ""}
+              aria-label="No highlight"
+              title="None"
+              className={`flex h-8 w-8 items-center justify-center rounded-full border bg-sand text-xs text-ink/45 ${
+                highlightColor === ""
+                  ? "border-ink/50 ring-2 ring-ink/20 ring-offset-2 ring-offset-paper"
+                  : "border-cloud hover:border-ink/30"
+              }`}
+            >
+              —
+            </button>
+            {SESSION_HIGHLIGHT_COLORS.map((color) => {
+              const spec = SESSION_HIGHLIGHTS[color];
+              const selected = highlightColor === color;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setHighlightColor(color)}
+                  disabled={!canEdit}
+                  aria-pressed={selected}
+                  aria-label={spec.label}
+                  title={spec.label}
+                  className={`h-8 w-8 rounded-full ${spec.swatchClass} ${
+                    selected
+                      ? "ring-2 ring-ink/40 ring-offset-2 ring-offset-paper"
+                      : "opacity-80 hover:opacity-100"
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </fieldset>
 
         <ConnectionsField
           targets={relateTargets}

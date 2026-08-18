@@ -1,3 +1,8 @@
+import {
+  parseHighlightColor,
+  type SessionHighlightColor,
+} from "@/lib/sessions/highlight";
+
 export type SessionSummary = {
   id: string;
   stream_id: string;
@@ -12,10 +17,13 @@ export type SessionSummary = {
   join_code: string;
   finalized_at: string | null;
   synthesis_document_id: string | null;
+  highlight_color: SessionHighlightColor | null;
 };
 
-export const SESSION_SELECT =
+export const SESSION_SELECT_NO_HIGHLIGHT =
   "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token, join_code, finalized_at, synthesis_document_id";
+
+export const SESSION_SELECT = `${SESSION_SELECT_NO_HIGHLIGHT}, highlight_color`;
 
 /** Pre-0021 select — used when join_code columns are not migrated yet. */
 export const SESSION_SELECT_LEGACY =
@@ -43,6 +51,7 @@ export function coerceSession(row: Record<string, unknown>): SessionSummary {
     finalized_at: (row.finalized_at as string | null) ?? null,
     synthesis_document_id:
       (row.synthesis_document_id as string | null) ?? null,
+    highlight_color: parseHighlightColor(row.highlight_color),
   };
 }
 
@@ -123,4 +132,24 @@ export function isMissingJoinCodeSchemaError(
     message.includes("synthesis_document_id") ||
     message.includes("schema cache")
   );
+}
+
+export function isMissingHighlightColorSchemaError(
+  message: string | undefined,
+): boolean {
+  if (!message) return false;
+  return message.includes("highlight_color");
+}
+
+/** Next-best column list when a sessions select fails on a missing migration. */
+export function sessionSelectFallback(
+  message: string | undefined,
+): string | null {
+  if (isMissingHighlightColorSchemaError(message)) {
+    return SESSION_SELECT_NO_HIGHLIGHT;
+  }
+  if (isMissingJoinCodeSchemaError(message)) {
+    return SESSION_SELECT_LEGACY;
+  }
+  return null;
 }

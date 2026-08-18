@@ -4,6 +4,7 @@ import {
   type RecordingProcessStatus,
 } from "@/lib/listens/process-status";
 import type { SessionSummary } from "@/lib/sessions/types";
+import type { SessionHighlightColor } from "@/lib/sessions/highlight";
 
 /** Unified row in the Commons repository list. */
 export type CommonsDocumentItem = {
@@ -36,6 +37,7 @@ export type CommonsSessionItem = {
   created_by: string | null;
   attending: boolean;
   elementType: "session";
+  highlight_color: SessionHighlightColor | null;
 };
 
 export type CommonsListItem = CommonsDocumentItem | CommonsSessionItem;
@@ -116,6 +118,7 @@ export function toSessionItem(
     created_by: session.created_by,
     attending,
     elementType: "session",
+    highlight_color: session.highlight_color,
   };
 }
 

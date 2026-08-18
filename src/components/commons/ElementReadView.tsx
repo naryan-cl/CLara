@@ -19,6 +19,8 @@ import {
 } from "@/lib/listens/process-status";
 import { TranscriptRetryBar } from "@/components/TranscriptRetryBar";
 import { ListensAudioPlayer } from "@/components/ListensAudioPlayer";
+import { SessionHighlightMark } from "@/components/SessionHighlightMark";
+import { SESSION_HIGHLIGHTS } from "@/lib/sessions/highlight";
 
 function asStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
@@ -349,12 +351,22 @@ export function SessionReadView({
   );
   const attendeeNames = detail.attendees.map((person) => person.display_name);
   const createdByName = detail.createdBy?.display_name ?? null;
+  const highlight = detail.session.highlight_color;
+  const highlightLabel = highlight
+    ? SESSION_HIGHLIGHTS[highlight].label
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-2">
         <MetaRow date={date} createdByName={createdByName}>
           <MetaPill>Session</MetaPill>
+          {highlight && highlightLabel ? (
+            <span className="inline-flex items-center gap-1.5">
+              <SessionHighlightMark color={highlight} />
+              <MetaPill>{highlightLabel}</MetaPill>
+            </span>
+          ) : null}
           {detail.attending ? <MetaPill>Attending</MetaPill> : null}
           {detail.session.finalized_at ? <MetaPill>Finalized</MetaPill> : null}
         </MetaRow>

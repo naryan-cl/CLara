@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-17 (Knowledge Map legend + split layout admin)  
+**Last updated:** 2026-08-17 (session list highlights)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0032`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this); **`0032_document_is_external.sql`** adds `documents.is_external` (required for dashboard “Hide external”).
+5. Apply newer Supabase migrations if missing (`0011`–**`0033`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this); **`0032_document_is_external.sql`** adds `documents.is_external` (required for dashboard “Hide external”); **`0033_session_highlight_color.sql`** adds `sessions.highlight_color` (optional Sage/Horizon/Ember/Glow mark on session lists).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -86,9 +86,10 @@
 *   **`0030_summarize_system_prompt.sql`** — `streams.summarize_system_prompt` (nullable text). NULL = product default in `src/lib/prompts/defaults.ts`. **Required to save an Admin override for per-element summaries.**
 *   **`0031_user_display_names.sql`** — richer `get_user_public_profiles` / `list_stream_peers` names (`display_name`, given+family, email local-part). Optional for Created by (app fallbacks exist); run so SQL and UI stay in sync.
 *   **`0032_document_is_external.sql`** — `documents.is_external` (boolean, default false). **Required for dashboard list “Hide external”** and the Upload “from outside CL” checkbox.
+*   **`0033_session_highlight_color.sql`** — `sessions.highlight_color` (`sage` / `horizon` / `ember` / `glow`, nullable). **Required to save a colour mark from session Edit.** Lists still load without it.
 
 ### Not yet migrated
-*   (ensure **0012**–**0032** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0033** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
 `id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `is_draft`, `is_external`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
@@ -117,7 +118,7 @@
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
 | Commons repository | `src/app/(app)/commons/*`, `src/components/CommonsRepository.tsx`, `src/lib/commons/{types,element-colours,list-items}.ts` — filters, type colours + legend, detail popup |
 | Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
-| Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`, DELETE RLS in `0026` |
+| Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session,highlight}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`, DELETE RLS in `0026`; colour marks in `0033` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation,ensure-camp-clai-membership}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migrations `0015` + `0030` (summarize) |
 | Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
@@ -149,6 +150,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Session list highlights (2026-08-17):** Session Edit has a small **Highlight** row (None + Sage / Horizon / Ember / Glow). The mark shows as a coloured left edge + labelled dot on the dashboard Commons list, Commons repository, and session archive — so admins can scan gatherings. Same people as session edit (host / attendees / admins). Does not change map sprites. Apply **`0033_session_highlight_color.sql`**. Lists still load before that; saving a colour needs the column. **Manual test:** (1) run `0033`; (2) Dashboard or Commons → session → pencil → pick Ember → Save; (3) that session shows an ember bar/dot in the dashboard list, Commons, and `/sessions/archive`; (4) Edit → None → Save → mark gone; (5) map sprites unchanged.
+
 *   **Knowledge Map size = SNA closeness; Top 10 ordered by it (2026-08-17):** `/map` circle size is **harmonic closeness** (undirected; isolates score low). Colour stays type. Legend has a farther/closer size scale. Admin Knowledge Map knobs: high-closeness radius (Concept) and low-closeness radius (Atom). Dashboard sprites still size by Commons type. Top 10 What’s humming / Spaces of difference / Still asking sort by that same closeness (matched by normalized label; polarities take the higher pole), then mention count. Helper: `src/lib/graph/closeness.ts`. **Manual test:** (1) `/map` — a well-linked Concept is larger than an isolate Atom, even if type would have said otherwise; (2) legend shows “size is closeness”; (3) `/top10` — a map-central theme ranks above a frequently tagged idea that never became a node; (4) hover “closeness” on the Top 10 intro; (5) Admin → Knowledge Map tab shows high/low closeness radii, not four type radii.
 
 *   **Knowledge Map legend + split layout admin (2026-08-17):** `/map` now has a colour/size legend (hover a type name for Atom / Concept / Framework / Theme), a fullscreen control (native Fullscreen API with a CSS fallback), circular **×** to close node detail (same as Ask / Commons), and a **?** next to the hint row that explains keyboard: Tab focuses a node, arrow keys jump to the nearest neighbour, Enter/Space opens details, Escape closes. Admin → Map & Dashboard layout is **two tabs** with independent Save/Reset; `?` on each knob; sprite scale is Dashboard-only. Stored as nested `{ knowledgeMap, dashboard }` in existing `map_layout_config` (no new migration; old flat JSON still applies to both until a tab is saved). **Manual test:** (1) Synthesis → Knowledge Map — legend bottom-left, hover Atom/Concept; (2) expand icon → map fills the screen, Escape or collapse exits; (3) click a node → × closes the panel; (4) Tab then arrow keys move between nodes; (5) Admin → Map & Dashboard layout → change Knowledge Map repulsion → Save this tab → `/map` updates, Dashboard does not; (6) Dashboard tab → change sprite scale → Save → Dashboard icons change, `/map` circles do not; (7) hover a `?` — description appears; (8) no “apply migration 0022” line on the page.
