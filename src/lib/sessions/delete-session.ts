@@ -5,7 +5,12 @@ import { canEditSession } from "@/lib/sessions/can-edit-session";
 import { isAttending } from "@/lib/sessions/attendance";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
 import { deleteDocument } from "@/lib/documents/delete-document";
-import { SESSION_SELECT, coerceSession, sessionSelectFallback } from "@/lib/sessions/types";
+import {
+  SESSION_SELECT,
+  coerceSession,
+  sessionSelectFallback,
+} from "@/lib/sessions/types";
+import { trashSchemaError } from "@/lib/trash/schema";
 
 export type NestedSessionDocument = {
   id: string;
@@ -20,9 +25,9 @@ export type DeleteSessionResult =
   | { ok: false; error: string };
 
 /**
- * Delete a session. Same people as edit (host, attendees, admins, nested
- * authors). Nested Commons docs are either ungrouped (FK SET NULL) or
- * deleted first — attendee document-delete RLS needs session_id still set.
+ * Move a session to Admin Trash. Same people as edit (host, attendees,
+ * admins, nested authors). Nested Commons docs are either ungrouped (kept
+ * live) or moved to Trash with the session.
  */
 export async function deleteSession(
   sessionId: string,
@@ -106,7 +111,7 @@ export async function deleteSession(
         return {
           ok: false,
           error:
-            `Could not delete “${doc.title?.trim() || "Untitled"}”: ${error}. ` +
+            `Could not move “${doc.title?.trim() || "Untitled"}” to Trash: ${error}. ` +
             `The session was kept. Remaining nested items: ${
               remaining.length ? remaining.join(", ") : "none"
             }.`,
@@ -116,39 +121,53 @@ export async function deleteSession(
     }
   }
 
-  const { data, error } = await supabase
-    .from("sessions")
-    .delete()
-    .eq("id", session.id)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    if (/infinite recursion/i.test(error.message)) {
-      return {
-        ok: false,
-        error:
-          "Could not delete this session because of a database policy loop. Apply migration 0029_fix_session_delete_rls.sql in the Supabase SQL editor, then try again.",
-      };
-    }
-    return { ok: false, error: error.message };
-  }
-  if (!data) {
-    return {
-      ok: false,
-      error: "Session not found, or you don't have permission to delete it.",
-    };
-  }
-
   try {
     const admin = createAdminClient();
-    await admin
-      .from("comments")
-      .delete()
-      .eq("target_type", "session")
-      .eq("target_id", session.id);
+    const now = new Date().toISOString();
+
+    if (mode === "ungroup") {
+      const { error: ungroupError } = await admin
+        .from("documents")
+        .update({ session_id: null })
+        .eq("session_id", session.id)
+        .is("deleted_at", null);
+      if (ungroupError) {
+        return { ok: false, error: trashSchemaError(ungroupError.message) };
+      }
+
+      const { error: linkError } = await admin
+        .from("document_sessions")
+        .delete()
+        .eq("session_id", session.id);
+      if (linkError) {
+        return { ok: false, error: linkError.message };
+      }
+    }
+
+    const { data, error } = await admin
+      .from("sessions")
+      .update({
+        deleted_at: now,
+        deleted_by: user.id,
+      })
+      .eq("id", session.id)
+      .eq("stream_id", stream.id)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { ok: false, error: trashSchemaError(error.message) };
+    }
+    if (!data) {
+      return {
+        ok: false,
+        error: "Session not found, or it was already in Trash.",
+      };
+    }
   } catch (err) {
-    console.error("deleteSession: comment cleanup failed", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: trashSchemaError(message) };
   }
 
   return { ok: true };

@@ -103,6 +103,8 @@ export async function deleteSessionAction(
     revalidatePath("/dashboard");
     revalidatePath("/commons");
     revalidatePath("/sessions");
+    revalidatePath("/admin");
+    revalidatePath("/map");
     revalidatePath(`/sessions/archive/${id}`);
 
     return { ok: true };

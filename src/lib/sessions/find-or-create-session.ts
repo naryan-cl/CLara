@@ -1,5 +1,44 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateJoinCode, looksLikeUuid } from "@/lib/sessions/types";
+import { isMissingTrashSchemaError } from "@/lib/trash/schema";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Admin client bypasses RLS, so we must skip Trash rows ourselves.
+ * Before 0035 the column is missing — fall back to an unfiltered lookup.
+ */
+async function selectLiveSession(
+  admin: AdminClient,
+  input: { streamId: string; column: "id" | "name"; value: string },
+): Promise<{ data: { id: string } | null; error: { message: string } | null }> {
+  const live = await admin
+    .from("sessions")
+    .select("id")
+    .eq("stream_id", input.streamId)
+    .eq(input.column, input.value)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!live.error || !isMissingTrashSchemaError(live.error.message)) {
+    return {
+      data: live.data ? { id: String(live.data.id) } : null,
+      error: live.error,
+    };
+  }
+
+  const fallback = await admin
+    .from("sessions")
+    .select("id")
+    .eq("stream_id", input.streamId)
+    .eq(input.column, input.value)
+    .maybeSingle();
+
+  return {
+    data: fallback.data ? { id: String(fallback.data.id) } : null,
+    error: fallback.error,
+  };
+}
 
 /**
  * Backend-only (admin client, bypasses RLS): resolve a session by name
@@ -23,24 +62,22 @@ export async function findOrCreateSessionByName(
   const admin = createAdminClient();
 
   if (looksLikeUuid(trimmed)) {
-    const byId = await admin
-      .from("sessions")
-      .select("id")
-      .eq("stream_id", streamId)
-      .eq("id", trimmed)
-      .maybeSingle();
+    const byId = await selectLiveSession(admin, {
+      streamId,
+      column: "id",
+      value: trimmed,
+    });
     if (!byId.error && byId.data) {
       return { sessionId: byId.data.id as string, error: null };
     }
     return { sessionId: null, error: null };
   }
 
-  const existing = await admin
-    .from("sessions")
-    .select("id")
-    .eq("stream_id", streamId)
-    .eq("name", trimmed)
-    .maybeSingle();
+  const existing = await selectLiveSession(admin, {
+    streamId,
+    column: "name",
+    value: trimmed,
+  });
 
   if (!existing.error && existing.data) {
     return { sessionId: existing.data.id as string, error: null };
@@ -68,12 +105,11 @@ export async function findOrCreateSessionByName(
     }
 
     if (error?.code === "23505") {
-      const again = await admin
-        .from("sessions")
-        .select("id")
-        .eq("stream_id", streamId)
-        .eq("name", trimmed)
-        .maybeSingle();
+      const again = await selectLiveSession(admin, {
+        streamId,
+        column: "name",
+        value: trimmed,
+      });
       if (again.data) {
         return { sessionId: again.data.id as string, error: null };
       }

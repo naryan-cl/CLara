@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-17 (Knowledge Map legend + split layout admin)  
+**Last updated:** 2026-08-19 (Admin Trash)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Admin Trash (2026-08-19):** Commons **Delete** (documents and sessions) is not permanent. Items move to Admin → **Trash** (`deleted_at`). Admins can **Restore**. Comments, embeddings, and original Record audio stay with the row. Apply **`0035_soft_delete_trash.sql`**. Failed upload/record rollbacks (never published) still hard-delete. See §7.3, §7.5.
 *   **Knowledge Map closeness + Top 10 order (2026-08-17):** `/map` circle size is SNA **harmonic closeness** (fewest steps to other nodes), not type. Top 10 lists order by that same closeness (then mention count). See §6, §7.3, §7.4.
 *   **Dashboard list recency + outside-CL flag (2026-08-17):** Dashboard List sorts newest activity first; **Hide external** pill in the panel header (beside close); **New** / **External** labels on cards. Upload can flag “from outside CL” (`documents.is_external`). Detail pane: date + Created by sit on the type-pill row; session Join code is in Edit. Map stays unfiltered. Apply **`0032_document_is_external.sql`**. See §5.1, §7.1.
 *   **Synthesis Top 10 (2026-08-17):** New Synthesis child at `/top10` ranks the stream’s top topics, spaces of difference (tensions/polarities), and questions/inquiries from Public Commons — tags, element-summary sections, session inquiries, and Knowledge Map contrast links. Source chips open the original document or session. Private stays off the board (same as the map). Not an Ask CLara pipeline. See §5.3, §7.4.
@@ -204,7 +205,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 7.3 Commons — repository
 *   **Filterable / sortable list:** top-level = sessions + **ungrouped** Adds; children appear when a session is opened. Colour-coded by element type (Chat / Record / Upload / Session / Other).
-*   Click → **detail popup** with **Summary first** (then original text), **Created by**, attendees when a session has two or more people, view/edit (when permitted) and comments (minimize removed 2026-08-06). Edit form includes **Delete** for the same people who can edit (author, session attendees, stream admins). Documents: `0020_document_delete_rls.sql`. Sessions: `0026_session_delete_rls.sql` — confirm ungroup nested docs or delete them too. Summaries: `0028_document_summary.sql`.
+*   Click → **detail popup** with **Summary first** (then original text), **Created by**, attendees when a session has two or more people, view/edit (when permitted) and comments (minimize removed 2026-08-06). Edit form includes **Delete** for the same people who can edit (author, session attendees, stream admins). Delete moves the item to Admin → **Trash** (not a permanent wipe); apply **`0035_soft_delete_trash.sql`**. Sessions: confirm ungroup nested docs or move those documents to Trash too. Summaries: `0028_document_summary.sql`.
 *   Session popup: mark **"I Attended"**, comment, and **Edit / Delete** when permitted (title / date / inquiry / description). Dashboard Ask pane pencil is the same editor. Apply **`0023_session_edit_rls.sql`** + **`0026`**. (Standalone **My harvest** export page removed 2026-08-07 — use Commons filters / session archive instead.)
 *   Private-to-owner visibility + eye icon; filters: type, date, attended, my artifacts.
 *   **Comments** + admin audit log — see §5.2.
@@ -224,6 +225,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Map themes** *(shipped 2026-08-07):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only). Apply **`0017_map_themes.sql`**.
 *   **Analytics** *(2026-08-10):* `/admin/analytics` — stream-scoped Commons / membership / graph aggregates (creations by type over time, summary cards). Site-wide pageviews via **Vercel Web Analytics** (not in-app). Ask question counts later.
 *   **Map & Dashboard layout** *(2026-08-10; split 2026-08-17):* `/admin/map-layout` — two tabs (**Knowledge Map** and **Dashboard**), each with its own physics + sizes, live preview, and Save. Hover **?** explains each knob. Persists on `streams.map_layout_config` as `{ knowledgeMap, dashboard }` (legacy flat JSON still applies to both until a tab is saved). Sprite scale is Dashboard-only.
+*   **Trash** *(2026-08-19):* `/admin` section lists soft-deleted documents and sessions for the active stream. **Restore** makes the item live again (Commons, Ask, map). Apply **`0035_soft_delete_trash.sql`**.
 *   **Comment edit audit log** *(Shipped.)* Admins can open “Audit log” on an edited comment (who / when / previous body) via `comment_edit_log`.
 
 ---

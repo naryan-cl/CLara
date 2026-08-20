@@ -22,8 +22,20 @@ import {
   getStreamMapLayouts,
   updateStreamMapLayouts,
 } from "@/lib/graph/get-map-layout-config";
+import {
+  resetStreamAskLlmSettings as resetAskLlmSettings,
+  saveStreamAskLlmSettings as persistAskLlmSettings,
+  type SaveAskLlmInput,
+} from "@/lib/ask/update-stream-ask-llm-settings";
+import { isAskLlmProvider } from "@/lib/ask/llm-types";
+import { restoreTrashItem } from "@/lib/trash/restore";
+import type { TrashKind } from "@/lib/trash/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+export type RestoreTrashActionResult =
+  | { ok: true; note: string | null }
+  | { ok: false; error: string };
 
 export type BackfillResult =
   | { ok: true; queued: number }
@@ -244,6 +256,73 @@ export async function saveMapLayoutConfig(
   revalidatePath("/dashboard");
   revalidatePath("/map");
   return { ok: true };
+}
+
+/** Save Ask CLara answer-model provider + optional encrypted API key. */
+export async function saveStreamAskLlmSettings(
+  input: SaveAskLlmInput,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (!isAskLlmProvider(input.provider)) {
+    return { ok: false, error: "Unknown provider." };
+  }
+
+  const { error } = await persistAskLlmSettings(auth.streamId, input);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/ask");
+  return { ok: true };
+}
+
+/** Revert Ask CLara to platform OPENAI_* env for answers. */
+export async function resetStreamAskLlmSettings(): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const { error } = await resetAskLlmSettings(auth.streamId);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/ask");
+  return { ok: true };
+}
+
+/** Undo a Commons Delete — item leaves Trash and is live again. */
+export async function restoreTrashItemAction(
+  kind: TrashKind,
+  id: string,
+): Promise<RestoreTrashActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (kind !== "document" && kind !== "session") {
+    return { ok: false, error: "Unknown trash item." };
+  }
+
+  const result = await restoreTrashItem(auth.streamId, kind, id);
+  if (!result.ok) return result;
+
+  revalidatePath("/admin");
+  revalidatePath("/commons");
+  revalidatePath("/dashboard");
+  revalidatePath("/sessions");
+  revalidatePath("/map");
+  revalidatePath("/ask");
+  revalidatePath("/top10");
+  if (kind === "document") {
+    revalidatePath(`/sessions/documents/${id}`);
+  } else {
+    revalidatePath(`/sessions/archive/${id}`);
+  }
+
+  return result;
 }
 
 /** Reset one surface to product defaults (the other tab is unchanged). */

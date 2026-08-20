@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-19 (admin Commons export)  
+**Last updated:** 2026-08-19 (Admin Trash)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -17,7 +17,7 @@
 2. Copy `.env.example` → `.env.local`; fill Supabase + OpenAI + Inngest (same names as Vercel).
 3. `npm install` && `npm run dev` (optional: `npm run inngest:dev` in a second terminal).
 4. After **`0024_auto_join_camp_clai.sql`**, new accounts auto-join Camp CLAI. Confirm the header badge says **Camp CLAI** (not "No stream").
-5. Apply newer Supabase migrations if missing (`0011`–**`0033`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this); **`0032_document_is_external.sql`** adds `documents.is_external` (required for dashboard “Hide external”); **`0033_session_highlight_color.sql`** adds `sessions.highlight_color` (optional Sage/Horizon/Ember/Glow mark on session lists).
+5. Apply newer Supabase migrations if missing (`0011`–**`0035`**). **`0026`** session delete RLS; **`0029`** required so Delete does not hit sessions policy recursion; **`0027`** connection edit RLS; **`0028_document_summary.sql`** adds `documents.summary` (required for Summary-first detail); **`0030_summarize_system_prompt.sql`** adds the admin-editable per-element summary prompt; **`0031_user_display_names.sql`** improves Created by / peer names (app fallbacks work even before this); **`0032_document_is_external.sql`** adds `documents.is_external` (required for dashboard “Hide external”); **`0033_session_highlight_color.sql`** adds `sessions.highlight_color` (optional Sage/Horizon/Ember/Glow mark on session lists); **`0035_soft_delete_trash.sql`** adds `deleted_at` / `deleted_by` so Commons Delete goes to Admin → Trash (required for Restore).
 6. Read **§4 Progress & Decisions** below before coding.
 
 ### What works in production today
@@ -87,12 +87,13 @@
 *   **`0031_user_display_names.sql`** — richer `get_user_public_profiles` / `list_stream_peers` names (`display_name`, given+family, email local-part). Optional for Created by (app fallbacks exist); run so SQL and UI stay in sync.
 *   **`0032_document_is_external.sql`** — `documents.is_external` (boolean, default false). **Required for dashboard list “Hide external”** and the Upload “from outside CL” checkbox.
 *   **`0033_session_highlight_color.sql`** — `sessions.highlight_color` (`sage` / `horizon` / `ember` / `glow`, nullable). **Required to save a colour mark from session Edit.** Lists still load without it.
+*   **`0035_soft_delete_trash.sql`** — `documents.deleted_at` / `deleted_by` + same on `sessions`; SELECT RLS hides trash; Ask RPC skips trashed docs; live-only unique name/join code. **Required for Admin → Trash / Restore.**
 
 ### Not yet migrated
-*   (ensure **0012**–**0033** are applied on the shared Supabase project as needed)
+*   (ensure **0012**–**0035** are applied on the shared Supabase project as needed)
 
 ### `documents` columns (shipped)
-`id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `is_draft`, `is_external`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
+`id`, `stream_id`, `created_by`, `content`, `summary`, `title`, `session_id`, `type`, `participants`, `tags`, `privacy_status`, `needs_review`, `is_draft`, `is_external`, `deleted_at`, `deleted_by`, `created_at`, `updated_at` (+ `document_sessions` junction for multi-session links)
 
 ---
 
@@ -117,8 +118,9 @@
 | Sessions (event containers) | `src/lib/sessions/*` — `list-sessions.ts`, `create-session.ts` (RLS-scoped), `find-or-create-session.ts` (admin, for OKF enrich), `get-session.ts`, `attendance.ts` ("I Attended") |
 | Session archive UI | `src/app/(app)/sessions/archive/*` — list + `[id]` detail; `src/lib/documents/list-by-session.ts` |
 | Commons repository | `src/app/(app)/commons/*`, `src/components/CommonsRepository.tsx`, `src/lib/commons/{types,element-colours,list-items}.ts` — filters, type colours + legend, detail popup |
-| Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; DELETE RLS in `0020_document_delete_rls.sql` |
-| Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session,highlight}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`, DELETE RLS in `0026`; colour marks in `0033` |
+| Document edit / delete | `src/components/DocumentEditor.tsx`, `src/lib/documents/{update-document,delete-document}.ts`, `sessions/documents/actions.ts`; Commons Delete is a soft-delete (`0035`); leftover DELETE RLS in `0020` is for unpublished rollback paths |
+| Session edit / delete | `src/components/SessionEditor.tsx`, `SessionDeleteDialog.tsx`, `src/lib/sessions/{update-session,delete-session,can-edit-session,highlight}.ts`, `sessions/session-edit-actions.ts`; UPDATE RLS in `0023`; Commons Delete is a soft-delete (`0035`); colour marks in `0033` |
+| Admin Trash | `src/lib/trash/{list-stream-trash,restore,schema,types}.ts`, `src/components/admin/TrashPanel.tsx`, `/admin` Trash section; migration `0035_soft_delete_trash.sql` |
 | Admin membership + isolation | `src/lib/streams/{list-members,add-member,remove-member,update-member-role,update-isolation,ensure-camp-clai-membership}.ts`, `src/app/(app)/admin/actions.ts`, `src/components/{MembersPanel,IsolationToggle}.tsx` |
 | Admin CLara prompts | `src/lib/prompts/{defaults,get-stream-prompts,update-stream-prompt}.ts`, `src/components/PromptsPanel.tsx`, `/admin` section; migrations `0015` + `0030` (summarize) |
 | Admin analytics (Phase A) | `src/lib/analytics/*`, `src/components/admin/Analytics{Charts,Dashboard}.tsx`, `/admin/analytics`, `/api/admin/analytics/timeseries` — domain aggregates only; Vercel `@vercel/analytics` for site pageviews |
@@ -150,6 +152,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Admin Trash (2026-08-19):** Commons **Delete** (document Edit and session confirm) no longer wipes the row. It sets `deleted_at` / `deleted_by`. RLS hides trash from Commons, Ask (`match_document_chunks`), join codes, and admin queues. Knowledge Map hides nodes whose source document is trashed. Admin → **Trash** lists items newest-first with **Restore**. Restoring a nested document whose session is still in Trash ungroups it so it reappears. Session name / join code unique only among live rows. Original audio, comments, and embeddings stay so Restore is complete. Failed Receive/Record rollbacks (never published) still hard-delete. Apply **`0035_soft_delete_trash.sql`**. **Manual test:** (1) run `0035`; (2) Commons → document Edit → Delete → item gone from Commons; (3) Admin → Trash shows it → Restore → it is back; (4) Delete a session with nested docs using “Keep documents” → session in Trash, docs ungrouped on Commons; (5) another session → “Delete session and documents” → both in Trash; restore the session, then the docs; (6) Ask CLara does not cite a trashed transcript; (7) non-admin cannot see Trash.
+
 *   **Admin Commons export (2026-08-19):** `/admin/export` (link from Admin) lets stream admins download Markdown from the active stream. Toggle **Transcripts & original text** vs **Summaries**; filter by element type / search / date; **Select all** / **Select none** / per-row checkboxes (same top-level Commons rows as the repository — sessions + ungrouped Adds). Sessions bundle nested contributions. Privacy banner warns about participant content, private items, and third-party tools (e.g. NotebookLM). Pure helpers in `src/lib/commons/export.ts`; server action re-fetches selected rows. **Manual test:** (1) Admin → Export Commons; (2) Transcript mode → select a few Records → Download → `.md` with full text; (3) Summary mode → session with a gathering summary → download; (4) items still transcribing show “No transcript yet” and cannot be checked; (5) non-admin gets blocked.
 
 *   **Session list highlights (2026-08-17):** Session Edit has a small **Highlight** row (None + Sage / Horizon / Ember / Glow). The mark shows as a coloured left edge + labelled dot on the dashboard Commons list, Commons repository, and session archive — so admins can scan gatherings. Same people as session edit (host / attendees / admins). Does not change map sprites. Apply **`0033_session_highlight_color.sql`**. Lists still load before that; saving a colour needs the column. **Manual test:** (1) run `0033`; (2) Dashboard or Commons → session → pencil → pick Ember → Save; (3) that session shows an ember bar/dot in the dashboard list, Commons, and `/sessions/archive`; (4) Edit → None → Save → mark gone; (5) map sprites unchanged.

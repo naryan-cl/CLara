@@ -1,54 +1,84 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { removeListensStagingFromContent } from "@/lib/listens/remove-staging";
+import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { isAttending } from "@/lib/sessions/attendance";
+import { trashSchemaError } from "@/lib/trash/schema";
 
 /**
- * Delete a Commons document.
- * RLS enforces the same gate as edit: author, stream admin, or session attendee.
- * Comments have no FK to documents, so we clean those up with the admin client
- * after a successful user-scoped delete (best-effort).
+ * Move a Commons document to Admin Trash (soft-delete).
+ * Same people as edit: author, stream admin, or session attendee.
+ * Comments, embeddings, and original audio stay so an admin can restore.
  */
 export async function deleteDocument(
   id: string,
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "You must be signed in." };
+  }
 
   const { data, error } = await supabase
     .from("documents")
-    .delete()
+    .select("id, stream_id, created_by, session_id")
     .eq("id", id)
-    .select("id, content, stream_id")
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: trashSchemaError(error.message) };
   }
-
   if (!data) {
     return {
       error: "Document not found, or you don't have permission to delete it.",
     };
   }
 
-  try {
-    const admin = createAdminClient();
-    await admin
-      .from("comments")
-      .delete()
-      .eq("target_type", "document")
-      .eq("target_id", id);
-  } catch (err) {
-    // Document is already gone; orphaned comments are non-fatal.
-    console.error("deleteDocument: comment cleanup failed", err);
+  const { stream } = await getActiveStream();
+  if (!stream || data.stream_id !== stream.id) {
+    return {
+      error: "Document not found, or you don't have permission to delete it.",
+    };
+  }
+
+  const attending = data.session_id
+    ? (await isAttending(String(data.session_id), user.id)).attending
+    : false;
+
+  const canDelete =
+    data.created_by === user.id || stream.role === "admin" || attending;
+  if (!canDelete) {
+    return {
+      error: "You don't have permission to delete this document.",
+    };
   }
 
   try {
-    await removeListensStagingFromContent(
-      String(data.stream_id),
-      data.content ? String(data.content) : null,
-    );
+    const admin = createAdminClient();
+    const { data: updated, error: updateError } = await admin
+      .from("documents")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
+      })
+      .eq("id", id)
+      .eq("stream_id", stream.id)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) {
+      return { error: trashSchemaError(updateError.message) };
+    }
+    if (!updated) {
+      return {
+        error: "Document not found, or it was already in Trash.",
+      };
+    }
   } catch (err) {
-    console.error("deleteDocument: listens staging cleanup failed", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return { error: trashSchemaError(message) };
   }
 
   return { error: null };

@@ -153,6 +153,9 @@ export async function deleteDocumentAction(
     revalidatePath("/sessions");
     revalidatePath("/commons");
     revalidatePath("/dashboard");
+    revalidatePath("/admin");
+    revalidatePath("/map");
+    revalidatePath("/ask");
     revalidatePath(`/sessions/documents/${id}`);
 
     return { ok: true };

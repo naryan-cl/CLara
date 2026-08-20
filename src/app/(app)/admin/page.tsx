@@ -2,6 +2,7 @@ import { DocumentList } from "@/components/DocumentList";
 import { MembersPanel } from "@/components/MembersPanel";
 import { IsolationToggle } from "@/components/IsolationToggle";
 import { PromptsPanel } from "@/components/PromptsPanel";
+import { AskLlmPanel } from "@/components/AskLlmPanel";
 import { MapThemesPanel } from "@/components/MapThemesPanel";
 import { AskIndexPanel } from "@/components/AskIndexPanel";
 import { AdminSection } from "@/components/admin/AdminSection";
@@ -13,7 +14,13 @@ import { getStreamPrompts } from "@/lib/prompts/get-stream-prompts";
 import { getStreamThemeSettings } from "@/lib/map-theme/theme-state";
 import { listDocumentsMissingEmbeddings } from "@/lib/embeddings/list-missing-embeddings";
 import { defaultPromptFor } from "@/lib/prompts/defaults";
+import { getStreamAskLlmSettingsForAdmin } from "@/lib/ask/get-stream-ask-llm-settings";
+import { canEncryptAskCredentials } from "@/lib/ask/credentials-crypto";
+import { providerLabel } from "@/lib/ask/llm-types";
+import { getOpenAiChatModel } from "@/lib/openai/env";
 import { createClient } from "@/lib/supabase/server";
+import { listStreamTrash } from "@/lib/trash/list-stream-trash";
+import { TrashPanel } from "@/components/admin/TrashPanel";
 
 export default async function AdminPage() {
   const { stream } = await getActiveStream();
@@ -47,6 +54,12 @@ export default async function AdminPage() {
     documents: missingEmbeddings,
     error: missingEmbeddingsError,
   } = await listDocumentsMissingEmbeddings(stream.id);
+  const { settings: askLlmSettings, error: askLlmError } =
+    await getStreamAskLlmSettingsForAdmin(stream.id);
+  const askLlmEncryptionReady = canEncryptAskCredentials();
+  const { items: trashItems, error: trashError } = await listStreamTrash(
+    stream.id,
+  );
 
   const supabase = await createClient();
   const {
@@ -67,8 +80,9 @@ export default async function AdminPage() {
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">Admin</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Membership, isolation, map themes, Ask index, CLara prompts, and the
-          metadata review queue for {stream.name}. Expand a section to edit it.
+          Membership, isolation, map themes, Ask index, CLara prompts, Trash,
+          and the metadata review queue for {stream.name}. Expand a section to
+          edit it.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
@@ -132,6 +146,34 @@ export default async function AdminPage() {
       </AdminSection>
 
       <AdminSection
+        title="Ask model"
+        hint={
+          askLlmError
+            ? undefined
+            : askLlmSettings.provider === "default"
+              ? "platform default"
+              : providerLabel(askLlmSettings.provider)
+        }
+        description={
+          <>
+            Provider and API key for the Ask CLara <strong>answer</strong> step
+            on {stream.name}. Commons search still uses the platform OpenAI
+            embedding key.
+          </>
+        }
+      >
+        {askLlmError ? (
+          <p className="font-mono text-sm text-danger">{askLlmError}</p>
+        ) : (
+          <AskLlmPanel
+            initial={askLlmSettings}
+            platformChatModel={getOpenAiChatModel()}
+            encryptionReady={askLlmEncryptionReady}
+          />
+        )}
+      </AdminSection>
+
+      <AdminSection
         title="CLara prompts"
         description={
           <>
@@ -154,6 +196,21 @@ export default async function AdminPage() {
             summarizeIsCustom={summarizeIsCustom}
           />
         )}
+      </AdminSection>
+
+      <AdminSection
+        title="Trash"
+        description="Commons Deletes land here instead of disappearing. Restore puts the item back on Commons, Ask, and the map."
+        hint={
+          trashError
+            ? undefined
+            : trashItems.length > 0
+              ? `${trashItems.length} item${trashItems.length === 1 ? "" : "s"}`
+              : undefined
+        }
+        defaultOpen={Boolean(!trashError && trashItems.length > 0)}
+      >
+        <TrashPanel items={trashItems} listError={trashError} />
       </AdminSection>
 
       <AdminSection

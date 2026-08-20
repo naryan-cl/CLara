@@ -58,8 +58,8 @@ export function SessionDeleteDialog({
           Delete “{sessionName}”?
         </h2>
         <p className="mt-2 text-sm text-ink/70">
-          This cannot be undone. Related comments and join links for this
-          session will also go away.
+          The session moves to Admin → Trash. An admin can restore it later.
+          Join links stop working until it is restored.
         </p>
 
         {count === 0 ? (

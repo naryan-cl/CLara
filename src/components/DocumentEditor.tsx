@@ -125,7 +125,7 @@ export function DocumentEditor({
   function onDelete() {
     const title = document.title?.trim() || "Untitled";
     const confirmed = window.confirm(
-      `Delete “${title}”? This cannot be undone.`,
+      `Delete “${title}”? It will move to Admin → Trash, where an admin can restore it.`,
     );
     if (!confirmed) return;
 

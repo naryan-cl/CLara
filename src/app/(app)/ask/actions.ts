@@ -1,10 +1,10 @@
 "use server";
 
-import OpenAI from "openai";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { searchCommons } from "@/lib/embeddings/search-commons";
 import { getAskScopeEmbeddingStatus } from "@/lib/embeddings/get-document-embedding-status";
-import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
+import { completeAskChat } from "@/lib/ask/complete-ask-chat";
+import { resolveAskLlmCredentials } from "@/lib/ask/get-stream-ask-llm-settings";
 import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import type { AskScope } from "@/lib/ask/scope";
 import { askScopeIsActive } from "@/lib/ask/scope";
@@ -84,11 +84,12 @@ export async function askClara(
     return { ok: false, error: streamError ?? "Sign in to ask CLara." };
   }
 
-  const apiKey = getOpenAiApiKey();
-  if (!apiKey) {
+  const { credentials, error: credentialsError } =
+    await resolveAskLlmCredentials(stream.id);
+  if (credentialsError || !credentials) {
     return {
       ok: false,
-      error: "Ask CLara isn't configured yet (missing OPENAI_API_KEY).",
+      error: credentialsError ?? "Ask CLara model settings are unavailable.",
     };
   }
 
@@ -158,29 +159,20 @@ export async function askClara(
     "ask",
   );
 
-  const client = new OpenAI({ apiKey });
-  const completion = await client.chat.completions.create({
-    model: getOpenAiChatModel(),
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt + scopeHint,
-      },
-      ...prior.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-      {
-        role: "user" as const,
-        content: `Commons excerpts:\n\n${context}\n\nQuestion: ${trimmed}`,
-      },
-    ],
+  const chatResult = await completeAskChat({
+    provider: credentials.provider,
+    apiKey: credentials.apiKey,
+    model: credentials.model,
+    systemPrompt: systemPrompt + scopeHint,
+    history: prior,
+    userMessage: `Commons excerpts:\n\n${context}\n\nQuestion: ${trimmed}`,
   });
 
-  const answer = completion.choices[0]?.message?.content?.trim();
-  if (!answer) {
-    return { ok: false, error: "CLara didn't return an answer — try again." };
+  if ("error" in chatResult) {
+    return { ok: false, error: chatResult.error };
   }
+
+  const answer = chatResult.content;
 
   const seenDocumentIds = new Set<string>();
   const sources: AskSource[] = [];
