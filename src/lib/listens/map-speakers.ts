@@ -37,11 +37,14 @@ export async function mapTranscriptSpeakersToNames(
   const names = participantNames.map((n) => n.trim()).filter(Boolean);
   if (!markdown.trim() || names.length === 0) return markdown;
 
+  const labels = listSpeakerLabels(markdown);
+
   if (names.length === 1) {
+    // Solo memo: one listed person + at most one voice. Do not collapse
+    // Speaker A/B/C onto the uploader when diarize heard a conversation.
     return attributeAllSpeakers(markdown, names[0]);
   }
 
-  const labels = listSpeakerLabels(markdown);
   if (labels.length === 0) {
     // No speaker headers — leave timestamps; names live in OKF participants.
     return markdown;

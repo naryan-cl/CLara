@@ -8,67 +8,19 @@ import { getDocumentById } from "@/lib/documents/get-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { setDocumentLinks } from "@/lib/documents/set-document-links";
 import { isAttending } from "@/lib/sessions/attendance";
-import {
-  inngest,
-  CLARA_RECORDING_RECEIVED,
-} from "@/lib/inngest/client";
-import {
-  isListensFailureBody,
-  isListensPendingBody,
-  LISTENS_PENDING_PLACEHOLDER,
-} from "@/lib/listens/placeholders";
+import { enqueueRecordingTranscription } from "@/lib/listens/enqueue-transcription";
+import { startRetranscribe } from "@/lib/listens/start-retranscribe";
+import { LISTENS_PENDING_PLACEHOLDER } from "@/lib/listens/placeholders";
 import {
   listensStagingPaths,
   parseListensJobMeta,
-  stripListensJobMeta,
   withListensJobMeta,
 } from "@/lib/listens/job-meta";
-import {
-  recordingProcessStatus,
-  type RecordingProcessStatus,
-} from "@/lib/listens/process-status";
+import type { RecordingProcessStatus } from "@/lib/listens/process-status";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 import { listensStagingExtension } from "@/lib/listens/audio-format";
 import { resolveSessionParticipantNames } from "@/lib/listens/participant-names";
 import type { CommonsDocument } from "@/lib/documents/types";
-
-const INNGEST_SEND_TIMEOUT_MS = 5_000;
-
-/**
- * Try to enqueue Whisper, but never block the Record UI for long.
- * Inngest often accepts the event before the HTTP promise settles; awaiting
- * forever left the page stuck on "Finalizing…" while the transcript already
- * finished. On timeout/failure we still return success to the client — the
- * placeholder document + Storage objects remain (do not delete; a late
- * delivery may still run).
- */
-async function enqueueRecordingTranscription(data: {
-  documentId: string;
-  streamId: string;
-  recordingId: string;
-  segmentCount: number;
-  mimeType: string;
-  fileExtension: string;
-}): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      inngest.send({
-        name: CLARA_RECORDING_RECEIVED,
-        data,
-      }),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error("Inngest send timed out"));
-        }, INNGEST_SEND_TIMEOUT_MS);
-      }),
-    ]);
-  } catch (err) {
-    console.error("Listens transcription enqueue issue (document kept):", err);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 export type ListensResult =
   | { ok: true; documentId: string; needsReview: boolean }
@@ -324,8 +276,9 @@ export type RetryListensResult =
   | { ok: false; error: string };
 
 /**
- * Re-enqueue Whisper for a stuck/failed Transcript when staging audio is
- * still in Storage. Older placeholders (no job meta) cannot be retried.
+ * Re-enqueue Whisper when staging audio is still in Storage — failed jobs
+ * and finished transcripts (so speaker-turn formatting can improve).
+ * Older rows with no job meta cannot be retried.
  */
 export async function retryListensTranscription(
   documentId: string,
@@ -371,76 +324,18 @@ export async function retryListensTranscription(
       };
     }
 
-    const body = stripListensJobMeta(document.content);
-    if (!isListensPendingBody(body) && !isListensFailureBody(body)) {
-      return {
-        ok: false,
-        error: "This recording already has a transcript.",
-      };
-    }
-
-    const meta = parseListensJobMeta(document.content);
-    if (!meta) {
-      return {
-        ok: false,
-        error:
-          "This recording was saved before retry info was stored, so the audio can’t be found. Edit to paste a transcript, or Delete and record again.",
-      };
-    }
-
-    const prefix = `${stream.id}/${meta.recordingId}`;
-    const { error: probeError } = await supabase.storage
-      .from("listens-staging")
-      .createSignedUrl(`${prefix}/0.${meta.fileExtension}`, 60);
-    if (probeError) {
-      return {
-        ok: false,
-        error:
-          "The audio is no longer in staging (Whisper may have already cleaned it up). Edit to paste a transcript, or Delete and record again.",
-      };
-    }
-
-    const pendingContent = withListensJobMeta(LISTENS_PENDING_PLACEHOLDER, meta);
-    const { data, error: updateError } = await supabase
-      .from("documents")
-      .update({
-        content: pendingContent,
-        needs_review: true,
-      })
-      .eq("id", document.id)
-      .select(
-        "id, stream_id, created_by, content, title, session_id, type, participants, tags, privacy_status, needs_review, created_at, updated_at",
-      )
-      .maybeSingle();
-
-    if (updateError || !data) {
-      return {
-        ok: false,
-        error:
-          updateError?.message ??
-          "Could not reset this recording for retry.",
-      };
-    }
-
-    await enqueueRecordingTranscription({
+    const result = await startRetranscribe({
       documentId: document.id,
       streamId: stream.id,
-      recordingId: meta.recordingId,
-      segmentCount: meta.segmentCount,
-      mimeType: meta.mimeType,
-      fileExtension: meta.fileExtension,
+      client: supabase,
     });
+    if (!result.ok) return result;
 
     revalidatePath("/dashboard");
     revalidatePath("/commons");
     revalidatePath(`/sessions/documents/${document.id}`);
 
-    const next = data as CommonsDocument;
-    return {
-      ok: true,
-      document: next,
-      processStatus: recordingProcessStatus(next),
-    };
+    return result;
   } catch (err) {
     console.error("retryListensTranscription failed:", err);
     return { ok: false, error: "Could not retry transcription. Try again." };

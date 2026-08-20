@@ -45,6 +45,22 @@ function isDiarizeModel(model: string): boolean {
   return model.toLowerCase().includes("diarize");
 }
 
+function toTranscriptSegment(seg: {
+  speaker?: string | null;
+  start?: number;
+  end?: number;
+  text?: string;
+}): TranscriptSegment {
+  const start = typeof seg.start === "number" ? seg.start : 0;
+  const end = typeof seg.end === "number" ? seg.end : undefined;
+  return {
+    speaker: (seg.speaker ?? "").trim() || null,
+    start,
+    end,
+    text: (seg.text ?? "").trim(),
+  };
+}
+
 function isWhisperModel(model: string): boolean {
   return model.toLowerCase().includes("whisper");
 }
@@ -247,11 +263,9 @@ async function transcribeDiarized(
     ? transcription.segments
     : [];
 
-  const segments: TranscriptSegment[] = apiSegments.map((seg) => ({
-    speaker: (seg.speaker ?? "").trim() || null,
-    start: typeof seg.start === "number" ? seg.start : 0,
-    text: (seg.text ?? "").trim(),
-  }));
+  const segments: TranscriptSegment[] = apiSegments.map((seg) =>
+    toTranscriptSegment(seg),
+  );
 
   const formatted = formatTranscriptMarkdown(segments, 0);
   const text = stripWhisperArtifacts(
@@ -287,11 +301,9 @@ async function transcribeWhisperVerbose(
     ? transcription.segments
     : [];
 
-  const segments: TranscriptSegment[] = apiSegments.map((seg) => ({
-    speaker: null,
-    start: typeof seg.start === "number" ? seg.start : 0,
-    text: (seg.text ?? "").trim(),
-  }));
+  const segments: TranscriptSegment[] = apiSegments.map((seg) =>
+    toTranscriptSegment({ ...seg, speaker: null }),
+  );
 
   const formatted = formatTranscriptMarkdown(segments, 0);
   const text = stripWhisperArtifacts(

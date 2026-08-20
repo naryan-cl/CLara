@@ -30,6 +30,8 @@ import {
 import { isAskLlmProvider } from "@/lib/ask/llm-types";
 import { restoreTrashItem } from "@/lib/trash/restore";
 import type { TrashKind } from "@/lib/trash/types";
+import { listRetranscribableTranscripts } from "@/lib/listens/list-retranscribable";
+import { startRetranscribe } from "@/lib/listens/start-retranscribe";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -227,6 +229,71 @@ export async function backfillMissingEmbeddings(): Promise<BackfillResult> {
 
   revalidatePath("/admin");
   return { ok: true, queued: documents.length };
+}
+
+export type RetranscribeAllResult =
+  | {
+      ok: true;
+      queued: number;
+      skippedNoAudio: number;
+      skippedInProgress: number;
+      skippedOther: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Re-run Whisper/diarize for every Transcript that still has original audio.
+ * Replaces current text + summary until jobs finish. Admin-only.
+ */
+export async function retranscribeStreamRecordings(): Promise<RetranscribeAllResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const supabase = await createClient();
+  const { candidates, error } = await listRetranscribableTranscripts(
+    auth.streamId,
+    supabase,
+  );
+  if (error) {
+    return { ok: false, error };
+  }
+
+  let queued = 0;
+  let skippedNoAudio = 0;
+  let skippedInProgress = 0;
+  let skippedOther = 0;
+
+  for (const row of candidates) {
+    const result = await startRetranscribe({
+      documentId: row.documentId,
+      streamId: auth.streamId,
+      client: supabase,
+      enqueueTimeoutMs: 1_500,
+    });
+    if (result.ok) {
+      queued += 1;
+      continue;
+    }
+    if (result.reason === "no_audio" || result.reason === "no_meta") {
+      skippedNoAudio += 1;
+    } else if (result.reason === "in_progress") {
+      skippedInProgress += 1;
+    } else {
+      skippedOther += 1;
+      console.error("retranscribeStreamRecordings skip:", result.error);
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+  revalidatePath("/commons");
+  return {
+    ok: true,
+    queued,
+    skippedNoAudio,
+    skippedInProgress,
+    skippedOther,
+  };
 }
 
 /** Persist physics + size knobs for one surface (Knowledge Map or Dashboard). */

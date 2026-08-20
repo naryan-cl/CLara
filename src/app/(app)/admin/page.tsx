@@ -21,6 +21,8 @@ import { getOpenAiChatModel } from "@/lib/openai/env";
 import { createClient } from "@/lib/supabase/server";
 import { listStreamTrash } from "@/lib/trash/list-stream-trash";
 import { TrashPanel } from "@/components/admin/TrashPanel";
+import { RetranscribePanel } from "@/components/admin/RetranscribePanel";
+import { listRetranscribableTranscripts } from "@/lib/listens/list-retranscribable";
 
 export default async function AdminPage() {
   const { stream } = await getActiveStream();
@@ -60,6 +62,12 @@ export default async function AdminPage() {
   const { items: trashItems, error: trashError } = await listStreamTrash(
     stream.id,
   );
+  const {
+    candidates: retranscribeCandidates,
+    inProgress: retranscribeInProgress,
+    withoutMeta: retranscribeWithoutMeta,
+    error: retranscribeError,
+  } = await listRetranscribableTranscripts(stream.id);
 
   const supabase = await createClient();
   const {
@@ -84,8 +92,8 @@ export default async function AdminPage() {
         <h1 className="font-display text-2xl font-medium text-ink">Admin</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Membership, isolation, map themes, Ask index, CLara prompts, Trash,
-          and the metadata review queue for {stream.name}. Expand a section to
-          edit it.
+          re-transcribe, and the metadata review queue for {stream.name}.
+          Expand a section to edit it.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
@@ -145,6 +153,25 @@ export default async function AdminPage() {
         <AskIndexPanel
           documents={missingEmbeddings}
           listError={missingEmbeddingsError}
+        />
+      </AdminSection>
+
+      <AdminSection
+        title="Re-transcribe recordings"
+        hint={
+          retranscribeError
+            ? undefined
+            : retranscribeCandidates.length > 0
+              ? `${retranscribeCandidates.length} with audio`
+              : undefined
+        }
+        description="Re-run Whisper on recordings that still have original audio (speaker turns and timestamps). Current text is replaced until the job finishes."
+      >
+        <RetranscribePanel
+          candidates={retranscribeCandidates}
+          inProgress={retranscribeInProgress}
+          withoutMeta={retranscribeWithoutMeta}
+          listError={retranscribeError}
         />
       </AdminSection>
 
