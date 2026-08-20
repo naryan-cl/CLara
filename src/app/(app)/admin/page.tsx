@@ -83,6 +83,12 @@ export default async function AdminPage() {
           >
             Map &amp; Dashboard layout →
           </Link>
+          <Link
+            href="/admin/export"
+            className="rounded-md border border-cloud bg-sand px-3 py-2 text-sm text-ink hover:border-ink/40"
+          >
+            Export Commons →
+          </Link>
         </div>
       </div>
 

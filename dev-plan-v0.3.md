@@ -1,7 +1,7 @@
 # CLara Platform — Development & Implementation Plan
 
 **Version:** 0.3  
-**Last updated:** 2026-08-17 (session list highlights)  
+**Last updated:** 2026-08-19 (admin Commons export)  
 **Target Tool:** Cursor (AI Coding Assistant)  
 **Tech Stack:** Next.js (App Router), Supabase (PostgreSQL, Auth, pgvector, Storage), Vercel, Tailwind, OpenAI, Inngest v4, TipTap (rich text ↔ Markdown).  
 **Companion PRD:** `prd-v0.5.md`  
@@ -150,6 +150,8 @@
 ## 4. Progress & Decisions (living log)
 
 ### Current phase
+*   **Admin Commons export (2026-08-19):** `/admin/export` (link from Admin) lets stream admins download Markdown from the active stream. Toggle **Transcripts & original text** vs **Summaries**; filter by element type / search / date; **Select all** / **Select none** / per-row checkboxes (same top-level Commons rows as the repository — sessions + ungrouped Adds). Sessions bundle nested contributions. Privacy banner warns about participant content, private items, and third-party tools (e.g. NotebookLM). Pure helpers in `src/lib/commons/export.ts`; server action re-fetches selected rows. **Manual test:** (1) Admin → Export Commons; (2) Transcript mode → select a few Records → Download → `.md` with full text; (3) Summary mode → session with a gathering summary → download; (4) items still transcribing show “No transcript yet” and cannot be checked; (5) non-admin gets blocked.
+
 *   **Session list highlights (2026-08-17):** Session Edit has a small **Highlight** row (None + Sage / Horizon / Ember / Glow). The mark shows as a coloured left edge + labelled dot on the dashboard Commons list, Commons repository, and session archive — so admins can scan gatherings. Same people as session edit (host / attendees / admins). Does not change map sprites. Apply **`0033_session_highlight_color.sql`**. Lists still load before that; saving a colour needs the column. **Manual test:** (1) run `0033`; (2) Dashboard or Commons → session → pencil → pick Ember → Save; (3) that session shows an ember bar/dot in the dashboard list, Commons, and `/sessions/archive`; (4) Edit → None → Save → mark gone; (5) map sprites unchanged.
 
 *   **Knowledge Map size = SNA closeness; Top 10 ordered by it (2026-08-17):** `/map` circle size is **harmonic closeness** (undirected; isolates score low). Colour stays type. Legend has a farther/closer size scale. Admin Knowledge Map knobs: high-closeness radius (Concept) and low-closeness radius (Atom). Dashboard sprites still size by Commons type. Top 10 What’s humming / Spaces of difference / Still asking sort by that same closeness (matched by normalized label; polarities take the higher pole), then mention count. Helper: `src/lib/graph/closeness.ts`. **Manual test:** (1) `/map` — a well-linked Concept is larger than an isolate Atom, even if type would have said otherwise; (2) legend shows “size is closeness”; (3) `/top10` — a map-central theme ranks above a frequently tagged idea that never became a node; (4) hover “closeness” on the Top 10 intro; (5) Admin → Knowledge Map tab shows high/low closeness radii, not four type radii.
