@@ -12,7 +12,12 @@ import {
   pollSessionLiveCounts,
   updateSessionJoinCodeAction,
 } from "@/app/(app)/sessions/composer-actions";
+import { AddModeLinks } from "@/components/AddModeLinks";
 import { HelpTip } from "@/components/HelpTip";
+import {
+  hasSeenMultiInputSessionIntro,
+  markMultiInputSessionIntroSeen,
+} from "@/lib/sessions/multi-input-session-hint";
 import {
   generateJoinCode,
   type JoinMode,
@@ -62,6 +67,7 @@ export function SessionLiveBoard({
   const [editingCode, setEditingCode] = useState(false);
   const [codeDraft, setCodeDraft] = useState("");
   const [codePending, setCodePending] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
 
   const loadBoard = useCallback(async (sessionId: string) => {
     const result = await loadSessionLiveBoard(sessionId);
@@ -79,6 +85,18 @@ export function SessionLiveBoard({
     if (!initialSessionId) return;
     void loadBoard(initialSessionId);
   }, [initialSessionId, loadBoard]);
+
+  useEffect(() => {
+    if (initialSessionId) return;
+    if (!hasSeenMultiInputSessionIntro()) {
+      setIntroOpen(true);
+    }
+  }, [initialSessionId]);
+
+  function dismissIntro() {
+    markMultiInputSessionIntroSeen();
+    setIntroOpen(false);
+  }
 
   useEffect(() => {
     if (!session) return;
@@ -250,13 +268,48 @@ export function SessionLiveBoard({
   if (!session) {
     return (
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+        {introOpen ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="multi-input-session-intro-title"
+          >
+            <div className="max-w-md rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+              <h2
+                id="multi-input-session-intro-title"
+                className="font-display text-xl font-medium text-ink"
+              >
+                Multi-input session
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-ink/70">
+                This is a multi-input session that groups multiple reflections,
+                recordings or uploads into one. If you only intend to submit one
+                thing (ie one recording), use the{" "}
+                <AddModeLinks /> options instead.
+              </p>
+              <button
+                type="button"
+                onClick={dismissIntro}
+                className="btn-primary mt-5 rounded-md bg-forest px-4 py-2 text-sm font-medium text-paper"
+              >
+                I understand
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div>
           <h1 className="font-display text-2xl font-medium text-ink">
-            New session
+            New multi-input session
           </h1>
           <p className="mt-1 text-sm text-ink/60">
             Start a gathering for others to Reflect, Record, or Upload into.
-            You will get a join code and share links after you save.
+            You will get a join code and share links after you save.{" "}
+            <strong className="italic">
+              If you are only adding a single submission, do not use this. Use{" "}
+              <AddModeLinks oxfordComma={false} /> instead.
+            </strong>
           </p>
           {loadError ? (
             <p className="mt-2 text-sm text-danger">{loadError}</p>
