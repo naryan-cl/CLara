@@ -31,7 +31,7 @@ import {
   listDocumentsLinkedToSession,
   listLinksForDocument,
 } from "@/lib/documents/list-document-links";
-import { listRelatedSessionIds } from "@/lib/sessions/list-session-relations";
+import { listAllRelatedSessionIds } from "@/lib/sessions/list-session-relations";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
 import {
@@ -212,7 +212,7 @@ export async function loadCommonsDetail(
     resolveCreatedBy(session.created_by),
     listSessionAttendeeProfiles(id),
     listRelateTargets(stream.id),
-    listRelatedSessionIds(id),
+    listAllRelatedSessionIds(id),
     listDocumentsLinkedToSession(id),
   ]);
 

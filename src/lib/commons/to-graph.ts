@@ -106,6 +106,12 @@ export function commonsItemsToGraph(
   const nodes = visible.map((item) => toGraphNode(item, streamId));
   const nodeIds = new Set(nodes.map((node) => node.id));
   const edges: GraphEdge[] = [];
+  const nestParentByDocumentId = new Map<string, string>();
+  for (const item of items) {
+    if (item.kind === "document" && item.session_id) {
+      nestParentByDocumentId.set(item.id, item.session_id);
+    }
+  }
 
   if (expandedSessionId) {
     const sessionNodeId = `session:${expandedSessionId}`;
@@ -136,6 +142,14 @@ export function commonsItemsToGraph(
         : null;
     if (!targetId) continue;
     if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
+    // Nested Adds already draw a nest line to their parent session.
+    if (
+      link.target_session_id &&
+      nestParentByDocumentId.get(link.source_document_id) ===
+        link.target_session_id
+    ) {
+      continue;
+    }
     edges.push(
       syntheticEdge(
         `relate:${link.source_document_id}:${targetId}`,

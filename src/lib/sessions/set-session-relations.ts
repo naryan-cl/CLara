@@ -19,13 +19,24 @@ export async function setSessionRelations(
     ),
   ].slice(0, MAX_RELATED);
 
-  const { error: deleteError } = await supabase
+  // Drop every Relate edge touching this session so unchecked incoming links
+  // (stored on the other session's row) disappear from the map too.
+  const { error: deleteOutgoingError } = await supabase
     .from("session_relations")
     .delete()
     .eq("session_id", sessionId);
 
-  if (deleteError) {
-    return { error: deleteError.message };
+  if (deleteOutgoingError) {
+    return { error: deleteOutgoingError.message };
+  }
+
+  const { error: deleteIncomingError } = await supabase
+    .from("session_relations")
+    .delete()
+    .eq("related_session_id", sessionId);
+
+  if (deleteIncomingError) {
+    return { error: deleteIncomingError.message };
   }
 
   if (unique.length === 0) {

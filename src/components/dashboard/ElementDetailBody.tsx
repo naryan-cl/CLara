@@ -168,10 +168,15 @@ export function ElementDetailBody({
           onEditingChange?.(false);
           onDeleted?.();
         }}
-        onSaved={(session) => {
-          setDetail((prev) =>
-            prev && prev.kind === "session" ? { ...prev, session } : prev,
-          );
+        onSaved={async (session) => {
+          const refreshed = await loadCommonsDetail("session", session.id);
+          if (refreshed.detail) {
+            setDetail(refreshed.detail);
+          } else {
+            setDetail((prev) =>
+              prev && prev.kind === "session" ? { ...prev, session } : prev,
+            );
+          }
           onTitleChange?.(session.name);
           onEditingChange?.(false);
         }}
