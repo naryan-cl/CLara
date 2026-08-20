@@ -55,6 +55,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
       { href: "/ask", label: "Ask CLara" },
       { href: "/map", label: "Knowledge Map" },
       { href: "/top10", label: "Top 10" },
+      { href: "/common-ground", label: "Common Ground" },
     ],
   },
   { href: "/guide", label: "Guide" },

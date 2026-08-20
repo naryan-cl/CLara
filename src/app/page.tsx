@@ -25,6 +25,12 @@ export default function Home() {
           >
             Login with CL Account
           </Link>
+          <Link
+            href="/login"
+            className="rounded-full border border-cloud bg-paper px-6 py-3 text-sm font-medium text-ink/80 transition-colors hover:border-sage/50"
+          >
+            Sign in to read the guide
+          </Link>
         </div>
 
         <div className="mt-8 grid w-full gap-4 rounded-lg border border-cloud bg-paper p-6 text-left shadow-soft sm:grid-cols-3">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CommonsRepository } from "@/components/CommonsRepository";
 import { listCommonsItems } from "@/lib/commons/list-items";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,14 @@ export default async function CommonsPage() {
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Everything contributed to {stream?.name ?? "this stream"} — chats,
           recordings, uploads, and sessions. Click an item to open a detail
-          popup (edit, attend, comment).
+          popup (edit, attend, comment).{" "}
+          <Link
+            href="/commons/export"
+            className="text-horizon underline-offset-2 hover:underline"
+          >
+            Export my harvest
+          </Link>
+          .
         </p>
       </div>
 

@@ -71,9 +71,12 @@ export default async function AdminPage() {
   const askValue = prompts?.askEffective ?? defaultPromptFor("ask");
   const summarizeValue =
     prompts?.summarizeEffective ?? defaultPromptFor("summarize");
+  const synthesizeValue =
+    prompts?.synthesizeEffective ?? defaultPromptFor("synthesize");
   const reflectIsCustom = Boolean(prompts?.reflectOverride?.trim());
   const askIsCustom = Boolean(prompts?.askOverride?.trim());
   const summarizeIsCustom = Boolean(prompts?.summarizeOverride?.trim());
+  const synthesizeIsCustom = Boolean(prompts?.synthesizeOverride?.trim());
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,6 +197,8 @@ export default async function AdminPage() {
             askIsCustom={askIsCustom}
             summarizeValue={summarizeValue}
             summarizeIsCustom={summarizeIsCustom}
+            synthesizeValue={synthesizeValue}
+            synthesizeIsCustom={synthesizeIsCustom}
           />
         )}
       </AdminSection>

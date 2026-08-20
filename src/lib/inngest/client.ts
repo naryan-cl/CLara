@@ -74,3 +74,16 @@ export type ClaraSessionFinalizedEvent = {
     streamId: string;
   };
 };
+
+/** Cross-session Common Ground synthesis across selected gatherings. */
+export const CLARA_COMMON_GROUND_REQUESTED = "clara/common-ground.requested";
+
+export type ClaraCommonGroundRequestedEvent = {
+  name: typeof CLARA_COMMON_GROUND_REQUESTED;
+  data: {
+    streamId: string;
+    sessionIds: string[];
+    createdBy: string;
+    title: string;
+  };
+};

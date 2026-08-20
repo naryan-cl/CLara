@@ -58,8 +58,8 @@ export function ChatForm({
   const [error, setError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const documentIdRef = useRef<string | null>(null);
-  /** Default public — opt into private. */
-  const [isPrivate, setIsPrivate] = useState(false);
+  /** Default private per PRD — participant opts in to public Commons. */
+  const [isPrivate, setIsPrivate] = useState(true);
   const [savingNotice, setSavingNotice] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showThanks, setShowThanks] = useState(false);

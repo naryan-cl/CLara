@@ -5,6 +5,7 @@ import { embedDocumentFn } from "./embed-document";
 import { extractGraphFn } from "./extract-graph";
 import { transcribeRecordingFn } from "./transcribe-recording";
 import { synthesizeSessionFn } from "./synthesize-session";
+import { synthesizeCommonGroundFn } from "./synthesize-common-ground";
 import { summarizeDocumentFn } from "./summarize-document";
 
 export { helloWorldFn } from "./hello";
@@ -14,6 +15,7 @@ export { embedDocumentFn } from "./embed-document";
 export { extractGraphFn } from "./extract-graph";
 export { transcribeRecordingFn } from "./transcribe-recording";
 export { synthesizeSessionFn } from "./synthesize-session";
+export { synthesizeCommonGroundFn } from "./synthesize-common-ground";
 export { summarizeDocumentFn } from "./summarize-document";
 
 export const inngestFunctions = [
@@ -24,5 +26,6 @@ export const inngestFunctions = [
   extractGraphFn,
   transcribeRecordingFn,
   synthesizeSessionFn,
+  synthesizeCommonGroundFn,
   summarizeDocumentFn,
 ];

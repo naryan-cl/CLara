@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ChatForm } from "@/components/ChatForm";
+import { HelpTip } from "@/components/HelpTip";
 import {
   ConnectPanel,
   EMPTY_CONNECT,
@@ -36,7 +37,10 @@ export function ReflectPageClient({
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <h1 className="font-display text-2xl font-medium text-ink">Reflect</h1>
+        <h1 className="font-display text-2xl font-medium text-ink">
+          Reflect{" "}
+          <HelpTip description="Reflect is a one-on-one conversation with CLara. It cannot see other people's Commons contributions — unlike Ask CLara. Reflections are private by default; uncheck Private to share to the Commons." />
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Explore your thinking with CLara. Connect to an open Session from
           the dropdown (or paste a join code), Relate to other Commons

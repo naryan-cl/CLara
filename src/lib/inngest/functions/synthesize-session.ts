@@ -7,13 +7,58 @@ import {
 } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
+import {
+  defaultPromptFor,
+  resolveSystemPrompt,
+} from "@/lib/prompts/defaults";
+import {
+  appendTruncationNote,
+  truncateWithFlag,
+} from "@/lib/synthesis/truncation-note";
 
 const MAX_CONTENT_CHARS = 12_000;
+
+type ChildContribution = {
+  title: string;
+  type: string | null;
+  summary: string | null;
+  content: string;
+};
+
+function childBodyForSynthesis(child: ChildContribution): string {
+  const summary = child.summary?.trim();
+  if (summary) return summary;
+  return child.content.trim();
+}
+
+async function loadSynthesizePrompt(streamId: string): Promise<string> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("streams")
+      .select("synthesize_system_prompt")
+      .eq("id", streamId)
+      .maybeSingle();
+    if (error) {
+      console.error("synthesize-session: load prompt failed", error.message);
+      return defaultPromptFor("synthesize");
+    }
+    const override =
+      typeof data?.synthesize_system_prompt === "string"
+        ? data.synthesize_system_prompt
+        : null;
+    return resolveSystemPrompt("synthesize", override);
+  } catch (err) {
+    console.error("synthesize-session: load prompt failed", err);
+    return defaultPromptFor("synthesize");
+  }
+}
 
 async function synthesizeSessionMarkdown(input: {
   sessionName: string;
   inquiry: string | null;
-  childBodies: { title: string; type: string | null; content: string }[];
+  childBodies: ChildContribution[];
+  systemPrompt: string;
 }): Promise<string> {
   const apiKey = getOpenAiApiKey();
   if (!apiKey) {
@@ -21,32 +66,31 @@ async function synthesizeSessionMarkdown(input: {
   }
 
   const client = new OpenAI({ apiKey });
-  const joined = input.childBodies
+  const rawJoined = input.childBodies
     .map(
       (c, i) =>
-        `### Contribution ${i + 1}: ${c.title} (${c.type ?? "Document"})\n\n${c.content}`,
+        `### Contribution ${i + 1}: ${c.title} (${c.type ?? "Document"})\n\n${childBodyForSynthesis(c)}`,
     )
-    .join("\n\n---\n\n")
-    .slice(0, MAX_CONTENT_CHARS);
+    .join("\n\n---\n\n");
+
+  const { text: joined, wasTruncated } = truncateWithFlag(
+    rawJoined,
+    MAX_CONTENT_CHARS,
+  );
 
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
     messages: [
       {
         role: "system",
-        content:
-          "You write a clear Markdown summary for a CLara gathering (session). " +
-          "Synthesize themes, tensions, and notable insights across the contributed " +
-          "reflections/transcripts/notes. Use short headings and bullets. Do not invent " +
-          "participants or quotes that are not grounded in the material. If material is " +
-          "thin, say what little is present honestly.",
+        content: input.systemPrompt,
       },
       {
         role: "user",
         content:
           `Session name: ${input.sessionName}\n` +
           `Inquiry: ${input.inquiry ?? "(none)"}\n\n` +
-          `Contributions:\n\n${joined || "(no submitted contributions yet)"}`,
+          `Contributions (structured briefs preferred when present):\n\n${joined || "(no submitted contributions yet)"}`,
       },
     ],
   });
@@ -55,7 +99,7 @@ async function synthesizeSessionMarkdown(input: {
   if (!text) {
     throw new Error("OpenAI returned no synthesis content");
   }
-  return text;
+  return appendTruncationNote(text, wasTruncated);
 }
 
 export const synthesizeSessionFn = inngest.createFunction(
@@ -92,7 +136,7 @@ export const synthesizeSessionFn = inngest.createFunction(
       const admin = createAdminClient();
       const { data, error } = await admin
         .from("documents")
-        .select("id, title, type, content")
+        .select("id, title, type, content, summary")
         .eq("session_id", sessionId)
         .eq("is_draft", false)
         .neq("type", "Summary")
@@ -103,6 +147,10 @@ export const synthesizeSessionFn = inngest.createFunction(
       return data ?? [];
     });
 
+    const systemPrompt = await step.run("load-synthesize-prompt", async () =>
+      loadSynthesizePrompt(streamId),
+    );
+
     const markdown = await step.run("synthesize", async () =>
       synthesizeSessionMarkdown({
         sessionName: session.name,
@@ -110,8 +158,10 @@ export const synthesizeSessionFn = inngest.createFunction(
         childBodies: children.map((c) => ({
           title: c.title?.trim() || "Untitled",
           type: c.type,
+          summary: c.summary,
           content: c.content ?? "",
         })),
+        systemPrompt,
       }),
     );
 

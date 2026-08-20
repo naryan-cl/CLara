@@ -131,6 +131,8 @@ export function PromptsPanel({
   askIsCustom,
   summarizeValue,
   summarizeIsCustom,
+  synthesizeValue,
+  synthesizeIsCustom,
 }: {
   reflectValue: string;
   reflectIsCustom: boolean;
@@ -138,12 +140,14 @@ export function PromptsPanel({
   askIsCustom: boolean;
   summarizeValue: string;
   summarizeIsCustom: boolean;
+  synthesizeValue: string;
+  synthesizeIsCustom: boolean;
 }) {
   return (
     <div className="flex flex-col gap-8">
       <PromptEditor
         kind="reflect"
-        label="Reflect (CLara Chatbot)"
+        label="Reflect"
         description="Instructions for the one-on-one reflection conversation on Add → Reflect. This bot has no access to the Commons — keep that boundary clear if you edit."
         initialValue={reflectValue}
         isCustom={reflectIsCustom}
@@ -162,6 +166,14 @@ export function PromptsPanel({
         initialValue={summarizeValue}
         isCustom={summarizeIsCustom}
         rows={16}
+      />
+      <PromptEditor
+        kind="synthesize"
+        label="Session synthesis"
+        description="Instructions for gathering Finalize synthesis — the session-level Summary document written when a host Finalizes. Uses structured element briefs when available."
+        initialValue={synthesizeValue}
+        isCustom={synthesizeIsCustom}
+        rows={10}
       />
     </div>
   );

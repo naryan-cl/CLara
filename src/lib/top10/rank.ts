@@ -31,6 +31,7 @@ const CONTRAST_RELATIONSHIP =
 type Cluster = {
   labelCounts: Map<string, number>;
   detail: string | null;
+  evidenceSnippet: string | null;
   sources: Top10Source[];
   seen: Set<string>;
 };
@@ -43,6 +44,7 @@ function emptyCluster(): Cluster {
   return {
     labelCounts: new Map(),
     detail: null,
+    evidenceSnippet: null,
     sources: [],
     seen: new Set(),
   };
@@ -54,6 +56,18 @@ function addSource(cluster: Cluster, source: Top10Source): void {
   cluster.seen.add(key);
   if (cluster.sources.length >= MAX_SOURCES_PER_ITEM) return;
   cluster.sources.push(source);
+}
+
+function noteEvidence(cluster: Cluster, snippet: string): void {
+  const trimmed = displayLabel(snippet);
+  if (!trimmed || looksEmpty(trimmed)) return;
+  if (!cluster.evidenceSnippet) {
+    cluster.evidenceSnippet =
+      trimmed.length > 220 ? `${trimmed.slice(0, 217)}…` : trimmed;
+  }
+  if (!cluster.detail) {
+    cluster.detail = trimmed.length > 120 ? `${trimmed.slice(0, 117)}…` : trimmed;
+  }
 }
 
 function bumpLabel(cluster: Cluster, label: string): void {
@@ -102,6 +116,7 @@ function toItems(
       key,
       label: bestLabel(cluster, key),
       detail: cluster.detail,
+      evidenceSnippet: cluster.evidenceSnippet,
       mentionCount: cluster.sources.length,
       closeness: closenessForKey(key, closenessByLabel),
       sources: cluster.sources,
@@ -122,6 +137,7 @@ function toItems(
     rank: index + 1,
     label: item.label,
     detail: item.detail && item.detail !== item.label ? item.detail : null,
+    evidenceSnippet: item.evidenceSnippet,
     mentionCount: item.mentionCount,
     closeness: item.closeness,
     sources: item.sources,
@@ -188,6 +204,7 @@ export function rankTop10(input: {
       if (!key) continue;
       const cluster = getOrCreate(topics, key);
       bumpLabel(cluster, tag);
+      noteEvidence(cluster, tag);
       addSource(cluster, source);
     }
 
@@ -200,12 +217,14 @@ export function rankTop10(input: {
         if (!cluster.detail && tension !== `${pair[0]} ↔ ${pair[1]}`) {
           cluster.detail = displayLabel(tension);
         }
+        noteEvidence(cluster, tension);
         addSource(cluster, source);
       } else {
         const key = normalizeLabel(tension);
         if (!key) continue;
         const cluster = getOrCreate(differences, key);
         bumpLabel(cluster, tension);
+        noteEvidence(cluster, tension);
         addSource(cluster, source);
       }
     }
@@ -215,6 +234,7 @@ export function rankTop10(input: {
       if (!key) continue;
       const cluster = getOrCreate(questions, key);
       bumpLabel(cluster, question);
+      noteEvidence(cluster, question);
       addSource(cluster, source);
     }
   }
@@ -227,6 +247,7 @@ export function rankTop10(input: {
     const key = normalizeLabel(inquiry);
     const cluster = getOrCreate(questions, key);
     bumpLabel(cluster, inquiry);
+    noteEvidence(cluster, inquiry);
     addSource(cluster, sessionSource(session));
   }
 

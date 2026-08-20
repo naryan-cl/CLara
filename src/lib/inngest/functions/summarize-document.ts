@@ -12,6 +12,10 @@ import {
   defaultPromptFor,
   resolveSystemPrompt,
 } from "@/lib/prompts/defaults";
+import {
+  appendTruncationNote,
+  truncateWithFlag,
+} from "@/lib/synthesis/truncation-note";
 
 /** Keep cost/latency sane — long transcripts get truncated. */
 const MAX_CONTENT_CHARS = 24_000;
@@ -55,7 +59,10 @@ async function writeElementSummary(input: {
 
   const client = new OpenAI({ apiKey });
   const kind = input.type || "document";
-  const truncated = input.content.slice(0, MAX_CONTENT_CHARS);
+  const { text: truncated, wasTruncated } = truncateWithFlag(
+    input.content,
+    MAX_CONTENT_CHARS,
+  );
 
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
@@ -79,7 +86,7 @@ async function writeElementSummary(input: {
   if (!text) {
     throw new Error("OpenAI returned no summary content");
   }
-  return text;
+  return appendTruncationNote(text, wasTruncated);
 }
 
 export const summarizeDocumentFn = inngest.createFunction(

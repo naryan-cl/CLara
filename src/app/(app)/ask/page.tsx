@@ -1,4 +1,5 @@
 import { AskForm } from "@/components/AskForm";
+import { HelpTip } from "@/components/HelpTip";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 
 export default async function AskPage() {
@@ -8,7 +9,8 @@ export default async function AskPage() {
     <div className="flex flex-col gap-10">
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">
-          Ask CLara
+          Ask CLara{" "}
+          <HelpTip description="Ask CLara reads the Commons and cites sources. Reflect is separate — a private mirror with no Commons access." />
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           Query the {stream?.name ?? "Camp CLAI"} Commons and get answers

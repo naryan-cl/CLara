@@ -50,6 +50,11 @@ export default async function SessionArchivePage() {
                 >
                   <SessionHighlightMark color={session.highlight_color} />
                   <span className="truncate">{session.name}</span>
+                  {session.synthesis_document_id ? (
+                    <span className="shrink-0 rounded-pill bg-sage/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-forest">
+                      Synthesis ready
+                    </span>
+                  ) : null}
                 </Link>
                 <time className="shrink-0 font-mono text-[11px] text-ink/40">
                   {session.occurred_at
