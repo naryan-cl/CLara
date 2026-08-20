@@ -7,7 +7,7 @@ import {
   exportCatalogHasContent,
   exportCatalogTypeLabel,
   type ExportCatalogItem,
-} from "@/lib/commons/list-export-catalog";
+} from "@/lib/commons/export-catalog";
 import {
   DEFAULT_COMMONS_FILTERS,
   filterCommonsItems,
