@@ -39,7 +39,7 @@ export const NODE_TYPE_GLOSSARY = {
   Framework: "A named model or method people are using (a ladder, loop, canvas, and so on).",
   Theme: "A recurring topic that shows up across conversations.",
   Session: "An intentional gathering. Nested Reflect, Record, and Upload sit under it.",
-  Chat: "A written reflection from Reflect (CLara Chatbot).",
+  Chat: "A written reflection from Reflect.",
   Record: "An audio recording that became a transcript.",
   Upload: "A file or pasted document added to the Commons.",
 } as const;

@@ -19,6 +19,8 @@ export type Top10Item = {
   label: string;
   /** Extra line — polarity poles, a tension snippet, or a graph blurb. */
   detail: string | null;
+  /** Snippet from the originating summary section (shown on expand). */
+  evidenceSnippet: string | null;
   /** Distinct Commons places this showed up (same as sources.length). */
   mentionCount: number;
   /**

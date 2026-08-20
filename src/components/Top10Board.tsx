@@ -179,9 +179,11 @@ function Top10Card({
   countLabel: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
   const hidden = item.sources.length - PREVIEW_SOURCES;
   const shown = expanded ? item.sources : item.sources.slice(0, PREVIEW_SOURCES);
   const isLead = item.rank === 1;
+  const evidence = item.evidenceSnippet ?? item.detail;
 
   return (
     <article
@@ -201,11 +203,24 @@ function Top10Card({
           {String(item.rank).padStart(2, "0")}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-lg font-medium leading-snug text-ink">
+          <h3
+            className="font-display text-lg font-medium leading-snug text-ink"
+            onMouseEnter={() => evidence && setShowEvidence(true)}
+            onMouseLeave={() => setShowEvidence(false)}
+            onFocus={() => evidence && setShowEvidence(true)}
+            onBlur={() => setShowEvidence(false)}
+            tabIndex={evidence ? 0 : undefined}
+            title={evidence ?? undefined}
+          >
             {item.label}
           </h3>
           {item.detail ? (
             <p className="mt-1 text-sm leading-6 text-ink/60">{item.detail}</p>
+          ) : null}
+          {showEvidence && evidence && evidence !== item.detail ? (
+            <p className="mt-2 rounded border border-cloud bg-sand/70 px-2 py-1.5 text-xs leading-5 text-ink/65">
+              {evidence}
+            </p>
           ) : null}
           <p className="mt-2 font-mono text-[10px] uppercase tracking-wide text-sage">
             {countLabel}

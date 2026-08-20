@@ -176,6 +176,13 @@ export default function LoginPage() {
             </>
           )}
         </p>
+        <p className="mt-3 text-center text-sm text-ink/55">
+          After sign-in, open{" "}
+          <a href="/guide" className="font-medium text-forest hover:underline">
+            Guide
+          </a>{" "}
+          from the nav for a colleague walkthrough.
+        </p>
       </div>
     </div>
   );

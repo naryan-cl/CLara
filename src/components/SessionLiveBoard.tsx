@@ -12,6 +12,7 @@ import {
   pollSessionLiveCounts,
   updateSessionJoinCodeAction,
 } from "@/app/(app)/sessions/composer-actions";
+import { HelpTip } from "@/components/HelpTip";
 import {
   generateJoinCode,
   type JoinMode,
@@ -491,6 +492,14 @@ export function SessionLiveBoard({
         </div>
       </div>
 
+      {counts.submitted > 0 && !session.finalized_at ? (
+        <div className="rounded-lg border border-horizon/40 bg-horizon/10 px-4 py-3 text-sm text-ink/75">
+          {counts.submitted} contribution{counts.submitted === 1 ? "" : "s"}{" "}
+          submitted — Finalize when you are ready to synthesize a session
+          Summary.
+        </div>
+      ) : null}
+
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <button
@@ -505,9 +514,12 @@ export function SessionLiveBoard({
             ? "Refresh synthesis"
             : "Finalize gathering"}
       </button>
-      <p className="text-xs text-ink/45">
-        Finalize synthesizes submitted Adds into a Summary. People can still
-        join afterward.
+      <p className="flex items-center gap-1.5 text-xs text-ink/45">
+        <span>
+          Finalize synthesizes submitted Adds into a Summary. People can still
+          join afterward.
+        </span>
+        <HelpTip description="Finalize runs an automatic synthesis across structured contribution briefs. Late Adds via join code still work; refresh synthesis after new submissions." />
       </p>
     </div>
   );

@@ -6,13 +6,16 @@ export type ExportCatalogItem = CommonsListItem & {
   key: string;
   hasTranscript: boolean;
   hasSummary: boolean;
+  hasStructured: boolean;
 };
 
 export function exportCatalogHasContent(
   item: ExportCatalogItem,
   mode: ExportContentMode,
 ): boolean {
-  return mode === "transcript" ? item.hasTranscript : item.hasSummary;
+  if (mode === "transcript") return item.hasTranscript;
+  if (mode === "structured") return item.hasStructured;
+  return item.hasSummary;
 }
 
 export function exportCatalogTypeLabel(item: ExportCatalogItem): string {

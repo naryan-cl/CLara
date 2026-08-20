@@ -12,14 +12,16 @@ import {
   type ExportSessionPayload,
 } from "@/lib/commons/export";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { listAttendedSessionIds } from "@/lib/sessions/attendance";
 import { SESSION_SELECT, coerceSession } from "@/lib/sessions/types";
 
 export type ExportCommonsResult =
   | { ok: true; markdown: string; exported: number; skipped: number }
   | { ok: false; error: string };
 
-async function requireAdmin(): Promise<
-  { ok: true; streamId: string } | { ok: false; error: string }
+async function requireMember(): Promise<
+  | { ok: true; streamId: string; userId: string }
+  | { ok: false; error: string }
 > {
   const supabase = await createClient();
   const {
@@ -30,11 +32,11 @@ async function requireAdmin(): Promise<
   }
 
   const { stream } = await getActiveStream();
-  if (!stream || stream.role !== "admin") {
-    return { ok: false, error: "Not authorized." };
+  if (!stream) {
+    return { ok: false, error: "No active stream." };
   }
 
-  return { ok: true, streamId: stream.id };
+  return { ok: true, streamId: stream.id, userId: user.id };
 }
 
 function toExportDocument(doc: CommonsDocument): ExportDocumentPayload {
@@ -49,22 +51,28 @@ function toExportDocument(doc: CommonsDocument): ExportDocumentPayload {
   };
 }
 
-export async function exportCommonsSelection(input: {
+export async function exportPersonalSelection(input: {
   documentIds: string[];
   sessionIds: string[];
   mode: ExportContentMode;
 }): Promise<ExportCommonsResult> {
-  const auth = await requireAdmin();
+  const auth = await requireMember();
   if (!auth.ok) return auth;
 
   const documentIds = [...new Set(input.documentIds.filter(Boolean))];
   const sessionIds = [...new Set(input.sessionIds.filter(Boolean))];
   if (documentIds.length === 0 && sessionIds.length === 0) {
-    return { ok: false, error: "Select at least one Commons element." };
+    return { ok: false, error: "Select at least one item to export." };
   }
 
   const supabase = await createClient();
   const mode = input.mode;
+
+  const { sessionIds: attendedIds } = await listAttendedSessionIds(
+    auth.userId,
+    auth.streamId,
+  );
+  const attendedSet = new Set(attendedIds);
 
   const [docsResult, sessionsResult] = await Promise.all([
     documentIds.length > 0
@@ -128,6 +136,10 @@ export async function exportCommonsSelection(input: {
       skipped += 1;
       continue;
     }
+    if (row.created_by !== auth.userId) {
+      skipped += 1;
+      continue;
+    }
     const section = formatDocumentExportSection(toExportDocument(row), mode);
     if (!section) {
       skipped += 1;
@@ -144,6 +156,11 @@ export async function exportCommonsSelection(input: {
       continue;
     }
     const session = coerceSession(row as Record<string, unknown>);
+    const isHost = session.created_by === auth.userId;
+    if (!isHost && !attendedSet.has(session.id)) {
+      skipped += 1;
+      continue;
+    }
     const payload: ExportSessionPayload = {
       id: session.id,
       name: session.name,
@@ -168,10 +185,10 @@ export async function exportCommonsSelection(input: {
       ok: false,
       error:
         mode === "transcript"
-          ? "Nothing to export — the selected items have no transcript text yet."
+          ? "Nothing to export — selected items have no transcript text or you lack access."
           : mode === "structured"
-            ? "Nothing to export — the selected items have no structured summaries yet."
-            : "Nothing to export — the selected items have no summaries yet.",
+            ? "Nothing to export — selected items have no structured briefs or you lack access."
+            : "Nothing to export — selected items have no summaries or you lack access.",
     };
   }
 

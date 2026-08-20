@@ -6,12 +6,13 @@
 
 export const MAX_SYSTEM_PROMPT_CHARS = 8000;
 
-export type PromptKind = "reflect" | "ask" | "summarize";
+export type PromptKind = "reflect" | "ask" | "summarize" | "synthesize";
 
 export const PROMPT_COLUMNS = {
   reflect: "reflect_system_prompt",
   ask: "ask_system_prompt",
   summarize: "summarize_system_prompt",
+  synthesize: "synthesize_system_prompt",
 } as const satisfies Record<PromptKind, string>;
 
 export const DEFAULT_REFLECT_SYSTEM_PROMPT =
@@ -77,8 +78,31 @@ export const DEFAULT_SUMMARIZE_SYSTEM_PROMPT =
   "formatted as inline code like `trust` `authority` `pacing`. No " +
   "invented topics.";
 
+export const DEFAULT_SYNTHESIZE_SYSTEM_PROMPT =
+  "You write a clear, accessible Markdown summary for a CLara gathering " +
+  "(session). Synthesize themes, tensions, and notable insights across the " +
+  "contributed reflections, transcripts, and notes. Use plain language a " +
+  "colleague can skim after the event — short headings and bullets, not " +
+  "academic prose. Ground every claim in the supplied material; do not " +
+  "invent participants or quotes. If material is thin, say honestly what " +
+  "little is present.";
+
+export const DEFAULT_COMMON_GROUND_SYSTEM_PROMPT =
+  "You write a cross-session Common Ground report for a CLara stream. " +
+  "Given several finalized gatherings (each with a synthesis and structured " +
+  "contribution briefs), surface shared themes, meaningful divergences, " +
+  "open questions, and suggested next inquiries. Use clear Markdown " +
+  "headings: ## Shared themes, ## Where we diverge, ## Still open, " +
+  "## Suggested next inquiries. Plain language; cite which session each " +
+  "observation draws from. Do not invent content.";
+
 export function isPromptKind(value: string): value is PromptKind {
-  return value === "reflect" || value === "ask" || value === "summarize";
+  return (
+    value === "reflect" ||
+    value === "ask" ||
+    value === "summarize" ||
+    value === "synthesize"
+  );
 }
 
 export function defaultPromptFor(kind: PromptKind): string {
@@ -89,6 +113,8 @@ export function defaultPromptFor(kind: PromptKind): string {
       return DEFAULT_ASK_SYSTEM_PROMPT;
     case "summarize":
       return DEFAULT_SUMMARIZE_SYSTEM_PROMPT;
+    case "synthesize":
+      return DEFAULT_SYNTHESIZE_SYSTEM_PROMPT;
   }
 }
 

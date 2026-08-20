@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
   title: "User Guide — CLara",
@@ -17,43 +16,10 @@ const SECTIONS = [
   { id: "reference", label: "Quick Reference" },
 ];
 
-export default async function GuidePage() {
-  // This page stays public either way — the check is only to decide which
-  // header CTA to show. An already-signed-in visitor must never see "Login
-  // with CL Account": clicking it re-runs the full sign-in flow and can
-  // present a fresh Google/password prompt even though their session was
-  // still fine, which reads as "the site randomly signed me out."
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+export default function GuidePage() {
   return (
-    <div className="flex flex-1 flex-col bg-sand">
-      <header className="border-b border-cloud bg-paper">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-lg font-medium text-ink">
-            CLara
-          </Link>
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-cloud bg-paper px-4 py-2 text-xs font-medium text-ink transition-colors hover:border-sage/50 hover:text-forest"
-            >
-              Back to Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-full bg-forest px-4 py-2 text-xs font-medium text-paper shadow-soft transition-colors hover:bg-forest-deep"
-            >
-              Login with CL Account
-            </Link>
-          )}
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
+    <div className="flex flex-col">
+      <main className="mx-auto w-full max-w-3xl flex-1 py-2">
         <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-horizon">
           Camp CLAI stream · Colleague onboarding
         </p>
@@ -161,10 +127,10 @@ export default async function GuidePage() {
           />
           <H3>Top navigation</H3>
           <P>
-            Five items, always in the same order: Dashboard · Add · Commons ·
-            Synthesis · Admin. Add expands to Reflect / Record / Upload (plus
-            Session first in the Add menu); Synthesis expands to Ask CLara /
-            Knowledge Map. Admin is visible only to stream admins.
+            Six items, always in the same order: Dashboard · Add · Commons ·
+            Synthesis · Guide · Admin (admins only). Add expands to Session,
+            Reflect, Record, and Upload; Synthesis expands to Ask CLara, Knowledge
+            Map, Top 10, and Common Ground.
           </P>
           <Callout label="Try it">
             Log in and locate three things before doing anything else: the
@@ -205,7 +171,7 @@ export default async function GuidePage() {
           <Ul
             items={[
               "Autosaves as a draft; Submit when the conversation feels finished.",
-              "Public by default; a checkbox marks the reflection Private.",
+              "Public by default; check Private to keep a reflection visible only to you (session attendees and admins can still read private items nested in a gathering).",
               "Connect: pick an open Session from the dropdown, paste a join code, and/or Relate to other Commons elements.",
             ]}
           />
@@ -319,6 +285,18 @@ export default async function GuidePage() {
             items never appear — same rule as the map. This is a reading of
             what people already wrote, not an Ask CLara answer.
           </P>
+          <H3>4.4 Common Ground</H3>
+          <P>
+            Common Ground (<Code>/common-ground</Code>) synthesizes two or more
+            Finalized sessions into one cross-session Summary: shared themes,
+            divergences, open questions, and suggested next inquiries. The report
+            lands in the Commons for Ask CLara and export.
+          </P>
+          <Callout label="Two CLaras">
+            Reflect is a private mirror — it cannot see the Commons. Ask CLara
+            and Common Ground read the Commons. Keep those boundaries in mind
+            when coaching colleagues.
+          </Callout>
           <Callout label="Try it">
             Ask CLara a question that can only be answered using something
             someone added earlier in the session, then find that concept as

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { exportCommonsSelection } from "@/app/(app)/admin/export/actions";
+import { exportPersonalSelection } from "@/app/(app)/commons/export/actions";
 import {
   exportCatalogHasContent,
   exportCatalogTypeLabel,
@@ -34,7 +34,7 @@ function itemKey(item: ExportCatalogItem): string {
   return item.key;
 }
 
-export function CommonsExportPanel({
+export function PersonalExportPanel({
   streamName,
   streamSlug,
   items,
@@ -45,7 +45,7 @@ export function CommonsExportPanel({
   items: ExportCatalogItem[];
   currentUserId: string;
 }) {
-  const [mode, setMode] = useState<ExportContentMode>("transcript");
+  const [mode, setMode] = useState<ExportContentMode>("structured");
   const [filters, setFilters] = useState<CommonsFilterState>(
     DEFAULT_COMMONS_FILTERS,
   );
@@ -56,11 +56,7 @@ export function CommonsExportPanel({
 
   const visible = useMemo(
     () =>
-      filterCommonsItems(
-        items,
-        filters,
-        currentUserId,
-      ) as ExportCatalogItem[],
+      filterCommonsItems(items, filters, currentUserId) as ExportCatalogItem[],
     [items, filters, currentUserId],
   );
 
@@ -123,16 +119,6 @@ export function CommonsExportPanel({
     });
   }
 
-  function selectNoneVisible() {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const item of visible) {
-        next.delete(itemKey(item));
-      }
-      return next;
-    });
-  }
-
   function handleExport() {
     setMessage(null);
     setError(null);
@@ -148,7 +134,7 @@ export function CommonsExportPanel({
     }
 
     startTransition(async () => {
-      const result = await exportCommonsSelection({
+      const result = await exportPersonalSelection({
         documentIds,
         sessionIds,
         mode,
@@ -159,14 +145,12 @@ export function CommonsExportPanel({
       }
 
       downloadMarkdown(
-        exportFilename(streamSlug, mode),
+        exportFilename(`${streamSlug}-my`, mode),
         result.markdown,
       );
 
-      const skippedNote =
-        result.skipped > 0 ? ` (${result.skipped} skipped — no ${mode} yet)` : "";
       setMessage(
-        `Downloaded ${result.exported} element${result.exported === 1 ? "" : "s"}${skippedNote}.`,
+        `Downloaded ${result.exported} element${result.exported === 1 ? "" : "s"}.`,
       );
     });
   }
@@ -176,21 +160,20 @@ export function CommonsExportPanel({
       <div>
         <p className="text-sm text-ink/55">
           <Link
-            href="/admin"
+            href="/commons"
             className="text-horizon underline-offset-2 hover:underline"
           >
-            Admin
+            Commons
           </Link>
           <span className="mx-1.5 text-ink/30">/</span>
-          Export
+          Export my harvest
         </p>
         <h1 className="mt-1 font-display text-2xl font-medium text-ink">
-          Export Commons
+          Export my harvest
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Download Markdown from {streamName}. Choose transcript text or CLara
-          summaries, filter the list, select what to include, then export one
-          combined file.
+          Download Markdown from sessions you attended or hosted, plus your own
+          artifacts in {streamName}. Structured briefs work well with NotebookLM.
         </p>
       </div>
 
@@ -200,11 +183,10 @@ export function CommonsExportPanel({
       >
         <p className="font-medium text-ink">Privacy reminder</p>
         <p className="mt-1">
-          Exports can include participant speech, reflections, and private
-          Commons items visible to you as a stream admin. Keep downloaded files
-          on your device or in a private folder — do not commit them to this
-          public repo. Uploading to tools like NotebookLM sends the content to
-          that provider; treat it like sharing the Commons outside CLara.
+          Exports may include other participants&apos; speech and reflections
+          from sessions you attended. Do not commit downloaded files to this
+          public repo. Uploading to external tools shares the content with that
+          provider.
         </p>
       </div>
 
@@ -215,16 +197,16 @@ export function CommonsExportPanel({
             <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
-                name="export-mode"
-                checked={mode === "transcript"}
-                onChange={() => setMode("transcript")}
+                name="personal-export-mode"
+                checked={mode === "structured"}
+                onChange={() => setMode("structured")}
               />
-              Transcripts &amp; original text
+              Structured briefs
             </label>
             <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
-                name="export-mode"
+                name="personal-export-mode"
                 checked={mode === "summary"}
                 onChange={() => setMode("summary")}
               />
@@ -233,103 +215,23 @@ export function CommonsExportPanel({
             <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
-                name="export-mode"
-                checked={mode === "structured"}
-                onChange={() => setMode("structured")}
+                name="personal-export-mode"
+                checked={mode === "transcript"}
+                onChange={() => setMode("transcript")}
               />
-              Structured briefs
+              Transcripts
             </label>
           </div>
-          <p className="text-xs text-ink/55">
-            {mode === "transcript"
-              ? "Full recording transcripts, uploads, reflections, and session contributions."
-              : mode === "structured"
-                ? "Preserves summary section hierarchy (Brief summary, Tensions, Key questions, etc.) — best for NotebookLM and reports."
-                : "CLara-generated summaries. Sessions export their gathering summary when available."}
-          </p>
         </fieldset>
-      </section>
-
-      <section className="rounded-lg border border-cloud bg-paper p-4 shadow-soft sm:p-5">
-        <div className="flex flex-col gap-3">
-          <label className="flex w-full flex-col gap-0.5 text-xs sm:max-w-xs">
-            <span className="font-medium text-ink/55">Search</span>
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(e) => patchFilter("search", e.target.value)}
-              placeholder="Title or type…"
-              className="min-h-11 rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink placeholder:text-ink/35"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-            <label className="flex flex-col gap-0.5 text-xs">
-              <span className="font-medium text-ink/55">Element type</span>
-              <select
-                value={filters.elementType}
-                onChange={(e) =>
-                  patchFilter(
-                    "elementType",
-                    e.target.value as CommonsFilterState["elementType"],
-                  )
-                }
-                className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
-              >
-                <option value="all">All</option>
-                <option value="record">Record</option>
-                <option value="upload">Upload</option>
-                <option value="chat">Chat</option>
-                <option value="session">Session</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-0.5 text-xs">
-              <span className="font-medium text-ink/55">From</span>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => patchFilter("dateFrom", e.target.value)}
-                className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
-              />
-            </label>
-
-            <label className="flex flex-col gap-0.5 text-xs">
-              <span className="font-medium text-ink/55">To</span>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => patchFilter("dateTo", e.target.value)}
-                className="rounded border border-cloud bg-sand px-2 py-1 text-sm text-ink"
-              />
-            </label>
-          </div>
-        </div>
       </section>
 
       <section className="rounded-lg border border-cloud bg-paper shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud px-4 py-3 sm:px-5">
           <p className="text-sm text-ink/70">
-            {exportableVisible.length} of {visible.length} visible with{" "}
-            {mode === "transcript"
-              ? "transcript"
-              : mode === "structured"
-                ? "structured"
-                : "summary"}{" "}
-            text
-            {selectedExportableCount > 0
-              ? ` · ${selectedExportableCount} selected`
-              : ""}
+            {exportableVisible.length} exportable · {selectedExportableCount}{" "}
+            selected
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={selectAllVisible}
-              className="rounded-md border border-cloud px-3 py-1.5 text-sm text-ink/80 hover:border-ink/40"
-            >
-              Select all
-            </button>
             <button
               type="button"
               onClick={selectAttendedSessions}
@@ -339,16 +241,16 @@ export function CommonsExportPanel({
             </button>
             <button
               type="button"
-              onClick={selectNoneVisible}
+              onClick={selectAllVisible}
               className="rounded-md border border-cloud px-3 py-1.5 text-sm text-ink/80 hover:border-ink/40"
             >
-              Select none
+              Select all
             </button>
             <button
               type="button"
               disabled={isPending || selectedExportableCount === 0}
               onClick={handleExport}
-              className="rounded-md bg-forest px-4 py-1.5 text-sm font-medium text-paper disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-forest px-4 py-1.5 text-sm font-medium text-paper disabled:opacity-50"
             >
               {isPending ? "Preparing…" : "Download Markdown"}
             </button>
@@ -357,7 +259,7 @@ export function CommonsExportPanel({
 
         {visible.length === 0 ? (
           <p className="px-4 py-8 text-sm text-ink/55 sm:px-5">
-            No Commons elements match these filters.
+            No attended sessions or personal artifacts to export yet.
           </p>
         ) : (
           <ul className="divide-y divide-cloud">
@@ -365,12 +267,6 @@ export function CommonsExportPanel({
               const canExport = exportCatalogHasContent(item, mode);
               const checked = selected.has(itemKey(item));
               const colour = colourForElementType(item.elementType);
-              const unavailableLabel =
-                mode === "transcript"
-                  ? "No transcript yet"
-                  : mode === "structured"
-                    ? "No structured brief yet"
-                    : "No summary yet";
 
               return (
                 <li key={itemKey(item)}>
@@ -387,24 +283,9 @@ export function CommonsExportPanel({
                       onChange={() => toggleItem(item)}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-ink">{item.title}</span>
-                        <span className="font-mono text-[11px] uppercase tracking-wide text-ink/40">
-                          {exportCatalogTypeLabel(item)}
-                        </span>
-                        {item.kind === "document" &&
-                        item.privacy_status === "private" ? (
-                          <span className="rounded bg-cloud px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-ink/50">
-                            Private
-                          </span>
-                        ) : null}
-                        {!canExport ? (
-                          <span className="font-mono text-[10px] uppercase tracking-wide text-ink/40">
-                            {unavailableLabel}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-ink/45">
+                      <span className="font-medium text-ink">{item.title}</span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-ink/45">
+                        {exportCatalogTypeLabel(item)} ·{" "}
                         {formatExportDate(item.created_at)}
                       </span>
                     </span>
@@ -416,16 +297,8 @@ export function CommonsExportPanel({
         )}
       </section>
 
-      {error ? (
-        <p className="font-mono text-sm text-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {message ? (
-        <p className="text-sm text-success" role="status">
-          {message}
-        </p>
-      ) : null}
+      {message ? <p className="text-sm text-forest">{message}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
     </div>
   );
 }

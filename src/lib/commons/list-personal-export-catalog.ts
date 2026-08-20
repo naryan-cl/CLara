@@ -12,8 +12,7 @@ import {
 import type { ExportCatalogItem } from "@/lib/commons/export-catalog";
 import { toDocumentItem, toSessionItem } from "@/lib/commons/types";
 import { listSessions } from "@/lib/sessions/list-sessions";
-
-export type { ExportCatalogItem } from "@/lib/commons/export-catalog";
+import { listAttendedSessionIds } from "@/lib/sessions/attendance";
 
 function toExportDocument(doc: CommonsDocument): ExportDocumentPayload {
   return {
@@ -28,15 +27,15 @@ function toExportDocument(doc: CommonsDocument): ExportDocumentPayload {
 }
 
 /**
- * Top-level Commons rows an admin can export, with flags for which
- * content modes are available (transcript vs summary).
+ * Sessions the member attended or hosts, plus their own ungrouped artifacts.
  */
-export async function listExportCatalog(
+export async function listPersonalExportCatalog(
   streamId: string,
+  userId: string,
 ): Promise<{ items: ExportCatalogItem[]; error: string | null }> {
   const supabase = await createClient();
 
-  const [docsResult, sessionsResult] = await Promise.all([
+  const [docsResult, sessionsResult, attendedResult] = await Promise.all([
     supabase
       .from("documents")
       .select(DOCUMENT_SELECT)
@@ -44,6 +43,7 @@ export async function listExportCatalog(
       .eq("is_draft", false)
       .order("created_at", { ascending: false }),
     listSessions(streamId),
+    listAttendedSessionIds(userId, streamId),
   ]);
 
   if (docsResult.error) {
@@ -52,7 +52,11 @@ export async function listExportCatalog(
   if (sessionsResult.error) {
     return { items: [], error: sessionsResult.error };
   }
+  if (attendedResult.error) {
+    return { items: [], error: attendedResult.error };
+  }
 
+  const attendedSet = new Set(attendedResult.sessionIds);
   const documents = (docsResult.data ?? []) as CommonsDocument[];
   const docsBySession = new Map<string, ExportDocumentPayload[]>();
 
@@ -68,6 +72,7 @@ export async function listExportCatalog(
 
   for (const doc of documents) {
     if (doc.session_id) continue;
+    if (doc.created_by !== userId) continue;
     const payload = toExportDocument(doc);
     const base = toDocumentItem(doc, false);
     items.push({
@@ -80,6 +85,10 @@ export async function listExportCatalog(
   }
 
   for (const session of sessionsResult.sessions) {
+    const isHost = session.created_by === userId;
+    const attended = attendedSet.has(session.id);
+    if (!isHost && !attended) continue;
+
     const sessionPayload: ExportSessionPayload = {
       id: session.id,
       name: session.name,
@@ -90,7 +99,7 @@ export async function listExportCatalog(
       synthesis_document_id: session.synthesis_document_id,
       documents: docsBySession.get(session.id) ?? [],
     };
-    const base = toSessionItem(session, false);
+    const base = toSessionItem(session, attended);
     items.push({
       ...base,
       key: `session:${session.id}`,

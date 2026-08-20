@@ -9,16 +9,19 @@ export type StreamPrompts = {
   reflectOverride: string | null;
   askOverride: string | null;
   summarizeOverride: string | null;
+  synthesizeOverride: string | null;
   /** Effective text the bots / jobs use (override or default). */
   reflectEffective: string;
   askEffective: string;
   summarizeEffective: string;
+  synthesizeEffective: string;
 };
 
 type PromptRow = {
   reflect_system_prompt?: string | null;
   ask_system_prompt?: string | null;
   summarize_system_prompt?: string | null;
+  synthesize_system_prompt?: string | null;
 };
 
 function toStreamPrompts(data: PromptRow): StreamPrompts {
@@ -34,14 +37,20 @@ function toStreamPrompts(data: PromptRow): StreamPrompts {
     typeof data.summarize_system_prompt === "string"
       ? data.summarize_system_prompt
       : null;
+  const synthesizeOverride =
+    typeof data.synthesize_system_prompt === "string"
+      ? data.synthesize_system_prompt
+      : null;
 
   return {
     reflectOverride,
     askOverride,
     summarizeOverride,
+    synthesizeOverride,
     reflectEffective: resolveSystemPrompt("reflect", reflectOverride),
     askEffective: resolveSystemPrompt("ask", askOverride),
     summarizeEffective: resolveSystemPrompt("summarize", summarizeOverride),
+    synthesizeEffective: resolveSystemPrompt("synthesize", synthesizeOverride),
   };
 }
 
@@ -56,7 +65,7 @@ export async function getStreamPrompts(
   const full = await supabase
     .from("streams")
     .select(
-      "reflect_system_prompt, ask_system_prompt, summarize_system_prompt",
+      "reflect_system_prompt, ask_system_prompt, summarize_system_prompt, synthesize_system_prompt",
     )
     .eq("id", streamId)
     .maybeSingle();
@@ -102,7 +111,9 @@ export async function getEffectiveSystemPrompt(
       ? prompts.reflectEffective
       : kind === "ask"
         ? prompts.askEffective
-        : prompts.summarizeEffective;
+        : kind === "summarize"
+          ? prompts.summarizeEffective
+          : prompts.synthesizeEffective;
 
   return { prompt, error: null };
 }
