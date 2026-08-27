@@ -1,0 +1,326 @@
+{
+  "ai-principles-humanist": {
+    "title": "AI Principles & The Humanist Stance",
+    "sessions": [
+      "Taking Stock of AI at CL - 2",
+      "Day 3 principles discussion group",
+      "8 steps nonprofits can take to adopt ai responsibly",
+      "conversation on global ai experiences",
+      "discussion on ai principles"
+    ],
+    "insights": [
+      "Human-centered / ethical frame: enhance capability and consciousness, protect agency.",
+      "Living principles (reviewed often) beat a one-off camp artifact.",
+      "Trust is a design constraint in client-facing AI use."
+    ],
+    "conflicts": [
+      "Accelerationist vs alarmist readings of the same moment.",
+      "Demonstrate-before-convincing vs urgency to declare a public stance.",
+      "Innovative language vs sounding conservative or dated."
+    ],
+    "quotes": [
+      {
+        "text": "There's an emphasis on the necessity for clarity in guiding ethical AI use and developing a framework for human-centered AI integration within CL's practices.",
+        "session": "Taking Stock of AI at CL - 2"
+      },
+      {
+        "text": "Understanding AI's implications, addressing staff anxieties, and ensuring moral considerations guide its applications.",
+        "session": "8 steps nonprofits can take to adopt ai responsibly"
+      },
+      {
+        "text": "A preamble emphasizing AI's potential and the organization's cautious yet innovative stance.",
+        "session": "Day 3 principles discussion group"
+      }
+    ]
+  },
+  "organizational-overwhelm": {
+    "title": "Organizational Overwhelm & Ludicrousness",
+    "sessions": [
+      "discussion on AI and client needs",
+      "CLAI CLANZ Relay",
+      "AI in ANZ – market and segment dive",
+      "Day 1 PM breakouts: key themes_Cambridge"
+    ],
+    "insights": [
+      "Overwhelm, confusion, and chaos are the lived texture of adoption.",
+      "Rapid informal adoption outpaces governance and trust.",
+      "Engagement and disengagement oscillate in the same people."
+    ],
+    "conflicts": [
+      "Experimentation vs governance.",
+      "Hope vs anxiety.",
+      "Client-focus clarity vs practitioners' own overwhelm."
+    ],
+    "quotes": [
+      {
+        "text": "Concerns about the overwhelming impacts of AI, categorized as chaotic and amorphous, mirroring past crises.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      },
+      {
+        "text": "Rapid informal adoption of AI outpaces the establishment of governance frameworks.",
+        "session": "AI in ANZ – market and segment dive"
+      },
+      {
+        "text": "Participants oscillate between wanting to engage with AI and the impulse to shy away.",
+        "session": "CLAI CLANZ Relay"
+      }
+    ]
+  },
+  "expertise-paradox": {
+    "title": "The Expertise Paradox",
+    "sessions": [
+      "Day 1 PM breakouts: key themes_Cambridge",
+      "discussion about ai and coaching"
+    ],
+    "insights": [
+      "Senior vs junior roles and new apprenticeship models are named explicitly.",
+      "Operating agentic AI requires mindsets that anticipate AI-generated errors.",
+      "Leaders are asked to mourn established practices before embracing new paradigms."
+    ],
+    "conflicts": [
+      "Protecting craft pathways vs efficiency narratives that cut entry-level capacity.",
+      "Repurposing old tools vs inventing new frameworks."
+    ],
+    "quotes": [
+      {
+        "text": "Need for a conversation about new apprenticeship models as traditional roles evolve in the face of AI.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      },
+      {
+        "text": "Experts need a complex mindset that can anticipate the potential mistakes of agentic AI.",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "workplace-grief": {
+    "title": "Workplace Grief",
+    "sessions": [
+      "discussion about ai and coaching",
+      "Day 1 PM breakouts: key themes_Cambridge",
+      "CLAI North America Relay"
+    ],
+    "insights": [
+      "A grieving process around loss of traditional roles — including coaching — is named aloud.",
+      "Leaders need to mourn established practices before embracing the future.",
+      "Grief is ambiguous: optimism and concern in the same breath."
+    ],
+    "conflicts": [
+      "Identity vs transformation.",
+      "Optimism vs uncertainty about human coaching/leadership remaining central."
+    ],
+    "quotes": [
+      {
+        "text": "A grieving process surrounding the potential loss of traditional roles (e.g., coaching).",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "Leadership needs to mourn established practices before embracing the future.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      }
+    ]
+  },
+  "workslop-economy": {
+    "title": "Workslop Economy & Discernment",
+    "sessions": [
+      "discussion on ai principles",
+      "discussion on AI and client needs"
+    ],
+    "insights": [
+      "Human discernment and judgment are under pressure from AI-generated content.",
+      "Misclassification of human work as AI is already harming people.",
+      "Clarity vs confusion is leadership work in noisy output environments."
+    ],
+    "conflicts": [
+      "Static principles vs dynamic review.",
+      "Human cognition vs AI processing as competing authorities."
+    ],
+    "quotes": [
+      {
+        "text": "Concerns about how AI influences human discernment and recognition in competitive contexts.",
+        "session": "discussion on ai principles"
+      },
+      {
+        "text": "AI tools mistakenly categorizing human-written work as AI-generated.",
+        "session": "discussion on ai principles"
+      }
+    ]
+  },
+  "ai-infrastructure-sovereignty": {
+    "title": "Infrastructure & Data Sovereignty",
+    "sessions": [
+      "AI Transformation & Culture",
+      "AI in ANZ – market and segment dive",
+      "conversation on global ai experiences",
+      "CL's AI Policy"
+    ],
+    "insights": [
+      "Camp CLAI, CL Commons, Clara, and a data AI policy form the infrastructure spine.",
+      "Data sovereignty travels across regions (NZ Indigenous rights, NL Digi ID, US corporate concentration).",
+      "Tiered policy for super users vs general colleagues is a practical governance move."
+    ],
+    "conflicts": [
+      "Deep investment vs internal skepticism.",
+      "US-hosted tooling vs European client sovereignty.",
+      "AI as primary interface vs enabling live human conversation."
+    ],
+    "quotes": [
+      {
+        "text": "Key initiatives: Camp CLAI, CL Commons, and a comprehensive AI data policy.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "How to manage data sovereignty for European clients with tools storing data in the US.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "Strong focus on data sovereignty, particularly concerning Indigenous people's data and rights.",
+        "session": "conversation on global ai experiences"
+      }
+    ]
+  },
+  "leadership-sensemaking": {
+    "title": "Leadership & Sensemaking",
+    "sessions": [
+      "Applying Cynefin for our clients and AI",
+      "discussion about ai and coaching",
+      "Client Implications Day 3",
+      "Day 1 PM breakouts: key themes_Cambridge"
+    ],
+    "insights": [
+      "Cynefin is an explicit bridge for diagnosing client situations with AI.",
+      "Leadership development is reframed for pace, systemic awareness, and presence.",
+      "Emotional regulation and complex mindsets are non-substitutable."
+    ],
+    "conflicts": [
+      "Embed Cynefin deeply vs keep it light.",
+      "Urgency to respond vs thoughtful long-term consequence."
+    ],
+    "quotes": [
+      {
+        "text": "Leverage Cynefin to navigate complex client needs and enhance decision-making in the context of AI.",
+        "session": "Applying Cynefin for our clients and AI"
+      },
+      {
+        "text": "AI should enhance human capability rather than replace it.",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "future-of-coaching": {
+    "title": "Future of Coaching & Coaching Bots",
+    "sessions": [
+      "discussion about ai and coaching",
+      "AI Transformation & Culture",
+      "Taking Stock of AI at CL - 2"
+    ],
+    "insights": [
+      "Coaching identity is under active renegotiation.",
+      "AI touches coaching programs, pricing, and value proposition.",
+      "Emotional intelligence and presence remain the non-substitutable layer."
+    ],
+    "conflicts": [
+      "AI coaching for scale vs human coaching as relational core.",
+      "Fear of replacement vs curiosity about augmentation."
+    ],
+    "quotes": [
+      {
+        "text": "Uncertainty and evolving perception of roles as coaches in light of AI's capabilities.",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "How do we redefine our identity as coaches where AI could outperform traditional coaching functions?",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "ai-support-cl": {
+    "title": "How AI might support CL",
+    "sessions": [
+      "AI Transformation & Culture",
+      "Applying Cynefin for our clients and AI",
+      "CL's AI Policy"
+    ],
+    "insights": [
+      "Concrete bets: Camp CLAI, Commons, CLara, harvest, data policy.",
+      "Demonstrate before convincing internal skeptics.",
+      "Festival harvest tooling lineage informs Camp CLAI architecture."
+    ],
+    "conflicts": [
+      "Build internal platform depth vs adapt external stacks.",
+      "Agentic teammate vs primary interface risk."
+    ],
+    "quotes": [
+      {
+        "text": "Clara for intake, breakout recording, and real-time sense-making.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "Ensure AI tools enable live human conversation rather than becoming a primary interface.",
+        "session": "AI Transformation & Culture"
+      }
+    ]
+  },
+  "risks-fears-growth": {
+    "title": "Risks, Fears & Growth",
+    "sessions": [
+      "CLAI Relay- India/MENA/Europe AM",
+      "8 steps nonprofits can take to adopt ai responsibly",
+      "Day 3 principles discussion group"
+    ],
+    "insights": [
+      "Excitement and anxiety share the same rooms.",
+      "Addressing moves: open talk, guidelines, preamble/stance, demonstrate-before-convince, data policy.",
+      "Collective conversation today shapes impact tomorrow."
+    ],
+    "conflicts": [
+      "Name risks clearly vs avoid sounding alarmist.",
+      "Safety guardrails vs permission to experiment."
+    ],
+    "quotes": [
+      {
+        "text": "Both the thrill of potential AI offers and the fear of its consequences and misuse.",
+        "session": "CLAI Relay- India/MENA/Europe AM"
+      },
+      {
+        "text": "Employees worry about AI replacing their roles.",
+        "session": "8 steps nonprofits can take to adopt ai responsibly"
+      },
+      {
+        "text": "Potential risks of AI eroding trust in professional relationships.",
+        "session": "Day 3 principles discussion group"
+      }
+    ]
+  },
+  "meta-learning": {
+    "title": "Meta: How we spoke & learned",
+    "sessions": [
+      "discussion about ai and coaching",
+      "discussion on ai principles",
+      "CLAI North America Relay",
+      "Taking Stock of AI at CL - 2"
+    ],
+    "insights": [
+      "Balcony pattern: curiosity, apprehension, humor, silence for processing.",
+      "Ideas weave across sessions (Camp CLAI, Cynefin, principles) but incompletely.",
+      "Hard-to-say topics: job loss, identity grief, generational oldness, sovereignty tradeoffs."
+    ],
+    "conflicts": [
+      "Client-first talk vs space for practitioners' own overwhelm.",
+      "Opening fear vs keeping energy only 'useful'."
+    ],
+    "quotes": [
+      {
+        "text": "Sharing fears and uncertainties fosters a supportive atmosphere of collaboration and understanding.",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "Ongoing profound conversations regarding AI principles rather than one-off events.",
+        "session": "discussion on ai principles"
+      },
+      {
+        "text": "How we engage with AI today will shape its societal impact tomorrow.",
+        "session": "Taking Stock of AI at CL - 2"
+      }
+    ]
+  }
+}

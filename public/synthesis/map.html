@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Preliminary Synthesis Map — CLara</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1c2a2e;
+      --forest: #2e4b45;
+      --forest-deep: #1a2e2a;
+      --sage: #7fa093;
+      --horizon: #3e6e8e;
+      --glow: #8fd6c4;
+      --ember: #c97b4a;
+      --sand: #f3eee6;
+      --paper: #fbf9f5;
+      --cloud: #e7e1d6;
+      --muted: color-mix(in srgb, var(--ink) 55%, transparent);
+      --node: color-mix(in srgb, var(--horizon) 18%, var(--paper));
+      --node-stroke: var(--horizon);
+      --node-meta: color-mix(in srgb, var(--glow) 35%, var(--paper));
+      --node-meta-stroke: var(--forest);
+      --shadow: 0 10px 30px rgba(28, 42, 46, 0.08);
+      --font-heading: "Fraunces", Georgia, serif;
+      --font-body: "Inter", system-ui, sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      background:
+        radial-gradient(ellipse at 10% 0%, rgba(143, 214, 196, 0.18) 0%, transparent 42%),
+        radial-gradient(ellipse at 90% 8%, rgba(62, 110, 142, 0.12) 0%, transparent 40%),
+        radial-gradient(ellipse at 70% 100%, rgba(201, 123, 74, 0.08) 0%, transparent 45%),
+        var(--sand);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    body.embed {
+      min-height: 0;
+      background: var(--sand);
+    }
+    header {
+      padding: 1.25rem 1.5rem 0.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    body.embed header { display: none; }
+    header h1 {
+      font-family: var(--font-heading);
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 500;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 42rem;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 0.7rem;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--forest);
+      border: 1px solid var(--cloud);
+      background: var(--paper);
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
+      gap: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem 2rem;
+    }
+    body.embed .layout {
+      max-width: none;
+      padding: 0.75rem;
+      gap: 0.75rem;
+      min-height: calc(100vh - 0.5rem);
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .canvas-wrap {
+      background: var(--paper);
+      border: 1px solid var(--cloud);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-height: 520px;
+    }
+    body.embed .canvas-wrap { min-height: calc(100vh - 1.5rem); }
+    svg { width: 100%; height: auto; display: block; }
+    .edge {
+      stroke: var(--cloud);
+      stroke-width: 2;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+    .edge.dashed {
+      stroke-dasharray: 6 6;
+      stroke: color-mix(in srgb, var(--sage) 70%, var(--cloud));
+    }
+    .edge.active {
+      stroke: var(--horizon);
+      marker-end: url(#arrowActive);
+    }
+    .node {
+      cursor: pointer;
+    }
+    .node rect {
+      fill: var(--node);
+      stroke: var(--node-stroke);
+      stroke-width: 1.5;
+      rx: 10;
+      transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
+    }
+    .node.meta rect {
+      fill: var(--node-meta);
+      stroke: var(--node-meta-stroke);
+    }
+    .node:hover rect, .node.active rect {
+      fill: color-mix(in srgb, var(--glow) 28%, var(--paper));
+      stroke: var(--forest);
+      filter: drop-shadow(0 0 12px rgba(143, 214, 196, 0.35));
+    }
+    .node text {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--ink);
+      pointer-events: none;
+    }
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--cloud);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 1.1rem 1.15rem 1.35rem;
+      overflow: auto;
+      max-height: 720px;
+    }
+    body.embed .panel { max-height: calc(100vh - 1.5rem); }
+    .panel h2 {
+      font-family: var(--font-heading);
+      font-size: 1.35rem;
+      font-weight: 500;
+      margin: 0 0 0.35rem;
+    }
+    .panel .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--horizon);
+      margin-bottom: 0.5rem;
+    }
+    .panel h3 {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--forest);
+      margin: 1rem 0 0.45rem;
+    }
+    .panel ul {
+      margin: 0;
+      padding-left: 1.1rem;
+      line-height: 1.45;
+      font-size: 0.92rem;
+    }
+    .panel blockquote {
+      margin: 0.55rem 0;
+      padding: 0.55rem 0.75rem;
+      border-left: 3px solid var(--ember);
+      background: color-mix(in srgb, var(--ember) 8%, var(--paper));
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .panel .session {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      display: block;
+      margin-top: 0.3rem;
+    }
+    .empty {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+    .sessions {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("embed") === "1") document.body.classList.add("embed");
+    })();
+  </script>
+  <header>
+    <h1>Theme map</h1>
+    <p>
+      Preliminary relational map of organizer seed themes. Click a node for insights,
+      tensions, and session-cited quotes from the Camp CLAI harvest.
+    </p>
+    <div class="badge">Preliminary · not a whiteboard import</div>
+  </header>
+
+  <div class="layout">
+    <div class="canvas-wrap">
+      <svg id="map" viewBox="0 0 980 640" role="img" aria-label="CLara preliminary synthesis theme map">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#E7E1D6" />
+          </marker>
+          <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3E6E8E" />
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <aside class="panel" id="detail">
+      <h2>Explore a theme</h2>
+      <p class="empty">Click any node to open insights, conflicting perspectives, and session-backed quotes.</p>
+    </aside>
+  </div>
+
+  <script>window.__SYNTHESIS_EVIDENCE__ = {
+  "ai-principles-humanist": {
+    "title": "AI Principles & The Humanist Stance",
+    "sessions": [
+      "Taking Stock of AI at CL - 2",
+      "Day 3 principles discussion group",
+      "8 steps nonprofits can take to adopt ai responsibly",
+      "conversation on global ai experiences",
+      "discussion on ai principles"
+    ],
+    "insights": [
+      "Human-centered / ethical frame: enhance capability and consciousness, protect agency.",
+      "Living principles (reviewed often) beat a one-off camp artifact.",
+      "Trust is a design constraint in client-facing AI use."
+    ],
+    "conflicts": [
+      "Accelerationist vs alarmist readings of the same moment.",
+      "Demonstrate-before-convincing vs urgency to declare a public stance.",
+      "Innovative language vs sounding conservative or dated."
+    ],
+    "quotes": [
+      {
+        "text": "There's an emphasis on the necessity for clarity in guiding ethical AI use and developing a framework for human-centered AI integration within CL's practices.",
+        "session": "Taking Stock of AI at CL - 2"
+      },
+      {
+        "text": "Understanding AI's implications, addressing staff anxieties, and ensuring moral considerations guide its applications.",
+        "session": "8 steps nonprofits can take to adopt ai responsibly"
+      },
+      {
+        "text": "A preamble emphasizing AI's potential and the organization's cautious yet innovative stance.",
+        "session": "Day 3 principles discussion group"
+      }
+    ]
+  },
+  "organizational-overwhelm": {
+    "title": "Organizational Overwhelm & Ludicrousness",
+    "sessions": [
+      "discussion on AI and client needs",
+      "CLAI CLANZ Relay",
+      "AI in ANZ – market and segment dive",
+      "Day 1 PM breakouts: key themes_Cambridge"
+    ],
+    "insights": [
+      "Overwhelm, confusion, and chaos are the lived texture of adoption.",
+      "Rapid informal adoption outpaces governance and trust.",
+      "Engagement and disengagement oscillate in the same people."
+    ],
+    "conflicts": [
+      "Experimentation vs governance.",
+      "Hope vs anxiety.",
+      "Client-focus clarity vs practitioners' own overwhelm."
+    ],
+    "quotes": [
+      {
+        "text": "Concerns about the overwhelming impacts of AI, categorized as chaotic and amorphous, mirroring past crises.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      },
+      {
+        "text": "Rapid informal adoption of AI outpaces the establishment of governance frameworks.",
+        "session": "AI in ANZ – market and segment dive"
+      },
+      {
+        "text": "Participants oscillate between wanting to engage with AI and the impulse to shy away.",
+        "session": "CLAI CLANZ Relay"
+      }
+    ]
+  },
+  "expertise-paradox": {
+    "title": "The Expertise Paradox",
+    "sessions": [
+      "Day 1 PM breakouts: key themes_Cambridge",
+      "discussion about ai and coaching"
+    ],
+    "insights": [
+      "Senior vs junior roles and new apprenticeship models are named explicitly.",
+      "Operating agentic AI requires mindsets that anticipate AI-generated errors.",
+      "Leaders are asked to mourn established practices before embracing new paradigms."
+    ],
+    "conflicts": [
+      "Protecting craft pathways vs efficiency narratives that cut entry-level capacity.",
+      "Repurposing old tools vs inventing new frameworks."
+    ],
+    "quotes": [
+      {
+        "text": "Need for a conversation about new apprenticeship models as traditional roles evolve in the face of AI.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      },
+      {
+        "text": "Experts need a complex mindset that can anticipate the potential mistakes of agentic AI.",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "workplace-grief": {
+    "title": "Workplace Grief",
+    "sessions": [
+      "discussion about ai and coaching",
+      "Day 1 PM breakouts: key themes_Cambridge",
+      "CLAI North America Relay"
+    ],
+    "insights": [
+      "A grieving process around loss of traditional roles — including coaching — is named aloud.",
+      "Leaders need to mourn established practices before embracing the future.",
+      "Grief is ambiguous: optimism and concern in the same breath."
+    ],
+    "conflicts": [
+      "Identity vs transformation.",
+      "Optimism vs uncertainty about human coaching/leadership remaining central."
+    ],
+    "quotes": [
+      {
+        "text": "A grieving process surrounding the potential loss of traditional roles (e.g., coaching).",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "Leadership needs to mourn established practices before embracing the future.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge"
+      }
+    ]
+  },
+  "workslop-economy": {
+    "title": "Workslop Economy & Discernment",
+    "sessions": [
+      "discussion on ai principles",
+      "discussion on AI and client needs"
+    ],
+    "insights": [
+      "Human discernment and judgment are under pressure from AI-generated content.",
+      "Misclassification of human work as AI is already harming people.",
+      "Clarity vs confusion is leadership work in noisy output environments."
+    ],
+    "conflicts": [
+      "Static principles vs dynamic review.",
+      "Human cognition vs AI processing as competing authorities."
+    ],
+    "quotes": [
+      {
+        "text": "Concerns about how AI influences human discernment and recognition in competitive contexts.",
+        "session": "discussion on ai principles"
+      },
+      {
+        "text": "AI tools mistakenly categorizing human-written work as AI-generated.",
+        "session": "discussion on ai principles"
+      }
+    ]
+  },
+  "ai-infrastructure-sovereignty": {
+    "title": "Infrastructure & Data Sovereignty",
+    "sessions": [
+      "AI Transformation & Culture",
+      "AI in ANZ – market and segment dive",
+      "conversation on global ai experiences",
+      "CL's AI Policy"
+    ],
+    "insights": [
+      "Camp CLAI, CL Commons, Clara, and a data AI policy form the infrastructure spine.",
+      "Data sovereignty travels across regions (NZ Indigenous rights, NL Digi ID, US corporate concentration).",
+      "Tiered policy for super users vs general colleagues is a practical governance move."
+    ],
+    "conflicts": [
+      "Deep investment vs internal skepticism.",
+      "US-hosted tooling vs European client sovereignty.",
+      "AI as primary interface vs enabling live human conversation."
+    ],
+    "quotes": [
+      {
+        "text": "Key initiatives: Camp CLAI, CL Commons, and a comprehensive AI data policy.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "How to manage data sovereignty for European clients with tools storing data in the US.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "Strong focus on data sovereignty, particularly concerning Indigenous people's data and rights.",
+        "session": "conversation on global ai experiences"
+      }
+    ]
+  },
+  "leadership-sensemaking": {
+    "title": "Leadership & Sensemaking",
+    "sessions": [
+      "Applying Cynefin for our clients and AI",
+      "discussion about ai and coaching",
+      "Client Implications Day 3",
+      "Day 1 PM breakouts: key themes_Cambridge"
+    ],
+    "insights": [
+      "Cynefin is an explicit bridge for diagnosing client situations with AI.",
+      "Leadership development is reframed for pace, systemic awareness, and presence.",
+      "Emotional regulation and complex mindsets are non-substitutable."
+    ],
+    "conflicts": [
+      "Embed Cynefin deeply vs keep it light.",
+      "Urgency to respond vs thoughtful long-term consequence."
+    ],
+    "quotes": [
+      {
+        "text": "Leverage Cynefin to navigate complex client needs and enhance decision-making in the context of AI.",
+        "session": "Applying Cynefin for our clients and AI"
+      },
+      {
+        "text": "AI should enhance human capability rather than replace it.",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "future-of-coaching": {
+    "title": "Future of Coaching & Coaching Bots",
+    "sessions": [
+      "discussion about ai and coaching",
+      "AI Transformation & Culture",
+      "Taking Stock of AI at CL - 2"
+    ],
+    "insights": [
+      "Coaching identity is under active renegotiation.",
+      "AI touches coaching programs, pricing, and value proposition.",
+      "Emotional intelligence and presence remain the non-substitutable layer."
+    ],
+    "conflicts": [
+      "AI coaching for scale vs human coaching as relational core.",
+      "Fear of replacement vs curiosity about augmentation."
+    ],
+    "quotes": [
+      {
+        "text": "Uncertainty and evolving perception of roles as coaches in light of AI's capabilities.",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "How do we redefine our identity as coaches where AI could outperform traditional coaching functions?",
+        "session": "discussion about ai and coaching"
+      }
+    ]
+  },
+  "ai-support-cl": {
+    "title": "How AI might support CL",
+    "sessions": [
+      "AI Transformation & Culture",
+      "Applying Cynefin for our clients and AI",
+      "CL's AI Policy"
+    ],
+    "insights": [
+      "Concrete bets: Camp CLAI, Commons, CLara, harvest, data policy.",
+      "Demonstrate before convincing internal skeptics.",
+      "Festival harvest tooling lineage informs Camp CLAI architecture."
+    ],
+    "conflicts": [
+      "Build internal platform depth vs adapt external stacks.",
+      "Agentic teammate vs primary interface risk."
+    ],
+    "quotes": [
+      {
+        "text": "Clara for intake, breakout recording, and real-time sense-making.",
+        "session": "AI Transformation & Culture"
+      },
+      {
+        "text": "Ensure AI tools enable live human conversation rather than becoming a primary interface.",
+        "session": "AI Transformation & Culture"
+      }
+    ]
+  },
+  "risks-fears-growth": {
+    "title": "Risks, Fears & Growth",
+    "sessions": [
+      "CLAI Relay- India/MENA/Europe AM",
+      "8 steps nonprofits can take to adopt ai responsibly",
+      "Day 3 principles discussion group"
+    ],
+    "insights": [
+      "Excitement and anxiety share the same rooms.",
+      "Addressing moves: open talk, guidelines, preamble/stance, demonstrate-before-convince, data policy.",
+      "Collective conversation today shapes impact tomorrow."
+    ],
+    "conflicts": [
+      "Name risks clearly vs avoid sounding alarmist.",
+      "Safety guardrails vs permission to experiment."
+    ],
+    "quotes": [
+      {
+        "text": "Both the thrill of potential AI offers and the fear of its consequences and misuse.",
+        "session": "CLAI Relay- India/MENA/Europe AM"
+      },
+      {
+        "text": "Employees worry about AI replacing their roles.",
+        "session": "8 steps nonprofits can take to adopt ai responsibly"
+      },
+      {
+        "text": "Potential risks of AI eroding trust in professional relationships.",
+        "session": "Day 3 principles discussion group"
+      }
+    ]
+  },
+  "meta-learning": {
+    "title": "Meta: How we spoke & learned",
+    "sessions": [
+      "discussion about ai and coaching",
+      "discussion on ai principles",
+      "CLAI North America Relay",
+      "Taking Stock of AI at CL - 2"
+    ],
+    "insights": [
+      "Balcony pattern: curiosity, apprehension, humor, silence for processing.",
+      "Ideas weave across sessions (Camp CLAI, Cynefin, principles) but incompletely.",
+      "Hard-to-say topics: job loss, identity grief, generational oldness, sovereignty tradeoffs."
+    ],
+    "conflicts": [
+      "Client-first talk vs space for practitioners' own overwhelm.",
+      "Opening fear vs keeping energy only 'useful'."
+    ],
+    "quotes": [
+      {
+        "text": "Sharing fears and uncertainties fosters a supportive atmosphere of collaboration and understanding.",
+        "session": "discussion about ai and coaching"
+      },
+      {
+        "text": "Ongoing profound conversations regarding AI principles rather than one-off events.",
+        "session": "discussion on ai principles"
+      },
+      {
+        "text": "How we engage with AI today will shape its societal impact tomorrow.",
+        "session": "Taking Stock of AI at CL - 2"
+      }
+    ]
+  }
+}
+;</script>
+<script>
+    const nodes = [
+      { id: "organizational-overwhelm", label: "Organizational\nOverwhelm", x: 40, y: 70, w: 150, h: 52, theme: "organizational-overwhelm" },
+      { id: "workslop-economy", label: "Workslop &\nDiscernment", x: 250, y: 70, w: 150, h: 52, theme: "workslop-economy" },
+      { id: "expertise-paradox", label: "Expertise\nParadox", x: 460, y: 70, w: 140, h: 52, theme: "expertise-paradox" },
+      { id: "future-of-coaching", label: "Future of\nCoaching", x: 660, y: 70, w: 140, h: 52, theme: "future-of-coaching" },
+
+      { id: "workplace-grief", label: "Workplace\nGrief", x: 40, y: 220, w: 140, h: 52, theme: "workplace-grief" },
+      { id: "leadership-sensemaking", label: "Leadership &\nSensemaking", x: 250, y: 220, w: 160, h: 52, theme: "leadership-sensemaking" },
+      { id: "ai-principles-humanist", label: "AI Principles &\nHumanist Stance", x: 470, y: 220, w: 170, h: 52, theme: "ai-principles-humanist" },
+      { id: "ai-support-cl", label: "How AI might\nsupport CL", x: 700, y: 220, w: 150, h: 52, theme: "ai-support-cl" },
+
+      { id: "ai-infrastructure-sovereignty", label: "Infrastructure &\nData Sovereignty", x: 700, y: 370, w: 170, h: 52, theme: "ai-infrastructure-sovereignty" },
+      { id: "risks-fears-growth", label: "Risks, Fears\n& Growth", x: 700, y: 500, w: 150, h: 52, theme: "risks-fears-growth" },
+      { id: "meta-learning", label: "Meta · how we\nspoke & learned", x: 250, y: 430, w: 180, h: 52, theme: "meta-learning", meta: true },
+    ];
+
+    const edges = [
+      { from: "organizational-overwhelm", to: "workslop-economy" },
+      { from: "workslop-economy", to: "expertise-paradox" },
+      { from: "expertise-paradox", to: "future-of-coaching" },
+      { from: "organizational-overwhelm", to: "workplace-grief" },
+      { from: "workplace-grief", to: "leadership-sensemaking" },
+      { from: "leadership-sensemaking", to: "ai-principles-humanist" },
+      { from: "ai-principles-humanist", to: "ai-support-cl" },
+      { from: "ai-infrastructure-sovereignty", to: "ai-support-cl" },
+      { from: "ai-support-cl", to: "risks-fears-growth" },
+      { from: "meta-learning", to: "organizational-overwhelm", dashed: true },
+      { from: "meta-learning", to: "ai-principles-humanist", dashed: true },
+      { from: "meta-learning", to: "leadership-sensemaking", dashed: true },
+    ];
+
+    // Evidence embedded for offline / embed use (also available as theme-evidence-ui.json)
+    let evidence = null;
+    async function loadEvidence() {
+      if (window.__SYNTHESIS_EVIDENCE__) {
+        evidence = window.__SYNTHESIS_EVIDENCE__;
+        return;
+      }
+      try {
+        const res = await fetch("./theme-evidence-ui.json", { cache: "no-store" });
+        if (res.ok) evidence = await res.json();
+      } catch (_) {}
+      if (!evidence) evidence = {};
+    }
+
+    function nodeById(id) {
+      return nodes.find((n) => n.id === id);
+    }
+
+    function center(n) {
+      return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
+    }
+
+    function draw() {
+      const svg = document.getElementById("map");
+      const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      edgeLayer.setAttribute("id", "edges");
+      const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      nodeLayer.setAttribute("id", "nodes");
+      svg.appendChild(edgeLayer);
+      svg.appendChild(nodeLayer);
+
+      for (const e of edges) {
+        const a = nodeById(e.from);
+        const b = nodeById(e.to);
+        if (!a || !b) continue;
+        const ca = center(a);
+        const cb = center(b);
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const midX = (ca.x + cb.x) / 2;
+        const d = `M ${ca.x} ${ca.y} C ${midX} ${ca.y}, ${midX} ${cb.y}, ${cb.x} ${cb.y}`;
+        path.setAttribute("d", d);
+        path.setAttribute("class", e.dashed ? "edge dashed" : "edge");
+        path.dataset.from = e.from;
+        path.dataset.to = e.to;
+        edgeLayer.appendChild(path);
+      }
+
+      for (const n of nodes) {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", n.meta ? "node meta" : "node");
+        g.dataset.id = n.id;
+        g.dataset.theme = n.theme;
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", n.x);
+        rect.setAttribute("y", n.y);
+        rect.setAttribute("width", n.w);
+        rect.setAttribute("height", n.h);
+        g.appendChild(rect);
+        const lines = n.label.split("\n");
+        lines.forEach((line, i) => {
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", n.x + n.w / 2);
+          text.setAttribute("y", n.y + n.h / 2 + (i - (lines.length - 1) / 2) * 14);
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("dominant-baseline", "middle");
+          text.textContent = line;
+          g.appendChild(text);
+        });
+        g.addEventListener("click", () => selectNode(n.id));
+        nodeLayer.appendChild(g);
+      }
+    }
+
+    function selectNode(id) {
+      document.querySelectorAll(".node").forEach((el) => {
+        el.classList.toggle("active", el.dataset.id === id);
+      });
+      document.querySelectorAll(".edge").forEach((el) => {
+        const on = el.dataset.from === id || el.dataset.to === id;
+        el.classList.toggle("active", on);
+      });
+      const n = nodeById(id);
+      const data = evidence?.[n.theme] || evidence?.[id];
+      const panel = document.getElementById("detail");
+      if (!data) {
+        panel.innerHTML = `<div class="eyebrow">Theme</div><h2>${n.label.replace("\n", " ")}</h2><p class="empty">No packaged evidence for this node yet.</p>`;
+        return;
+      }
+      const insights = (data.insights || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+      const conflicts = (data.conflicts || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+      const quotes = (data.quotes || [])
+        .map(
+          (q) =>
+            `<blockquote>${escapeHtml(q.text)}<span class="session">${escapeHtml(q.session || "")}${q.note ? " · " + escapeHtml(q.note) : ""}</span></blockquote>`,
+        )
+        .join("");
+      const sessions = (data.sessions || []).join(" · ");
+      panel.innerHTML = `
+        <div class="eyebrow">Theme</div>
+        <h2>${escapeHtml(data.title || n.label)}</h2>
+        <h3>Insights</h3>
+        <ul>${insights || "<li class='empty'>None packaged</li>"}</ul>
+        <h3>Conflicting perspectives</h3>
+        <ul>${conflicts || "<li class='empty'>None packaged</li>"}</ul>
+        <h3>Key quotes</h3>
+        ${quotes || "<p class='empty'>None packaged</p>"}
+        <h3>Sessions</h3>
+        <p class="sessions">${escapeHtml(sessions)}</p>
+      `;
+    }
+
+    function escapeHtml(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    draw();
+    loadEvidence().then(() => {
+      // optional: auto-select meta as orientation
+    });
+  </script>
+</body>
+</html>

@@ -60,3 +60,8 @@ next-env.d.ts
 *.wav
 *.mp3
 !**/fixtures/README.md
+
+# Preliminary Synthesis offline pipeline (raw corpus — never commit)
+/synthesis/export/
+/synthesis/work/
+.env*

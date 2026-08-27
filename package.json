@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "sprites:prepare": "node scripts/prepare-map-sprites.mjs",
-    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest"
+    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
+    "export:synthesis": "node scripts/export-synthesis-corpus.mjs",
+    "retrieve:themes": "node scripts/retrieve-theme-evidence.mjs",
+    "synthesis:rubric": "node scripts/retrieve-theme-evidence.mjs",
+    "export:deep": "node scripts/export-deep-corpus.mjs",
+    "retrieve:themes:deep": "node scripts/retrieve-theme-evidence-deep.mjs",
+    "synthesis:deep": "node scripts/export-deep-corpus.mjs && node scripts/retrieve-theme-evidence-deep.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
