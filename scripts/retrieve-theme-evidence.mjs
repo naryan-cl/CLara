@@ -21,26 +21,41 @@ function scoreText(text, concepts) {
   return { score, hits: [...new Set(hits)] };
 }
 
-function extractQuotes(markdown) {
+function extractQuotes(sourceText) {
   const quotes = [];
-  const blockRe = /^>\s*"?([^"\n]+)"?\s*$/gm;
-  let m;
-  while ((m = blockRe.exec(markdown ?? ""))) {
-    const q = m[1].trim();
-    if (q.length > 20) quotes.push(q);
-  }
-  // Speech-like sentences from summary body
-  const sentences = (markdown ?? "")
+  // Strip export headers / metadata blocks
+  const body = (sourceText ?? "")
+    .replace(/^###[^\n]*\n<!--[^>]+-->\n/gm, "")
+    .replace(/^---\n/gm, "");
+
+  const sentences = body
     .replace(/\s+/g, " ")
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 40 && s.length < 280);
+    .filter((s) => {
+      if (s.length < 35 || s.length > 320) return false;
+      if (/^#{1,6}\s/.test(s)) return false;
+      if (/document_id:|<!--/.test(s)) return false;
+      if (/^(\*\*)?[A-Za-z ]+(\*\*)?\s*[·•]\s*\[\d+:\d+\]/.test(s)) return false;
+      return true;
+    });
+
   for (const s of sentences) {
-    if (/["']|said|i think|we need|what if|i feel|we are|people/i.test(s)) {
-      quotes.push(s.replace(/^["']|["']$/g, ""));
+    if (
+      /["']|said|i think|we need|what if|i feel|we are|people|participant|ai |coaching|trust|grief|overwhelm|principle|sovereignty|mind trap|discernment|ludicrous|expertise|embod|fear|hope|experiment/i.test(
+        s,
+      )
+    ) {
+      quotes.push(
+        s
+          .replace(/^["']|["']$/g, "")
+          .replace(/^\*\*[^*]+\*\*\s*[·•]\s*\[[^\]]+\]\s*/, "")
+          .replace(/^Speaker\s*[•·]\s*\d+:\d+\s*/, "")
+          .trim(),
+      );
     }
   }
-  return [...new Set(quotes)].slice(0, 12);
+  return [...new Set(quotes)].filter(Boolean).slice(0, 12);
 }
 
 function main() {
@@ -64,34 +79,27 @@ function main() {
 
     for (const ext of extractions) {
       const blob = [
-        ext.what_emerged,
-        ext.key_insights,
-        ext.brief_summary,
-        ext.highlights,
-        ext.tensions,
-        ext.meta,
-        ext.balcony_observations,
-        ext.theme_tags,
+        ext.source_text,
+        ext.full_summary,
         (ext.inquiries ?? []).join("\n"),
         ...(ext.reflection_signals?.highlights ?? []),
         ...(ext.reflection_signals?.feelings ?? []),
         ...(ext.reflection_signals?.takeaways ?? []),
         ...(ext.reflection_signals?.connections ?? []),
         ...(ext.reflection_signals?.bodies ?? []),
-        ext.full_summary ?? "",
       ].join("\n\n");
 
       const { score, hits } = scoreText(blob, theme.concepts);
       if (score < 1.5) continue;
 
-      let fullSummary = ext.full_summary ?? "";
-      if (!fullSummary) {
-        const summaryPath = fs
-          .readdirSync(path.join(exportDir, "summaries"))
+      let fullSource = ext.source_text ?? ext.full_summary ?? "";
+      if (!fullSource) {
+        const sourcePath = fs
+          .readdirSync(path.join(exportDir, "sources"))
           .find((f) => f.startsWith(ext.event_id));
-        if (summaryPath) {
-          fullSummary = fs.readFileSync(
-            path.join(exportDir, "summaries", summaryPath),
+        if (sourcePath) {
+          fullSource = fs.readFileSync(
+            path.join(exportDir, "sources", sourcePath),
             "utf8",
           );
         }
@@ -107,17 +115,18 @@ function main() {
           null,
         score,
         hits,
-        what_emerged: (ext.what_emerged ?? "").slice(0, 600),
-        key_insights: (ext.key_insights ?? ext.highlights ?? "").slice(0, 1200),
-        tensions: (ext.tensions ?? "").slice(0, 600),
-        meta: (ext.meta ?? ext.balcony_observations ?? "").slice(0, 400),
+        source_types: ext.source_types ?? [],
+        what_emerged: (ext.source_text ?? "").slice(0, 600),
+        key_insights: "",
+        tensions: "",
+        meta: "",
         inquiries: ext.inquiries ?? [],
         reflections: {
           highlights: (ext.reflection_signals?.highlights ?? []).slice(0, 4),
           feelings: (ext.reflection_signals?.feelings ?? []).slice(0, 4),
           takeaways: (ext.reflection_signals?.takeaways ?? []).slice(0, 4),
         },
-        quotes: extractQuotes(fullSummary),
+        quotes: extractQuotes(fullSource),
       });
     }
 
@@ -132,7 +141,7 @@ function main() {
 
   writeJson(path.join(workDir, "theme-evidence.json"), {
     generated_at: new Date().toISOString(),
-    source: "summaries+reflections (transcripts via synthesis:deep)",
+    source: "source-only: Transcript + Reflection + Note (no harvest briefs; external excluded)",
     themes: results,
   });
 

@@ -29,9 +29,10 @@ export default async function PreliminarySynthesisPage() {
           Preliminary Synthesis
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">
-          A festival-wide (stream-wide) reading of the Camp CLAI harvest through
-          the organizer seed themes — separate from Ask CLara. Quotes are
-          de-identified for organizers and participants.
+          A stream-wide reading of the Camp CLAI harvest through the organizer
+          seed themes — drawn from transcripts, reflections, and uploads only
+          (no harvest briefs; external sources excluded). Separate from Ask
+          CLara. Quotes are de-identified for organizers and participants.
         </p>
       </div>
 

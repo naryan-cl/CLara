@@ -1,13 +1,10 @@
 /**
  * Export Camp CLAI Commons corpus for Preliminary Synthesis.
  *
+ * Source materials ONLY: Transcript, Reflection, Note (uploads).
+ * Excludes: Summary/synthesis docs, harvest briefs (doc.summary), is_external.
+ *
  * Usage: node scripts/export-synthesis-corpus.mjs
- *
- * Requires SUPABASE_SECRET_KEY (or service role) in .env.local, or
- * authenticated export via anon key + SYNTHESIS_EXPORT_EMAIL/PASSWORD.
- *
- * Prefer public documents; de-identify text before writing export files.
- * Does not export surveys (none in this project). Never commit export/.
  */
 import path from "path";
 import {
@@ -18,23 +15,24 @@ import {
   writeText,
 } from "./lib/synthesis-env.mjs";
 import { deidentifyText, slugifySessionName } from "./lib/synthesis-deidentify.mjs";
-import {
-  extractInquiryList,
-  parseSummarySections,
-  sectionBlock,
-} from "./lib/synthesis-section-parser.mjs";
+import { extractInquiryList } from "./lib/synthesis-section-parser.mjs";
 
 const STREAM_SLUG = process.env.SYNTHESIS_STREAM_SLUG?.trim() || "camp-clai";
 const exportRoot = path.join(root, "synthesis/export");
 const DOCUMENT_SELECT =
   "id, stream_id, created_by, content, summary, title, session_id, type, participants, tags, privacy_status, needs_review, is_draft, is_external, created_at, updated_at";
 
-function bodyForAnalysis(doc) {
-  if (doc.type === "Summary") {
-    return doc.content?.trim() || "";
-  }
-  const summary = doc.summary?.trim();
-  if (summary) return summary;
+/** Commons source element types — not harvest briefs or graph/synthesis docs. */
+const SOURCE_TYPES = new Set(["Transcript", "Reflection", "Note"]);
+
+function isSourceDocument(doc) {
+  if (doc.is_draft) return false;
+  if (doc.is_external) return false;
+  return SOURCE_TYPES.has(doc.type);
+}
+
+/** Raw participant-facing source text only — never harvest briefs. */
+function sourceBody(doc) {
   return doc.content?.trim() || "";
 }
 
@@ -79,6 +77,17 @@ async function fetchDocuments(supabase, streamId) {
   return data ?? [];
 }
 
+function buildSourceBlock(doc, text) {
+  const label =
+    doc.type === "Transcript"
+      ? "Transcript"
+      : doc.type === "Reflection"
+        ? "Reflection"
+        : "Upload";
+  const title = doc.title?.trim() || label;
+  return `### ${title} (${label})\n<!-- document_id: ${doc.id} -->\n\n${text}`;
+}
+
 async function main() {
   const { supabase, mode } = await createSynthesisClient();
   console.log(`Export mode: ${mode}`);
@@ -87,66 +96,51 @@ async function main() {
   console.log(`Stream: ${stream.name} (${stream.slug})`);
 
   ensureDir(exportRoot);
-  ensureDir(path.join(exportRoot, "summaries"));
+  ensureDir(path.join(exportRoot, "sources"));
+  ensureDir(path.join(exportRoot, "sources/by-doc"));
   ensureDir(path.join(exportRoot, "reflections"));
-  ensureDir(path.join(exportRoot, "sections"));
 
   const sessions = await fetchSessions(supabase, stream.id);
   const documents = await fetchDocuments(supabase, stream.id);
 
-  // Prefer public docs; still include private Summaries for organizer synthesis
-  // but scrub them. Reflections/transcripts: public preferred.
-  const publicDocs = documents.filter((d) => d.privacy_status === "public");
-  const usefulDocs = documents.filter((d) => {
-    if (d.privacy_status === "public") return true;
-    if (d.type === "Summary") return true;
-    return false;
-  });
+  const sourceDocs = documents.filter(isSourceDocument);
+  const excludedExternal = documents.filter(
+    (d) => d.is_external && SOURCE_TYPES.has(d.type),
+  ).length;
+  const excludedSummaries = documents.filter((d) => d.type === "Summary").length;
 
   const docsBySession = new Map();
-  for (const doc of usefulDocs) {
+  for (const doc of sourceDocs) {
     if (!doc.session_id) continue;
     const list = docsBySession.get(doc.session_id) ?? [];
     list.push(doc);
     docsBySession.set(doc.session_id, list);
   }
 
-  const sectionFiles = {
-    brief_summary: "# Brief summary sections\n",
-    highlights: "# Highlights sections\n",
-    balcony: "# Balcony observations\n",
-    tensions: "# Tensions sections\n",
-    key_questions: "# Key questions\n",
-    theme_tags: "# Theme tags\n",
-  };
-
-  const reflectionsPublic = ["# Reflections (de-identified, public-preferred)\n"];
+  const reflectionsPublic = [
+    "# Reflections (de-identified source text only)\n",
+  ];
   const sessionRecords = [];
   const extractions = [];
   const ungrouped = [];
 
   const stats = {
     total_sessions: sessions.length,
-    with_summary: 0,
+    sessions_with_sources: 0,
     total_documents: documents.length,
-    public_documents: publicDocs.length,
+    source_documents: sourceDocs.length,
     reflections: 0,
     transcripts: 0,
-    notes: 0,
-    summaries: 0,
+    uploads: 0,
+    excluded_external: excludedExternal,
+    excluded_summaries: excludedSummaries,
   };
 
   for (const session of sessions) {
     const sessionDocs = docsBySession.get(session.id) ?? [];
-    const synthesisDoc =
-      sessionDocs.find((d) => d.id === session.synthesis_document_id) ||
-      sessionDocs.find((d) => d.type === "Summary");
-
     const roster = sessionDocs.flatMap(rosterFromDoc);
-    const summaryRaw = synthesisDoc ? bodyForAnalysis(synthesisDoc) : "";
-    const summaryText = deidentifyText(summaryRaw, roster);
 
-    const reflectionBodies = [];
+    const sourceBlocks = [];
     const reflectionSignals = {
       highlights: [],
       feelings: [],
@@ -154,79 +148,66 @@ async function main() {
       connections: [],
       bodies: [],
     };
+    const sourceDocuments = [];
 
     for (const doc of sessionDocs) {
-      if (doc.type === "Summary") {
-        stats.summaries += 1;
-        continue;
-      }
+      const raw = sourceBody(doc);
+      if (!raw) continue;
+
+      const text = deidentifyText(raw, roster);
+      if (!text) continue;
+
+      sourceDocuments.push({
+        id: doc.id,
+        type: doc.type,
+        title: doc.title,
+        chars: text.length,
+        privacy_status: doc.privacy_status,
+      });
+
+      sourceBlocks.push(buildSourceBlock(doc, text));
+      writeText(
+        path.join(
+          exportRoot,
+          "sources/by-doc",
+          `${doc.id}-${slugifySessionName(doc.title ?? doc.type)}.md`,
+        ),
+        text,
+      );
+
       if (doc.type === "Reflection") {
         stats.reflections += 1;
-        const text = deidentifyText(bodyForAnalysis(doc), roster);
-        if (!text) continue;
-        reflectionBodies.push({ id: doc.id, title: doc.title, text });
         reflectionSignals.bodies.push(text.slice(0, 800));
         reflectionSignals.takeaways.push(text.slice(0, 500));
       } else if (doc.type === "Transcript") {
         stats.transcripts += 1;
-        const brief = deidentifyText(doc.summary?.trim() || "", roster);
-        if (brief) {
-          reflectionSignals.bodies.push(brief.slice(0, 800));
-          reflectionSignals.takeaways.push(brief.slice(0, 500));
-        }
-      } else {
-        stats.notes += 1;
-        const brief = deidentifyText(bodyForAnalysis(doc), roster);
-        if (brief) {
-          reflectionSignals.bodies.push(brief.slice(0, 800));
-          reflectionSignals.takeaways.push(brief.slice(0, 500));
-        }
+      } else if (doc.type === "Note") {
+        stats.uploads += 1;
       }
     }
 
-    // Prefer session Summary; else stitch child briefs for retrieval coverage
-    let effectiveSummary = summaryText;
-    if (!effectiveSummary) {
-      const childBriefs = sessionDocs
-        .filter((d) => d.type !== "Summary")
-        .map((d) => deidentifyText(bodyForAnalysis(d), roster))
-        .filter(Boolean);
-      if (childBriefs.length) {
-        effectiveSummary = childBriefs.join("\n\n---\n\n").slice(0, 20_000);
-      }
-    }
-    if (effectiveSummary) stats.with_summary += 1;
+    const sourceText = sourceBlocks.join("\n\n---\n\n").slice(0, 250_000);
+    if (sourceText) stats.sessions_with_sources += 1;
 
-    const parsed = parseSummarySections(effectiveSummary);
-    const sections = parsed.sections;
-
-    if (effectiveSummary) {
-      const suffix = summaryText ? "" : "-from-children";
-      const fileName = `${session.id}-${slugifySessionName(session.name)}${suffix}.md`;
-      writeText(path.join(exportRoot, "summaries", fileName), effectiveSummary);
+    if (sourceText) {
+      const fileName = `${session.id}-${slugifySessionName(session.name)}-sources.md`;
+      writeText(path.join(exportRoot, "sources", fileName), sourceText);
     }
 
-    for (const [key, fileKey] of [
-      ["brief_summary", "brief_summary"],
-      ["highlights", "highlights"],
-      ["balcony_observations", "balcony"],
-      ["tensions_and_polarities", "tensions"],
-      ["tensions", "tensions"],
-      ["key_questions", "key_questions"],
-      ["theme_tags", "theme_tags"],
-    ]) {
-      if (sections[key]) {
-        sectionFiles[fileKey] += sectionBlock(session.name, session.id, sections[key]);
-      }
-    }
-
-    if (reflectionBodies.length > 0) {
-      reflectionsPublic.push(`\n## ${session.name}\n<!-- session_id: ${session.id} -->\n`);
-      for (const [idx, row] of reflectionBodies.entries()) {
-        reflectionsPublic.push(`\n### Reflection ${idx + 1}: ${row.title ?? "Untitled"}\n\n${row.text}\n`);
+    const reflectionDocs = sessionDocs.filter((d) => d.type === "Reflection");
+    if (reflectionDocs.length > 0) {
+      reflectionsPublic.push(
+        `\n## ${session.name}\n<!-- session_id: ${session.id} -->\n`,
+      );
+      for (const [idx, doc] of reflectionDocs.entries()) {
+        const text = deidentifyText(sourceBody(doc), roster);
+        if (!text) continue;
+        reflectionsPublic.push(
+          `\n### Reflection ${idx + 1}: ${doc.title ?? "Untitled"}\n\n${text}\n`,
+        );
         writeText(
           path.join(exportRoot, "reflections", `${session.id}-${idx + 1}.md`),
-          row.text,
+          text,
         );
       }
     }
@@ -242,85 +223,104 @@ async function main() {
       seed_question: session.seed_question,
       status: session.finalized_at ? "finalized" : "open",
       finalized_at: session.finalized_at,
-      synthesis_document_id: session.synthesis_document_id,
-      has_summary: Boolean(effectiveSummary),
-      has_session_synthesis: Boolean(summaryText),
-      document_count: sessionDocs.length,
-      reflection_count: reflectionBodies.length,
+      has_sources: Boolean(sourceText),
+      source_document_count: sourceDocuments.length,
+      source_types: [...new Set(sourceDocuments.map((d) => d.type))],
+      reflection_count: reflectionDocs.length,
     });
+
+    if (!sourceText) continue;
 
     extractions.push({
       event_id: session.id,
       session_id: session.id,
       event_name: session.name,
       start_time: session.occurred_at,
-      brief_summary: sections.brief_summary ?? "",
-      highlights: sections.highlights ?? "",
-      balcony_observations: sections.balcony_observations ?? "",
-      tensions:
-        sections.tensions_and_polarities ?? sections.tensions ?? "",
-      key_questions: sections.key_questions ?? "",
-      theme_tags: sections.theme_tags ?? "",
-      what_emerged: sections.what_emerged ?? sections.brief_summary ?? "",
-      key_insights: sections.key_insights ?? sections.highlights ?? "",
-      meta: sections.meta ?? sections.balcony_observations ?? "",
+      source_text: sourceText,
+      source_document_count: sourceDocuments.length,
+      source_documents: sourceDocuments,
+      source_types: [...new Set(sourceDocuments.map((d) => d.type))],
+      // Legacy fields kept empty so retrieval never scores harvest brief sections
+      brief_summary: "",
+      highlights: "",
+      balcony_observations: "",
+      tensions: "",
+      key_questions: "",
+      theme_tags: "",
+      what_emerged: "",
+      key_insights: "",
+      meta: "",
       resonance: "",
-      inquiries: extractInquiryList(sections.key_questions ?? ""),
-      inquiries_raw: sections.key_questions ?? "",
-      full_summary: effectiveSummary,
+      inquiries: extractInquiryList(sourceText),
+      inquiries_raw: "",
+      full_summary: sourceText,
       reflection_signals: reflectionSignals,
-      has_summary: Boolean(effectiveSummary),
-      reflection_count: reflectionBodies.length,
+      has_summary: true,
+      reflection_count: reflectionDocs.length,
     });
   }
 
-  // Ungrouped public documents (not in a session)
-  for (const doc of usefulDocs.filter((d) => !d.session_id)) {
-    const text = deidentifyText(bodyForAnalysis(doc), rosterFromDoc(doc));
+  // Ungrouped source documents
+  for (const doc of sourceDocs.filter((d) => !d.session_id)) {
+    const text = deidentifyText(sourceBody(doc), rosterFromDoc(doc));
     if (!text) continue;
+
     ungrouped.push({
       id: doc.id,
       title: doc.title,
       type: doc.type,
       privacy_status: doc.privacy_status,
       created_at: doc.created_at,
-      text: text.slice(0, 12_000),
+      text: text.slice(0, 50_000),
     });
-    if (doc.type === "Reflection") {
-      stats.reflections += 1;
-      extractions.push({
-        event_id: `doc:${doc.id}`,
-        session_id: null,
-        event_name: doc.title || "Ungrouped reflection",
-        start_time: doc.created_at,
-        brief_summary: "",
-        highlights: "",
-        balcony_observations: "",
-        tensions: "",
-        key_questions: "",
-        theme_tags: "",
-        what_emerged: text.slice(0, 1200),
-        key_insights: text.slice(0, 1200),
-        meta: "",
-        resonance: "",
-        inquiries: [],
-        inquiries_raw: "",
-        full_summary: text,
-        reflection_signals: {
-          highlights: [],
-          feelings: [],
-          takeaways: [text.slice(0, 500)],
-          connections: [],
-          bodies: [text.slice(0, 800)],
-        },
-        has_summary: true,
-        reflection_count: 1,
-      });
-    }
-  }
 
-  for (const [key, content] of Object.entries(sectionFiles)) {
-    writeText(path.join(exportRoot, "sections", `${key}.md`), content);
+    writeText(
+      path.join(
+        exportRoot,
+        "sources/by-doc",
+        `${doc.id}-${slugifySessionName(doc.title ?? doc.type)}.md`,
+      ),
+      text,
+    );
+
+    if (doc.type === "Reflection") stats.reflections += 1;
+    else if (doc.type === "Transcript") stats.transcripts += 1;
+    else if (doc.type === "Note") stats.uploads += 1;
+
+    extractions.push({
+      event_id: `doc:${doc.id}`,
+      session_id: null,
+      event_name: doc.title || `Ungrouped ${doc.type}`,
+      start_time: doc.created_at,
+      source_text: text,
+      source_document_count: 1,
+      source_documents: [
+        { id: doc.id, type: doc.type, title: doc.title, chars: text.length },
+      ],
+      source_types: [doc.type],
+      brief_summary: "",
+      highlights: "",
+      balcony_observations: "",
+      tensions: "",
+      key_questions: "",
+      theme_tags: "",
+      what_emerged: "",
+      key_insights: "",
+      meta: "",
+      resonance: "",
+      inquiries: extractInquiryList(text),
+      inquiries_raw: "",
+      full_summary: text,
+      reflection_signals: {
+        highlights: [],
+        feelings: [],
+        takeaways: doc.type === "Reflection" ? [text.slice(0, 500)] : [],
+        connections: [],
+        bodies: [text.slice(0, 800)],
+      },
+      has_summary: true,
+      reflection_count: doc.type === "Reflection" ? 1 : 0,
+    });
   }
 
   writeText(path.join(exportRoot, "reflections-public.md"), reflectionsPublic.join(""));
@@ -334,20 +334,26 @@ async function main() {
     mode,
     stream_slug: stream.slug,
     stream_name: stream.name,
+    corpus: "source-only",
+    source_types: ["Transcript", "Reflection", "Note"],
+    excluded: ["Summary", "harvest_briefs", "is_external"],
     session_count: sessions.length,
-    summary_count: stats.with_summary,
+    sessions_with_sources: stats.sessions_with_sources,
+    source_document_count: sourceDocs.length,
     reflection_count: stats.reflections,
-    transcript_docs: stats.transcripts,
-    document_count: documents.length,
-    public_document_count: publicDocs.length,
-    note: "No pre-event survey in this project. Quotes are de-identified.",
+    transcript_count: stats.transcripts,
+    upload_count: stats.uploads,
+    excluded_external: excludedExternal,
+    note: "Quotes and retrieval use raw source content only — not element or session harvest briefs.",
   });
 
-  console.log("Export complete.");
+  console.log("Export complete (source materials only).");
   console.log(`  Sessions: ${sessions.length}`);
-  console.log(`  With summaries: ${stats.with_summary}`);
+  console.log(`  With sources: ${stats.sessions_with_sources}`);
+  console.log(`  Transcripts: ${stats.transcripts}`);
   console.log(`  Reflections: ${stats.reflections}`);
-  console.log(`  Transcripts (docs): ${stats.transcripts}`);
+  console.log(`  Uploads: ${stats.uploads}`);
+  console.log(`  Excluded external source docs: ${excludedExternal}`);
   console.log(`  Output: ${exportRoot}`);
 }
 

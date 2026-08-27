@@ -1,8 +1,6 @@
 /**
- * Export public Transcript documents for deep synthesis pass.
- * Usage: node scripts/export-deep-corpus.mjs
- * Requires SUPABASE_SECRET_KEY (or service role) in .env.local.
- * No surveys in this project.
+ * Export Transcript source text for deep synthesis pass.
+ * Content only — no harvest briefs. Excludes is_external.
  */
 import path from "path";
 import {
@@ -21,7 +19,7 @@ async function main() {
   console.log(`Mode: ${mode}`);
   if (mode !== "service_role") {
     console.log(
-      "Note: authenticated deep export (no service role). Prefer public/visible transcripts only.",
+      "Note: authenticated deep export. Transcript content only; external docs excluded.",
     );
   }
 
@@ -47,11 +45,12 @@ async function main() {
   const { data: transcripts, error } = await supabase
     .from("documents")
     .select(
-      "id, title, content, summary, session_id, privacy_status, participants, created_at, type",
+      "id, title, content, session_id, privacy_status, participants, created_at, type, is_external",
     )
     .eq("stream_id", stream.id)
     .eq("type", "Transcript")
     .eq("is_draft", false)
+    .eq("is_external", false)
     .limit(500);
 
   if (error) throw new Error(error.message);
@@ -60,11 +59,10 @@ async function main() {
   let kept = 0;
 
   for (const doc of transcripts ?? []) {
-    // Prefer public; still allow private with scrub for organizer deep pass
     const roster = (Array.isArray(doc.participants) ? doc.participants : [])
       .map((p) => (typeof p === "string" ? p : p?.name))
       .filter(Boolean);
-    const raw = (doc.summary?.trim() || doc.content?.trim() || "").slice(0, 200_000);
+    const raw = (doc.content?.trim() || "").slice(0, 200_000);
     const text = deidentifyText(raw, roster);
     const session = doc.session_id ? sessionById.get(doc.session_id) : null;
     const eventId = doc.session_id || `doc:${doc.id}`;
@@ -84,7 +82,6 @@ async function main() {
 
     const fileBase = `${eventId}-${slugifySessionName(session?.name ?? doc.title)}.txt`;
     writeText(path.join(out, "transcripts", fileBase), text);
-    // Also write by event id for simple lookup
     writeText(path.join(out, "transcripts", `${eventId}.txt`), text);
     index.push({
       event_id: eventId,
@@ -103,13 +100,13 @@ async function main() {
   writeJson(path.join(out, "manifest.json"), {
     exported_at: new Date().toISOString(),
     stream_slug: stream.slug,
-    surveys: 0,
-    note: "No pre-event survey corpus in Camp-CLAI.",
+    corpus: "transcript-content-only",
+    excluded: ["summary", "is_external"],
     transcripts: kept,
     transcripts_skipped: index.filter((i) => i.skipped).length,
   });
 
-  console.log(`Deep export complete: ${kept} transcripts (0 surveys)`);
+  console.log(`Deep export complete: ${kept} transcript source files`);
 }
 
 main().catch((err) => {

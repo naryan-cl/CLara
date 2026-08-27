@@ -1,15 +1,15 @@
 ﻿# Camp CLAI Preliminary Synthesis — execution log
 
-Date: 2026-08-27
+Date: 2026-08-27 (revised)
 
-## Phases
-- B: `npm run export:synthesis` — authenticated export (Camp CLAI stream). 22 sessions, 20 summary/brief corpora, 54 public docs, 0 public reflections.
-- G: `npm run synthesis:rubric` — meaning-oriented retrieval for 11 organizer seed themes.
-- H: `npm run synthesis:deep` — 31 transcript files; catchphrase tracking (data sovereignty traveled).
-- Packaging: `content/preliminary-synthesis.md`, `public/synthesis/map.html`, Synthesis nav page.
+## Corpus policy
+- **Included:** Transcript, Reflection, Note source content only (`documents.content`).
+- **Excluded:** Harvest briefs (`documents.summary`), Summary/synthesis docs, `is_external=true`.
 
-## Notes
-- No welcome/pre-event survey — no hopes↔emerged table.
-- Ask CLara left alone; synthesis is a separate artifact.
-- Theme map edges are preliminary (invented from theme relationships).
-- Export/work dirs gitignored; never commit secrets.
+## Phases (source-only rerun)
+- B: `npm run export:synthesis` — 17 sessions with sources, 31 transcripts, 11 uploads, 4 external excluded.
+- G/H: rubric + deep retrieval on source text only.
+- Packaging: updated `content/preliminary-synthesis.md`, map evidence, Synthesis page copy.
+
+## Catchphrases in source text
+- mind traps (8), data sovereignty (5), death doula (spoken), cambrian explosion (1)

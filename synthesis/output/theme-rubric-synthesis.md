@@ -1,319 +1,319 @@
 # Preliminary Synthesis
 
-A first reading of the Camp CLAI harvest through the organizer theme rubric — AI principles and the humanist stance, organizational overwhelm, the expertise paradox, workplace grief, workslop and discernment, infrastructure and data sovereignty, leadership and sensemaking, the future of coaching, how AI might support CL, risks and fears, and meta learning.
+A first reading of the Camp CLAI harvest through the organizer theme rubric — drawn **only from source materials** (transcripts, reflections, uploads). Harvest briefs, session summaries, and external uploads are excluded.
 
-Generated: 2026-08-27 · Corpus: 22 sessions · 20 summary/brief corpora · 31 de-identified transcripts · 0 public reflections (private reflections not in this pass)
+Generated: 2026-08-27 (revised) · Corpus: 17 sessions with sources · 31 transcripts · 11 uploads · 0 reflections in export scope · 4 external docs excluded
 
-> Preliminary draft for organizers and participants. Quotes are de-identified; many come from harvest briefs already paraphrased by CLara. This is separate from Ask CLara.
+> Preliminary draft for organizers and participants. Quotes are de-identified from raw source text. Separate from Ask CLara.
 
 
 ## Method note
 
-Evidence was retrieved with **meaning-oriented concept maps** aligned to the organizer seed themes (not bare keyword search, and not Ask CLara as the analysis engine). This offline pass draws on **session summaries**, **element briefs**, and **transcripts** visible in the Camp CLAI Commons. There is **no pre-event / welcome survey** in this project, so this document does not invent hopes↔emerged tables. Quotes attribute speakers as participants. The relational theme map below is **preliminary** (invented from theme relationships when no whiteboard edges were provided).
+Evidence was retrieved with **meaning-oriented concept maps** aligned to the organizer seed themes — not bare keyword search, and not Ask CLara as the analysis engine.
 
-### Catchphrases that traveled
+**Corpus policy (this revision):**
+- **Included:** Transcript, Reflection, and Note (upload) **source content** only (`documents.content`).
+- **Excluded:** Element/session harvest briefs (`documents.summary`), Summary/synthesis documents, and anything flagged **`is_external`**.
 
-Only phrases that actually appeared across more than one harvest artifact:
+There is **no pre-event / welcome survey** in this project, so this document does not invent hopes↔emerged tables. Quotes attribute speakers as participants. The relational theme map below is **preliminary**.
 
-- **data sovereignty** — surfaced in *conversation on global ai experiences*, *AI Transformation & Culture*, *Regional Perspectives on AI*, and *AI in ANZ – market and segment dive* (summaries and transcripts).
+### Catchphrases that traveled (in source text)
 
-Other rubric phrases (workslop, discernment tax, death-doula, capability expander, ludicrousness) were **not yet catchphrases in the harvest text** — they remain organizer language awaiting wider travel.
+- **mind traps / mind trap** — recurring in client-facing and relay transcripts (e.g. *How To Talk To Clients About AI*, *Client Implications Day 3*).
+- **data sovereignty** — transcripts and uploads on regional AI perspectives and CL AI app rules.
+- **death doula / death duelers** — spoken in Cambridge breakouts on roles disappearing (*Day 1 PM breakouts*, *What can we do for our clients?* afternoon response).
+- **cambrian explosion** — named once in source conversation on tool sprawl.
 
 ---
 
 ## AI Principles & The Humanist Stance
 
 **Insights**
-- Across Taking Stock, Day 3 principles, and nonprofit guidance notes, the harvest keeps returning to a **human-centered / ethical frame**: AI as something that must enhance human capability and consciousness, not quietly erode agency.
-- Polarities named repeatedly: **innovation vs risk**, **efficiency vs oversight**, **innovation vs tradition**, **transparency vs vulnerability**.
-- CL conversations call for a **coherent philosophy** and living principles (reviewed often enough to stay relevant — even quarterly vs multi-year) rather than a one-off camp artifact.
-- Trust is treated as a design constraint: AI-generated insight can be valuable, but **relationship trust** is the scarce resource in client-facing work.
+- Client Implications and principles discussions treat AI as something to **augment** CL-shaped practice — e.g. a coaching tool “designed with CL values, principles” alongside live coaches, not a replacement frame.
+- Polarities language shows up in live conversation: scanning services for augmentation, pre-populating polarity insights, holding human judgment in the loop.
+- Upload notes from early CL AI stock-taking name accelerationist vs alarmist tension and the need for ethical, human-centered integration.
 
 **Conflicting perspectives**
-- **Accelerationist vs alarmist** readings of the same moment (Taking Stock of AI at CL - 2).
-- **Demonstrate before convincing** skeptics vs urgency to declare a public stance.
-- Creative / innovative language vs sounding “conservative” or generationally dated (Day 3 principles).
+- Augment coaching vs protect the relational core.
+- Move fast on AI experiments vs scan every service line for fit with CL values.
+- Optimism about augmentation vs deficit-of-trust with clients when AI touches deliverables.
 
 **Key quotes**
-> “There’s an emphasis on the necessity for clarity in guiding ethical AI use and developing a framework for human-centered AI integration within CL's practices.”  
-> — harvest brief · *Taking Stock of AI at CL - 2*
+> “In the coaching space, what if there was something that was designed with CL values, principles, et cetera, that actually was another coaching tool to use alongside our live coaches?”  
+> — a participant · *Client Implications Day 3* (Transcript)
 
-> “The authors emphasize the importance of understanding AI's implications, addressing staff anxieties, and ensuring moral considerations guide its applications.”  
-> — a participant · *8 steps nonprofits can take to adopt ai responsibly*
+> “I think just to scan across all our current services to say, is there a place for AI augmentation here?”  
+> — a participant · *Client Implications Day 3* (Transcript)
 
-> “Suggestions for a preamble are discussed, emphasizing AI's potential and the organization's cautious yet innovative stance on its use.”  
-> — harvest brief · *Day 3 principles discussion group*
+> “I feel that if there's something which is generated by AI, even partially I feel […] there is a deficit of trust.”  
+> — a participant · *Day 3 principles discussion group* (Transcript)
 
-**Sessions:** Taking Stock of AI at CL - 2, Day 3 principles discussion group, 8 steps nonprofits can take to adopt ai responsibly, conversation on global ai experiences, CLAI North America Relay, discussion on ai principles
+**Sessions:** Client Implications Day 3, Day 3 principles discussion group, Taking Stock of AI at CL - 2, CLAI CLANZ Relay, If CL were AI Native.... what principles etc?
 
 ---
 
 ## Organizational Overwhelm & "Ludicrousness"
 
 **Insights**
-- Client and regional relays surface **overwhelm, confusion, and chaos** as the lived texture of AI adoption — not only technical novelty.
-- ANZ market notes name the pattern of **rapid informal adoption outpacing governance**, and of mandates without trust.
-- Cambridge breakouts compared AI’s amorphous impact to past crises (e.g. financial crisis): urgency without a shared map.
-- Engagement vs disengagement appears as an emotional oscillation: people want to lean in and also shy away.
+- Relay and breakout transcripts carry **overwhelm and confusion** as lived experience — not just strategic abstraction.
+- Cynefin/client-needs conversations name cultural difficulty (e.g. regional hesitation) and the gap between AI hype and grounded client work.
+- Breakout skepticism about “discernment” as buzzword vs real practice suggests **organizational ludicrousness**: mandated language without shared meaning.
 
 **Conflicting perspectives**
-- **Experimentation vs governance** — move fast with tools vs wait for frameworks (*AI in ANZ*).
-- **Hope vs anxiety** / **engagement vs disengagement** in regional relays.
-- Client-focus clarity vs personal overwhelm when professionals cannot locate their own footing first.
+- AI as augment for learning vs “maybe that's just a load of crap” (breakout skepticism).
+- Client-first clarity vs practitioners' own disorientation in the room.
+- Go-to-market excitement vs “we're terrible” at talking about this (regional candor).
 
 **Key quotes**
-> “Concerns about the overwhelming impacts of AI, categorized as chaotic and amorphous, mirroring past crises.”  
-> — harvest brief · *Day 1 PM breakouts: key themes_Cambridge*
+> “There's this whole conversation about discernment and other stuff and maybe that's just a load of crap.”  
+> — a participant · *Day 1 PM breakouts: key themes_Cambridge* (Transcript)
 
-> “Rapid informal adoption of AI outpaces the establishment of governance frameworks.”  
-> — harvest brief · *AI in ANZ – market and segment dive*
+> “And then culturally, like New Zealanders, we're terrible.”  
+> — a participant · *discussion on AI and client needs* (Transcript)
 
-> “Participants oscillate between wanting to engage with AI and the impulse to shy away from its implications.”  
-> — harvest brief · *CLAI CLANZ Relay*
+> “Oh, I'm really interested in the go-to-market, because this feels like such a big opportunity for us.”  
+> — a participant · *CLAI CLANZ Relay* (Transcript)
 
-**Sessions:** discussion on AI and client needs, CLAI CLANZ Relay, conversation on global ai experiences, AI in ANZ – market and segment dive, CLAI North America Relay, Day 1 PM breakouts: key themes_Cambridge
+**Sessions:** discussion on AI and client needs, Day 1 PM breakouts: key themes_Cambridge, CLAI CLANZ Relay, conversation on global ai experiences
 
 ---
 
 ## The Expertise Paradox
 
 **Insights**
-- Cambridge breakouts named the hinge explicitly: **senior vs junior roles**, talent retention, and the need for **new apprenticeship models** as traditional roles evolve under AI.
-- Coaching/AI relays add a related demand: people operating agentic AI need **complex mindsets that can anticipate AI-generated errors** — expertise to evaluate outputs becomes more valuable just as pipelines that grow it feel threatened.
-- Leadership is asked to **mourn established practices** before embracing new paradigms — expertise is emotional as well as technical.
+- “If CL were AI Native” conversation names **verification labor tripling** and the need to “build expertise” while AI handles surface tasks.
+- Cambridge synthesis transcripts explicitly discuss **apprenticeship**, talent development, and how AI extends experts vs helps juniors grow — or removes the tasks that build expertise.
+- Craft and relationships are named as CL’s distinguishing assets in a “time for craft” framing.
 
 **Conflicting perspectives**
-- Protecting craft / junior pathways vs efficiency narratives that cut entry-level and L&D capacity (named as tension more than resolved).
-- Repurposing old tools vs inventing new frameworks for an AI context.
+- AI extends expertise vs “productivity without prosperity, execution without verification.”
+- Repurpose existing tools vs invent new frameworks for agentic AI.
+- Expert augmentation vs junior pathway erosion.
 
 **Key quotes**
-> “Need for a conversation about new apprenticeship models as traditional roles evolve in the face of AI.”  
-> — harvest brief · *Day 1 PM breakouts: key themes_Cambridge*
+> “I would also want it to help me build expertise.”  
+> — a participant · *If CL were AI Native.... what principles etc?* (Transcript)
 
-> “The necessity for experts in AI to cultivate a complex mindset that can anticipate the potential mistakes of agentic AI.”  
-> — harvest brief · *discussion about ai and coaching*
+> “I think you already have to assume that the amount of labor required to verify what you're hearing and seeing is triple.”  
+> — a participant · *If CL were AI Native.... what principles etc?* (Transcript)
 
-> “Questions raised regarding the role of expertise and talent retention in an era increasingly dominated by AI technologies.”  
-> — harvest brief · *Day 1 PM breakouts: key themes_Cambridge*
+> “Productivity without prosperity, execution without verification, capacity without constraint are the downsides of not attending to…”  
+> — a participant · *Day 1 Synthesis_Cambridge* (Transcript)
 
-**Sessions:** Day 1 PM breakouts: key themes_Cambridge, discussion about ai and coaching
+**Sessions:** If CL were AI Native.... what principles etc?, Day 1 Synthesis_Cambridge, Day 1 PM breakouts: key themes_Cambridge, Day 3 principles discussion group
 
 ---
 
 ## Workplace Grief
 
 **Insights**
-- India/MENA coaching dialogue named a **“grieving process”** around loss of traditional roles (including coaching) and the evolution of tools and identity.
-- Cambridge language of leaders needing to **“mourn” established practices** rhymes with organizer “death-doula” framing even where that phrase did not yet travel.
-- Grief shows up as **ambiguous**: optimism and concern in the same breath; identity unsettled without a clear funeral for the old role.
+- Cambridge breakouts name **death doulas for disappearing roles** — helping people through “the messy middle” and “midwife what comes next.”
+- Grief is linked to **closure**: “do closure well and say goodbye,” “killing the darlings,” ending funding relationships well.
+- Afternoon client-response session echoes the same language — grief for role, change, and what organizations must let go.
 
 **Conflicting perspectives**
-- **Identity vs transformation** — who am I if the craft changes?
-- **Optimism vs uncertainty** about whether human coaching/leadership remains central.
-- Automate analytical work vs protect the relational core that grief says we are losing.
+- Honor endings vs rush to the next AI-enabled initiative.
+- Individual role grief vs organizational refusal to name what's ending.
+- Metaphor of midwife/doula vs discomfort with “soft” process language in client contexts.
 
 **Key quotes**
-> “The idea of a ‘grieving process’ surrounding the potential loss of traditional roles (e.g., coaching) in the face of AI's growing capabilities.”  
-> — harvest brief · *discussion about ai and coaching*
+> “I think we need death doulas for the roles that are disappearing as we help walk them through the messy middle and midwife what comes next.”  
+> — a participant · *Day 1 PM breakouts: key themes_Cambridge* (Transcript)
 
-> “Discussion regarding the need for leadership to ‘mourn’ established practices before embracing the future.”  
-> — harvest brief · *Day 1 PM breakouts: key themes_Cambridge*
+> “I think it's about helping organizations say like, do closure well and say goodbye.”  
+> — a participant · *What can we do for our clients? Afternoon response to morning session* (Transcript)
 
-> “What does it mean for our clients to undergo a ‘grieving process’ regarding the evolution of tools and their own identities?”  
-> — key question · *discussion about ai and coaching*
+> “How do we help them through the process of change or grieving their role or whatever it is that they need to do to be able to move forward?”  
+> — a participant · *Day 1 PM breakouts: key themes_Cambridge* (Transcript)
 
-**Sessions:** discussion about ai and coaching, Day 1 PM breakouts: key themes_Cambridge, CLAI North America Relay
+**Sessions:** Day 1 PM breakouts: key themes_Cambridge, What can we do for our clients? Afternoon response to morning session, CLAI Relay- India/MENA/Europe AM
 
 ---
 
 ## The "Workslop" Economy & Discernment
 
 **Insights**
-- Principles dialogue centers **human discernment and judgment** under pressure from AI-generated content — including misclassification of human work as “AI.”
-- Client-needs / Cynefin conversations treat **clarity vs confusion** and signal-finding as leadership work in the middle of noisy AI output.
-- The organizer “discernment tax” idea is present as experience (cognitive load, authenticity checks) more than as a coined phrase in the harvest.
+- Breakout skepticism about “discernment” as organizational wallpaper — the **discernment tax** shows up as cynicism when the word outruns practice.
+- Principles and client conversations tie **trust deficits** to partially or fully AI-generated client-facing material.
+- Verification labor (expertise theme) rhymes with workslop: more output, more to judge.
 
 **Conflicting perspectives**
-- Static principles vs dynamic review when recognition systems keep shifting.
-- Human cognition vs AI processing as competing authorities over what counts as legitimate work.
-- Client demand for simple answers vs the discernment load those answers hide.
+- Discernment as essential capacity vs “load of crap” buzzword.
+- Transparency about AI use vs client trust erosion.
+- More AI-generated drafts vs fewer people with time to read carefully.
 
 **Key quotes**
-> “The dialogue touches on various challenges and nuances related to AI's impact, including concerns about how AI influences human discernment and recognition in competitive contexts.”  
-> — harvest brief · *discussion on ai principles*
+> “There's this whole conversation about discernment and other stuff and maybe that's just a load of crap.”  
+> — a participant · *Day 1 PM breakouts: key themes_Cambridge* (Transcript)
 
-> “Highlighting the dangers of AI misclassification, exemplified by a personal anecdote about a participant's daughter facing rejection due to AI tools mistakenly categorizing her human-written work as AI-generated.”  
-> — harvest brief · *discussion on ai principles*
+> “I feel that if there's something which is generated by AI, even partially […] there is a deficit of trust.”  
+> — a participant · *Day 3 principles discussion group* (Transcript)
 
-> “The conflicting expectations of AI's role in judgment and recognition against the natural human limitation of discernment.”  
-> — harvest brief · *discussion on ai principles*
+> “I think you already have to assume that the amount of labor required to verify what you're hearing and seeing is triple.”  
+> — a participant · *If CL were AI Native.... what principles etc?* (Transcript)
 
-**Sessions:** discussion on ai principles, discussion on AI and client needs
+**Sessions:** Day 1 PM breakouts: key themes_Cambridge, Day 3 principles discussion group, If CL were AI Native.... what principles etc?, Client Implications Day 3
 
 ---
 
 ## Internal AI Infrastructure & Data Sovereignty
 
 **Insights**
-- *AI Transformation & Culture* is the spine: **Camp CLAI**, **CL Commons**, **Clara**, and a **data AI policy** with sovereignty concerns (including EU clients / US storage).
-- Global relays make **data sovereignty** a traveling phrase — Indigenous data rights (NZ), Digi ID / governmental control (NL), corporate concentration (US).
-- Architecture talk is concrete: intake, breakout recording, real-time sensemaking, harvest views, question maps — a consolidated platform amid tool sprawl.
-- Tiered policy for “super users” vs general colleagues appears as a practical sovereignty/governance move.
+- CL AI app rules upload names **recording/transcription risk** and data-leak guardrails for LLM tools.
+- Regional relay uploads and transcripts foreground **data sovereignty** (Indigenous data, governmental control, US-hosted tools).
+- Live relays describe uploading harvest to CLara and building shared infrastructure — experimental “data lake” energy without calling it that every time.
 
 **Conflicting perspectives**
-- Deep investment / “no-brainer” vs internal skepticism that needs demonstration first.
-- US-hosted tooling vs European client sovereignty requirements.
-- AI as primary interface vs tools that **enable live human conversation**.
+- Consolidate on CLara/Commons vs tool sprawl (“cambrian explosion” named once).
+- US-hosted convenience vs regional sovereignty requirements.
+- Capture everything for harvest vs minimize sensitive data in apps.
 
 **Key quotes**
-> “Key initiatives discussed were ‘Camp CLAI,’ the ‘CL Commons’ knowledge base, and the creation of a comprehensive AI data policy.”  
-> — harvest brief · *AI Transformation & Culture*
+> “Recording and transcription services / Apps and AI Large Language Models (LLMs) are at high risk of personal data and sensitive data leaks.”  
+> — *Rules and Guidelines for use of AI Apps* (Upload)
 
-> “How to manage data sovereignty for European clients with tools storing data in the US.”  
-> — open question · *AI Transformation & Culture*
+> “America submitted everything on to Clara, and once we are done, we're going to upload everything on to Clara.”  
+> — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
-> “Strong focus on issues of data sovereignty, particularly concerning Indigenous people's data and rights.”  
-> — harvest brief · *conversation on global ai experiences*
+> “When and how does AI help us be more embodied?”  
+> — a participant · *CLAI North America Relay* (Transcript) *(infrastructure vs human pace)*
 
-**Sessions:** AI Transformation & Culture, AI in ANZ – market and segment dive, conversation on global ai experiences, CLAI North America Relay, CLAI Relay- India/MENA/Europe AM, CL's AI Policy
+**Sessions:** Rules and Guidelines for use of AI Apps, CLAI Relay- India/MENA/Europe AM, CLAI North America Relay, conversation on global ai experiences, Regional Perspectives on AI
 
 ---
 
 ## Leadership & Sensemaking in the AI Era
 
 **Insights**
-- **Cynefin** is an explicit bridge: diagnose client situations and tailor AI responses without collapsing complexity into false simplicity (*Applying Cynefin for our clients and AI*; client-needs dialogues).
-- Leadership development is reframed: evolved skills, systemic awareness, holding pace without reactionary decisions (Cambridge).
-- Coaching relays emphasize **emotional regulation, presence, and complex mindsets** as leadership capacities AI does not replace.
-- Regional relays keep returning to **human engagement vs technological reliance** as the living polarity.
+- *How To Talk To Clients About AI* and India/MENA relay name **complexity, uncertainty, and Cynefin-adjacent sensemaking** — “we know more than we can say.”
+- Leaders are asked to **hold space for fear** and experimentation simultaneously.
+- AI is described as **amplifying complexity without naming it** — a leadership container problem, not only a tech problem.
+- **Mind traps** recur as shared vocabulary in client-facing conversations.
 
 **Conflicting perspectives**
-- Embed Cynefin deeply vs keep it light so clients are not overwhelmed.
-- Urgency to respond vs thoughtful long-term consequence (Cambridge).
-- New frameworks vs “our existing tools are enough if reimagined.”
+- Name complexity vs simplify for anxious clients.
+- Encourage experimentation vs protect cautious users “not completely sold on the hype.”
+- Embodiment/slowness vs AI’s pull toward speed and verbal cognition.
 
 **Key quotes**
-> “The desire to leverage the Cynefin framework to navigate complex client needs and enhance decision-making in the context of AI.”  
-> — harvest brief · *Applying Cynefin for our clients and AI*
+> “It almost feels like people are uncomfortable with uncertainty, uncomfortable with complexity.”  
+> — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
-> “An identified necessity for evolved leadership skills different from traditional paradigms.”  
-> — harvest brief · *Day 1 PM breakouts: key themes_Cambridge*
+> “I think holding space for that — even letting people speak up their fears.”  
+> — a participant · *How To Talk To Clients About AI* (Transcript)
 
-> “Discussions suggest that AI should enhance human capability rather than replace it, reaffirming the importance of human connection in coaching and leadership.”  
-> — harvest brief · *discussion about ai and coaching*
+> “What AI is doing is it is amplifying that experience of complexity without the naming that that's what it is.”  
+> — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
-**Sessions:** Applying Cynefin for our clients and AI, discussion about ai and coaching, AI in ANZ – market and segment dive, Client Implications Day 3, CLAI North America Relay, Day 1 PM breakouts: key themes_Cambridge
+**Sessions:** How To Talk To Clients About AI, CLAI Relay- India/MENA/Europe AM, Client Implications Day 3, CLAI North America Relay, discussion on AI and client needs
 
 ---
 
 ## The Future of Coaching & Coaching Bots
 
 **Insights**
-- Coaching identity is under active renegotiation: what remains uniquely human when AI can draft, analyze, and even “coach-like” respond.
-- Transformation & Culture links AI into **coaching programs, pricing, and value proposition** — not a side experiment.
-- Relays name emotional intelligence, physical presence, and regulation as the non-substitutable layer.
-- Organizer “weird luxury market” framing is adjacent but not yet a coined harvest catchphrase; the **tiered access** intuition appears in policy talk (super users vs general).
+- Client Implications transcript explicitly imagines **CL-values-aligned coaching tools alongside live coaches** — tiering, not replacement-only.
+- Stock-taking uploads and AI @ CL letter frame wandering-with-clients in uncertain terrain — coaching identity under pressure but still central.
+- Kinevan/workshop transcripts explore **productized AI workshop** offerings — coaching-adjacent, client-facing experiments.
 
 **Conflicting perspectives**
-- AI coaching for scale vs human coaching as premium / relational core.
-- Resist new tools vs redesign coaching around AI-augmented practice.
-- Fear of replacement vs curiosity about augmentation.
+- AI coaching tool as augment vs “deficit of trust” when AI touches client work.
+- Scale coaching-like support vs preserve premium human relationship.
+- Build new tools vs reuse craft-and-relationship differentiators.
 
 **Key quotes**
-> “Participants express their feelings of uncertainty and the evolving perception of their roles as coaches in light of AI's capabilities.”  
-> — harvest brief · *discussion about ai and coaching*
+> “What if there was something that was designed with CL values, principles, et cetera, that actually was another coaching tool to use alongside our live coaches?”  
+> — a participant · *Client Implications Day 3* (Transcript)
 
-> “How do we redefine our identity as coaches in a world where AI could potentially outperform traditional coaching functions?”  
-> — key question · *discussion about ai and coaching*
+> “We are, I think, in such a wood now, wandering along with our clients.”  
+> — *AI @ CL Letter - 13 May 2026* (Upload)
 
-> “The need to integrate AI across CL's product and service suite, including coaching programs, considering its impact on pricing and value proposition.”  
-> — harvest brief · *AI Transformation & Culture*
+> “We're just talking about using Kinevan, like building a little product that is the Kinevan AI workshop.”  
+> — a participant · *kinevan ai workshop development* (Transcript)
 
-**Sessions:** discussion about ai and coaching, AI Transformation & Culture, Taking Stock of AI at CL - 2, CLAI North America Relay
+**Sessions:** Client Implications Day 3, Taking Stock of AI at CL - 2, AI @ CL Letter - 13 May 2026, kinevan ai workshop development
 
 ---
 
 ## How AI might support CL
 
 **Insights**
-- Concrete bets already in motion: **Camp CLAI**, **CL Commons**, **Clara / CLara**, harvest + Ask-style query, data policy, partnering for cultural training (e.g. La Vida Collective named).
-- Strategy of **demonstrate before convincing** internal skeptics.
-- Cynefin + client work as a productizable lens for AI-era consulting.
-- Live demo lineage from festival harvest tooling → Camp CLAI architecture (async learning, session management, knowledge synthesis).
+- Relays treat **CLara as harvest infrastructure** — submit, upload, sense-make across sessions.
+- Opening uploads and CLAI conversations link AI to **CL’s core practice** (questions, gardener metaphor, client experiments).
+- Client Implications surfaces **concrete experiments people could sign up for** — AI support as programmatic, not only tool adoption.
 
 **Conflicting perspectives**
-- Build internal platform depth vs buy/adapt external stacks.
-- AI as culture carrier / agentic teammate vs fear it becomes the primary interface.
-- Contracted large initiative vs organic colleague experimentation.
+- Build internal platform depth vs move fast on client GTM experiments.
+- CLara as container for live conversation vs becoming the primary interface.
+- Demonstrate internally before scaling client offers.
 
 **Key quotes**
-> “Clara was introduced as a tool in development for intake, replacing surveys, recording breakout room dialogues, and real-time sense-making.”  
-> — harvest brief · *AI Transformation & Culture*
+> “And once we are done, we're going to upload everything on to Clara.”  
+> — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
-> “Focus on demonstrating AI's value internally before broader convincing efforts.”  
-> — decision · *AI Transformation & Culture*
+> “In terms of what I hope we walk away with is some themes or experiments that people could literally sign up for.”  
+> — a participant · *Client Implications Day 3* (Transcript)
 
-> “How to ensure the AI tools enable live, human conversation rather than becoming a primary interface.”  
-> — open question · *AI Transformation & Culture*
+> “And I like this one because it asks questions that I think are deeply relevant.”  
+> — a participant · *additional notes from CLai opening* (Upload)
 
-**Sessions:** AI Transformation & Culture, Applying Cynefin for our clients and AI, discussion about ai and coaching, CLAI North America Relay, CL's AI Policy
+**Sessions:** CLAI Relay- India/MENA/Europe AM, Client Implications Day 3, CLAI CLANZ Relay, CLAI North America Relay, additional notes from CLai opening
 
 ---
 
 ## Risks and Fears and how they may be addressed
 
 **Insights**
-- Regional relays hold **excitement and anxiety in the same room**; nonprofit guidance lists job fears, bias, and concrete harm cases.
-- Day 3 names **erosion of trust** if AI use in client work is opaque.
-- Addressing moves that appear: open talk about job evolution, guidelines/boundaries, preamble/stance language, demonstrate-before-convince, data policy, human oversight.
-- Growth frame: collective conversation today shapes societal impact tomorrow (Taking Stock).
+- Relays hold **fear and excitement together**; *How To Talk To Clients About AI* explicitly makes room to “speak up fears.”
+- Trust deficit when AI touches client deliverables is a recurring risk named in principles discussion.
+- Development-stage framing (*AI seduction by stages*) links adult development to how people meet AI hype and harm.
 
 **Conflicting perspectives**
-- Name risks clearly vs avoid sounding alarmist / “old.”
-- Safety guardrails vs permission to experiment.
-- Individual coping vs collective organizational container for fear.
+- Name fears clearly vs keep client conversations “useful” and forward-looking.
+- Transparency about AI vs vulnerability in trusted relationships.
+- Cautious users vs accelerationist colleagues inside CL.
 
 **Key quotes**
-> “Many participants express both the thrill of potential AI offers and the fear of its consequences and misuse.”  
-> — harvest brief · *CLAI Relay- India/MENA/Europe AM*
+> “I think holding space for that — even letting people speak up their fears.”  
+> — a participant · *How To Talk To Clients About AI* (Transcript)
 
-> “Employees worry about AI replacing their roles, which affects organizational morale and stability.”  
-> — harvest brief · *8 steps nonprofits can take to adopt ai responsibly*
+> “If I'm a user of AI and not a producer of AI, and I'm also not completely sold on the hype…”  
+> — a participant · *How To Talk To Clients About AI* (Transcript)
 
-> “The potential risks of AI eroding trust in professional relationships.”  
-> — harvest brief · *Day 3 principles discussion group*
+> “I feel that if there's something which is generated by AI, even partially […] there is a deficit of trust.”  
+> — a participant · *Day 3 principles discussion group* (Transcript)
 
-**Sessions:** CLAI Relay- India/MENA/Europe AM, 8 steps nonprofits can take to adopt ai responsibly, CLAI CLANZ Relay, discussion about ai and coaching, Day 3 principles discussion group, Taking Stock of AI at CL - 2
+**Sessions:** How To Talk To Clients About AI, CLAI Relay- India/MENA/Europe AM, Day 3 principles discussion group, AI seduction by stages of Adult development, CLAI CLANZ Relay
 
 ---
 
 ## Meta: How did we speak with each other?
 
 **Insights**
-- Relays show a recurring **balcony pattern**: curiosity mixed with apprehension; humor; silence for processing; supportive atmosphere when fears are spoken (*discussion about ai and coaching*).
-- Cross-session weaving is real but incomplete: Camp CLAI / Commons / Clara ideas travel from strategy sessions into relays; Cynefin and principles recur as shared grammar.
-- Hard-to-say topics: **job loss and identity grief**, **generational “oldness”**, **trust erosion with clients**, **sovereignty tradeoffs** — often approached sideways then named.
-- Learning over time shows up as insistence on **ongoing conversation** (not a single camp) and living principles.
+- Opening check-ins and relays mix **poetry, humor, technical difficulty, and candid fear** — meta-pattern of “messy but real” conversation.
+- Ideas **weave across sessions** (CLara upload, death doula, mind traps, complexity) but incompletely — no single closure artifact.
+- Hard to say aloud: **trust deficits, role grief, regional shame/hesitation**, and skepticism toward buzzwords like discernment.
+- India/MENA relay names uploading to CLara as both **process metaphor and actual practice**.
 
 **Conflicting perspectives**
-- Client-first talk vs needing space for practitioners’ own overwhelm first.
-- Facilitation that opens fear vs facilitation that keeps energy “useful” and upbeat.
-- Global comparison (many regions) vs local specificity that resists generalization.
+- Client-first framing vs needing space for CL’s own overwhelm first.
+- Keep energy upbeat vs stay with grief/endings language.
+- Global comparison vs local specificity.
 
 **Key quotes**
-> “The sharing of fears and uncertainties fosters a supportive atmosphere that emphasizes collaboration and understanding.”  
-> — balcony · *discussion about ai and coaching*
+> “Did I do that?” *(opening laughter / checking the room)*  
+> — a participant · *Client Implications Day 3* (Transcript)
 
-> “Emphasis on the necessity for ongoing, profound conversations regarding AI principles rather than one-off events like an annual camp.”  
-> — harvest brief · *discussion on ai principles*
+> “Continue with my, I think, I think it's working.”  
+> — a participant · *CLAI CLANZ Relay* (Transcript)
 
-> “The notion of collective conversation emerges as vital, suggesting that how we engage with AI today will shape its societal impact tomorrow.”  
-> — harvest brief · *Taking Stock of AI at CL - 2*
+> “America submitted everything on to Clara…”  
+> — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
-**Sessions:** CLAI Relay- India/MENA/Europe AM, discussion on AI and client needs, CLAI North America Relay, CLAI CLANZ Relay, Client Implications Day 3, discussion on ai principles, discussion about ai and coaching
+**Sessions:** Client Implications Day 3, CLAI CLANZ Relay, Camp CLai opening & check-in A, CLAI Relay- India/MENA/Europe AM, How To Talk To Clients About AI
 
 ---
 
 ## Theme map
 
-Scroll to the interactive map below (or open Full screen) for a **preliminary** relational view of these themes — click a node for insights, tensions, and quotes.
+Scroll to the interactive map below (or open Full screen) for a **preliminary** relational view of these themes — click a node for insights, tensions, and quotes from **source materials only**.

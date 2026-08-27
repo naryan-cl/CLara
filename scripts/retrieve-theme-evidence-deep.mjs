@@ -147,14 +147,10 @@ function main() {
 
     for (const ext of extractions) {
       const summaryBlob = [
-        ext.what_emerged,
-        ext.key_insights,
-        ext.brief_summary,
-        ext.highlights,
-        ext.tensions,
-        ext.meta,
+        ext.source_text,
         ext.full_summary,
         ...(ext.reflection_signals?.takeaways ?? []),
+        ...(ext.reflection_signals?.bodies ?? []),
       ].join("\n\n");
 
       const transcript = loadTranscript(ext.event_id);
@@ -195,7 +191,7 @@ function main() {
 
   writeJson(path.join(workDir, "theme-evidence-deep.json"), {
     generated_at: new Date().toISOString(),
-    source: "summaries+reflections+transcripts",
+    source: "source-only: Transcript + Reflection + Note + deep transcripts (no harvest briefs)",
     themes: results,
     catchphrases,
   });
