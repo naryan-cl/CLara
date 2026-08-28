@@ -335,11 +335,10 @@ export const MAP_BUILD_STEPS: MapBuildStep[] = [
   },
 ];
 
-/** Softer layout tuned for anchor-floating synthesis map. */
+/** Layout starting point — same defaults as Knowledge Map. */
 export const SYNTHESIS_MAP_LAYOUT = {
-  chargeStrength: -140,
-  linkDistance: 108,
-  linkStrength: 0.38,
-  collidePadding: 10,
-  anchorStrength: 0.055,
+  chargeStrength: -260,
+  linkDistance: 140,
+  linkStrength: 0.25,
+  collidePadding: 14,
 };
