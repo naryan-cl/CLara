@@ -2,13 +2,13 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import { GenerativeSystemMap as GenerativeSystemMapView } from "@/components/synthesis/GenerativeSystemMap";
 
 const MAP_SENTINEL = "<!-- synthesis-map -->";
 
 type PreliminarySynthesisProps = {
   markdown: string;
   isDraftPreview?: boolean;
-  mapSrc?: string;
 };
 
 type HeadingTone = {
@@ -92,13 +92,7 @@ function splitMarkdownAtMap(markdown: string): { beforeMap: string; afterMap: st
   return { beforeMap, afterMap };
 }
 
-function GenerativeSystemMap({
-  mapSrc,
-  titleId,
-}: {
-  mapSrc: string;
-  titleId: string;
-}) {
+function GenerativeSystemMapSection({ titleId }: { titleId: string }) {
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
 
   useEffect(() => {
@@ -178,13 +172,11 @@ function GenerativeSystemMap({
             </button>
           </div>
         ) : null}
-        <iframe
-          title="Generative system map"
-          src={mapSrc}
+        <GenerativeSystemMapView
           className={
             isMapFullscreen
-              ? "h-[calc(100vh-3.5rem)] w-full rounded-lg border border-cloud bg-paper"
-              : "h-[min(75vh,720px)] w-full border-0"
+              ? "flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden rounded-lg border border-cloud bg-paper"
+              : undefined
           }
         />
       </div>
@@ -195,7 +187,6 @@ function GenerativeSystemMap({
 export function PreliminarySynthesis({
   markdown,
   isDraftPreview,
-  mapSrc = "/synthesis/map.html?embed=1",
 }: PreliminarySynthesisProps) {
   const mapTitleId = useId();
   const { beforeMap, afterMap } = splitMarkdownAtMap(markdown);
@@ -365,7 +356,7 @@ export function PreliminarySynthesis({
       </article>
 
       {hasMapSplit ? (
-        <GenerativeSystemMap mapSrc={mapSrc} titleId={mapTitleId} />
+        <GenerativeSystemMapSection titleId={mapTitleId} />
       ) : null}
 
       {afterMap ? (
