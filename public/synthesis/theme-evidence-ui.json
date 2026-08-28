@@ -28,11 +28,6 @@
         "text": "We need to have more sophisticated conversations on AI with clients… every case study is a brief for five other clients.",
         "session": "Client Implications Day 3",
         "note": "Transcript"
-      },
-      {
-        "text": "What is our obligation to support the conversation that stretches in between the stuff right in front of our face and the 10-year thing?",
-        "session": "client needs - themes/patterns",
-        "note": "Upload"
       }
     ]
   },
@@ -65,11 +60,6 @@
         "text": "I don't think it's CL's expertise to be bytecoding and to be coding stuff… what makes CL special isn't stuff that we've just spent the last few hours talking about.",
         "session": "CLara feedback",
         "note": "Upload"
-      },
-      {
-        "text": "Productivity without prosperity, execution without verification, capacity without constraint are the downsides of not attending to…",
-        "session": "Day 1 Synthesis_Cambridge",
-        "note": "Transcript"
       }
     ]
   },
@@ -102,54 +92,12 @@
         "text": "I think one of the reasons why I was overwhelmed by all of this is that there are many different perspectives and role within CL.",
         "session": "CLAI North America Relay",
         "note": "Transcript"
-      },
-      {
-        "text": "I would also want it to help me build expertise.",
-        "session": "If CL were AI Native.... what principles etc?",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "build-own-tools": {
-    "title": "Build our own tools",
-    "narrative": "At the intersection of human and AI expertise, CL can build tools only we can build — for ourselves and for clients. Camp surfaced 10–20 internal tools already; some become client offerings that deepen our value.",
-    "sessions": [
-      "Client Implications Day 3",
-      "client-facing ideas and experiments",
-      "kinevan ai workshop development",
-      "CLara feedback"
-    ],
-    "insights": [
-      "CL-values coaching tool alongside live coaches imagined explicitly in client implications.",
-      "Productized workshop experiments (e.g. Kinevan) to test with ourselves and clients.",
-      "Tools at the intersection of CL practice and AI lens on familiar frameworks."
-    ],
-    "conflicts": [
-      "Build bespoke vs buy off-the-shelf.",
-      "Fall in love with tools vs focus on client need.",
-      "Scale internal experiments vs maintain craft quality."
-    ],
-    "quotes": [
-      {
-        "text": "What if there was something designed with CL values, principles, that was another coaching tool to use alongside our live coaches?",
-        "session": "Client Implications Day 3",
-        "note": "Transcript"
-      },
-      {
-        "text": "Building a little product that is the Kinevan AI workshop… test that with ourselves and with some clients.",
-        "session": "client-facing ideas and experiments",
-        "note": "Upload"
-      },
-      {
-        "text": "I wasn't really sure why we needed it and if we need to build our own. I think sometimes we fall in love with tools rather than just buy the thing.",
-        "session": "CLara feedback",
-        "note": "Upload"
       }
     ]
   },
   "culture-language": {
     "title": "Building our own culture & language of AI expertise",
-    "narrative": "The AI Pedal aims to help CL build shared culture and language — competency through experimentation, learning together across differences without othering or judging, generating trust and intimacy in the challenge of AI transformation.",
+    "narrative": "The AI Petal aims to help CL build shared culture and language — competency through experimentation, learning together across differences without othering or judging, generating trust and intimacy in the challenge of AI transformation.",
     "sessions": [
       "Camp CLai opening & check-in A",
       "CLAI North America Relay",
@@ -169,11 +117,6 @@
     "quotes": [
       {
         "text": "For those of you that find this overwhelming, like me, read whatever calls to you… don't feel like you need to read and digest it all.",
-        "session": "CLAI North America Relay",
-        "note": "Transcript"
-      },
-      {
-        "text": "Getting usefulness somewhere is, somewhere accessible by many probably outweighs the overwhelm.",
         "session": "CLAI North America Relay",
         "note": "Transcript"
       },
@@ -210,11 +153,6 @@
         "note": "Transcript"
       },
       {
-        "text": "If I'm a user of AI and not a producer of AI, and I'm also not completely sold on the hype…",
-        "session": "How To Talk To Clients About AI",
-        "note": "Transcript"
-      },
-      {
         "text": "We need death doulas for the roles that are disappearing… walk them through the messy middle and midwife what comes next.",
         "session": "Day 1 PM breakouts: key themes_Cambridge",
         "note": "Transcript"
@@ -247,11 +185,6 @@
         "note": "Upload"
       },
       {
-        "text": "Sovereignty particularly matters for Indigenous people… traditional knowledge… being put into data centers.",
-        "session": "Regional Perspectives on AI",
-        "note": "Upload"
-      },
-      {
         "text": "We came up with, like four programs for non-exec directors… governing AI. Not the know-how to write risk policies, but kind of what they need to know.",
         "session": "what can we do for our clients? afternoon response to morning",
         "note": "Upload"
@@ -260,22 +193,23 @@
   },
   "tech-infrastructure": {
     "title": "Tech infrastructure",
-    "narrative": "Building bespoke technology like CLara supports our learning journey and augments the feedback loop in ways we couldn't when we couldn't build our own tech. Consolidation amid tool sprawl is both opportunity and risk.",
+    "narrative": "Building bespoke technology like CLara supports our learning journey and augments the feedback loop. At the intersection of human and AI expertise, CL can build tools only we can build — for ourselves and for clients. Camp surfaced many internal tools already; consolidation amid tool sprawl is both opportunity and risk.",
     "sessions": [
       "CLara feedback",
       "CLAI Relay- India/MENA/Europe AM",
-      "Rules and Guidelines for use of AI Apps",
-      "CLAI North America Relay"
+      "Client Implications Day 3",
+      "client-facing ideas and experiments",
+      "kinevan ai workshop development"
     ],
     "insights": [
       "CLara enables simultaneous shared access to transcripts and harvest data.",
-      "Tool sprawl ('cambrian explosion') vs possible consolidation point.",
-      "Regional relays use CLara as upload/harvest infrastructure."
+      "CL-values tools alongside live coaches imagined as client offerings.",
+      "Tool sprawl vs possible consolidation — tools that support clients flow from this layer."
     ],
     "conflicts": [
       "Consolidate on CLara vs distributed tool ecosystem.",
-      "Platform depth vs client go-to-market speed.",
-      "Capture for harvest vs minimize sensitive data exposure."
+      "Build bespoke vs buy off-the-shelf.",
+      "Platform depth vs client go-to-market speed."
     ],
     "quotes": [
       {
@@ -284,13 +218,13 @@
         "note": "Upload"
       },
       {
-        "text": "America submitted everything on to Clara, and once we are done, we're going to upload everything on to Clara.",
-        "session": "CLAI Relay- India/MENA/Europe AM",
+        "text": "What if there was something designed with CL values, principles, that was another coaching tool to use alongside our live coaches?",
+        "session": "Client Implications Day 3",
         "note": "Transcript"
       },
       {
-        "text": "The possibility set is that we have so many distributed tools… is there a possible point of consolidation… Even all our world calls.",
-        "session": "CLara feedback",
+        "text": "Building a little product that is the Kinevan AI workshop… test that with ourselves and with some clients.",
+        "session": "client-facing ideas and experiments",
         "note": "Upload"
       }
     ]
@@ -322,11 +256,6 @@
       {
         "text": "Can we list some places where we can trust AI to actually help us become more efficient with the work that we already do?",
         "session": "Client Implications Day 3",
-        "note": "Transcript"
-      },
-      {
-        "text": "How do we best facilitate integration with the tools and practices we have at our disposal?",
-        "session": "discussion on AI and client needs",
         "note": "Transcript"
       }
     ]

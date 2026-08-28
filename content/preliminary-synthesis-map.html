@@ -11,7 +11,6 @@
     :root {
       --ink: #1c2a2e;
       --forest: #2e4b45;
-      --forest-deep: #1a2e2a;
       --sage: #7fa093;
       --horizon: #3e6e8e;
       --glow: #8fd6c4;
@@ -20,10 +19,7 @@
       --paper: #fbf9f5;
       --cloud: #e7e1d6;
       --muted: color-mix(in srgb, var(--ink) 55%, transparent);
-      --node: #d8ead8;
-      --node-stroke: #6b9a6b;
-      --edge: #5a5a5a;
-      --shadow: 0 4px 12px rgba(28, 42, 46, 0.12);
+      --edge: color-mix(in srgb, var(--forest) 65%, var(--ink));
       --font-heading: "Fraunces", Georgia, serif;
       --font-body: "Inter", system-ui, sans-serif;
       --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -36,13 +32,10 @@
       color: var(--ink);
       min-height: 100vh;
     }
-    body.embed {
-      min-height: 0;
-      background: var(--sand);
-    }
+    body.embed { min-height: 0; }
     header {
       padding: 1.25rem 1.5rem 0.5rem;
-      max-width: 1400px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     body.embed header { display: none; }
@@ -51,7 +44,6 @@
       font-size: clamp(1.5rem, 3vw, 2rem);
       font-weight: 500;
       margin: 0 0 0.35rem;
-      letter-spacing: -0.02em;
     }
     header p {
       margin: 0;
@@ -76,83 +68,90 @@
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
-      gap: 1rem;
-      max-width: 1400px;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 1rem 1.5rem 2rem;
+      padding: 0.75rem 1rem 1.5rem;
     }
     body.embed .layout {
       max-width: none;
-      padding: 0.75rem;
-      gap: 0.75rem;
-      min-height: calc(100vh - 0.5rem);
-    }
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
+      padding: 0.5rem;
+      gap: 0.65rem;
     }
     .canvas-wrap {
-      background: var(--paper);
+      background:
+        radial-gradient(ellipse at 50% 20%, rgba(143, 214, 196, 0.12) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, rgba(62, 110, 142, 0.08) 0%, transparent 45%),
+        var(--paper);
       border: 1px solid var(--cloud);
       border-radius: 12px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 8px 24px rgba(28, 42, 46, 0.06);
       overflow: hidden;
-      min-height: 520px;
+      min-height: 400px;
     }
-    body.embed .canvas-wrap { min-height: calc(100vh - 1.5rem); }
-    svg { width: 100%; height: auto; display: block; }
+    body.embed .canvas-wrap { min-height: 380px; }
+    svg { width: 100%; height: auto; display: block; touch-action: none; }
     .edge {
       stroke: var(--edge);
-      stroke-width: 2;
+      stroke-width: 2.25;
       fill: none;
       marker-end: url(#arrow);
+      transition: stroke 0.2s ease;
     }
-    .edge.bidirectional {
-      marker-start: url(#arrowStart);
-    }
+    .edge.bidirectional { marker-start: url(#arrowStart); }
     .edge.active {
       stroke: var(--horizon);
+      stroke-width: 2.75;
       marker-end: url(#arrowActive);
     }
-    .edge.active.bidirectional {
-      marker-start: url(#arrowActiveStart);
+    .edge.active.bidirectional { marker-start: url(#arrowActiveStart); }
+    .edge-label {
+      font-family: var(--font-body);
+      font-size: 10.5px;
+      font-style: italic;
+      fill: var(--muted);
+      pointer-events: none;
+      opacity: 0.85;
     }
-    .node {
-      cursor: pointer;
+    .edge-label.hidden { opacity: 0; }
+    .node { cursor: grab; }
+    .node.dragging { cursor: grabbing; }
+    .node .blob {
+      transition: filter 0.2s ease;
     }
-    .node rect {
-      fill: var(--node);
-      stroke: var(--node-stroke);
-      stroke-width: 1.5;
-      rx: 6;
-      filter: drop-shadow(0 2px 4px rgba(28, 42, 46, 0.1));
-      transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
-    }
-    .node:hover rect, .node.active rect {
-      fill: color-mix(in srgb, var(--glow) 35%, var(--node));
-      stroke: var(--forest);
-      filter: drop-shadow(0 4px 12px rgba(143, 214, 196, 0.4));
+    .node:hover .blob, .node.active .blob {
+      filter: drop-shadow(0 6px 16px rgba(46, 75, 69, 0.25));
     }
     .node text {
       font-family: var(--font-body);
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 600;
       fill: var(--ink);
       pointer-events: none;
+      text-anchor: middle;
+    }
+    .node.north-star text { font-size: 14px; }
+    .legend {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      fill: var(--muted);
     }
     .panel {
       background: var(--paper);
       border: 1px solid var(--cloud);
       border-radius: 12px;
-      box-shadow: var(--shadow);
-      padding: 1.1rem 1.15rem 1.35rem;
+      box-shadow: 0 8px 24px rgba(28, 42, 46, 0.06);
+      padding: 1.15rem 1.25rem 1.4rem;
       overflow: auto;
-      max-height: 720px;
+      max-height: 420px;
     }
-    body.embed .panel { max-height: calc(100vh - 1.5rem); }
+    body.embed .panel { max-height: 360px; }
     .panel h2 {
       font-family: var(--font-heading);
-      font-size: 1.35rem;
+      font-size: 1.4rem;
       font-weight: 500;
       margin: 0 0 0.35rem;
     }
@@ -166,32 +165,38 @@
     }
     .panel .narrative {
       margin: 0.5rem 0 0;
-      line-height: 1.55;
-      font-size: 0.93rem;
-      color: var(--ink);
+      line-height: 1.6;
+      font-size: 0.98rem;
     }
-    .panel h3 {
+    .panel details {
+      margin-top: 0.85rem;
+      border-top: 1px solid var(--cloud);
+      padding-top: 0.65rem;
+    }
+    .panel summary {
       font-family: var(--font-mono);
       font-size: 0.72rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--forest);
-      margin: 1rem 0 0.45rem;
+      cursor: pointer;
+      list-style: none;
     }
+    .panel summary::-webkit-details-marker { display: none; }
     .panel ul {
-      margin: 0;
+      margin: 0.45rem 0 0;
       padding-left: 1.1rem;
-      line-height: 1.45;
-      font-size: 0.92rem;
+      line-height: 1.5;
+      font-size: 0.94rem;
     }
     .panel blockquote {
       margin: 0.55rem 0;
-      padding: 0.55rem 0.75rem;
+      padding: 0.6rem 0.8rem;
       border-left: 3px solid var(--ember);
       background: color-mix(in srgb, var(--ember) 8%, var(--paper));
       border-radius: 0 8px 8px 0;
-      font-size: 0.9rem;
-      line-height: 1.45;
+      font-size: 0.94rem;
+      line-height: 1.5;
     }
     .panel .session {
       font-size: 0.72rem;
@@ -200,57 +205,50 @@
       display: block;
       margin-top: 0.3rem;
     }
-    .empty {
-      color: var(--muted);
-      line-height: 1.5;
-      font-size: 0.95rem;
-    }
-    .sessions {
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.45;
+    .empty { color: var(--muted); line-height: 1.5; font-size: 0.95rem; }
+    @media (prefers-reduced-motion: reduce) {
+      .node .blob { transition: none; }
     }
   </style>
 </head>
 <body>
   <script>
     (function () {
-      var params = new URLSearchParams(window.location.search);
-      if (params.get("embed") === "1") document.body.classList.add("embed");
+      var p = new URLSearchParams(window.location.search);
+      if (p.get("embed") === "1") document.body.classList.add("embed");
     })();
   </script>
   <header>
     <h1>Generative system map</h1>
-    <p>
-      A preliminary view of how CL expertise, AI learning, infrastructure, and client value
-      connect as a generative system. Click a node for narrative, insights, tensions, and
-      session-cited quotes from the Camp CLAI harvest.
-    </p>
-    <div class="badge">Preliminary · AI Pedal synthesis</div>
+    <p>Living map of how CL expertise, AI learning, infrastructure, and client value connect. Drag nodes — they settle back after a few seconds.</p>
+    <div class="badge">Preliminary · AI Petal synthesis</div>
   </header>
-
   <div class="layout">
     <div class="canvas-wrap">
-      <svg id="map" viewBox="0 0 1100 620" role="img" aria-label="Camp CLAI generative system map">
+      <svg id="map" viewBox="0 0 1050 560" role="img" aria-label="Camp CLAI generative system map">
         <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a5a5a" />
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3d524e" />
           </marker>
-          <marker id="arrowStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a5a5a" />
+          <marker id="arrowStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3d524e" />
           </marker>
-          <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker id="arrowActive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#3E6E8E" />
           </marker>
-          <marker id="arrowActiveStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <marker id="arrowActiveStart" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#3E6E8E" />
           </marker>
         </defs>
+        <g id="edges"></g>
+        <g id="edge-labels"></g>
+        <g id="nodes"></g>
+        <text class="legend" x="16" y="548">Drag to explore · settles in 5s · click for quotes</text>
       </svg>
     </div>
     <aside class="panel" id="detail">
       <h2>Explore the system</h2>
-      <p class="empty">Click any node to open narrative, insights, conflicting perspectives, and session-backed quotes.</p>
+      <p class="empty">Click any node for narrative and harvest-backed quotes.</p>
     </aside>
   </div>
 
@@ -284,11 +282,6 @@
         "text": "We need to have more sophisticated conversations on AI with clients… every case study is a brief for five other clients.",
         "session": "Client Implications Day 3",
         "note": "Transcript"
-      },
-      {
-        "text": "What is our obligation to support the conversation that stretches in between the stuff right in front of our face and the 10-year thing?",
-        "session": "client needs - themes/patterns",
-        "note": "Upload"
       }
     ]
   },
@@ -321,11 +314,6 @@
         "text": "I don't think it's CL's expertise to be bytecoding and to be coding stuff… what makes CL special isn't stuff that we've just spent the last few hours talking about.",
         "session": "CLara feedback",
         "note": "Upload"
-      },
-      {
-        "text": "Productivity without prosperity, execution without verification, capacity without constraint are the downsides of not attending to…",
-        "session": "Day 1 Synthesis_Cambridge",
-        "note": "Transcript"
       }
     ]
   },
@@ -358,54 +346,12 @@
         "text": "I think one of the reasons why I was overwhelmed by all of this is that there are many different perspectives and role within CL.",
         "session": "CLAI North America Relay",
         "note": "Transcript"
-      },
-      {
-        "text": "I would also want it to help me build expertise.",
-        "session": "If CL were AI Native.... what principles etc?",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "build-own-tools": {
-    "title": "Build our own tools",
-    "narrative": "At the intersection of human and AI expertise, CL can build tools only we can build — for ourselves and for clients. Camp surfaced 10–20 internal tools already; some become client offerings that deepen our value.",
-    "sessions": [
-      "Client Implications Day 3",
-      "client-facing ideas and experiments",
-      "kinevan ai workshop development",
-      "CLara feedback"
-    ],
-    "insights": [
-      "CL-values coaching tool alongside live coaches imagined explicitly in client implications.",
-      "Productized workshop experiments (e.g. Kinevan) to test with ourselves and clients.",
-      "Tools at the intersection of CL practice and AI lens on familiar frameworks."
-    ],
-    "conflicts": [
-      "Build bespoke vs buy off-the-shelf.",
-      "Fall in love with tools vs focus on client need.",
-      "Scale internal experiments vs maintain craft quality."
-    ],
-    "quotes": [
-      {
-        "text": "What if there was something designed with CL values, principles, that was another coaching tool to use alongside our live coaches?",
-        "session": "Client Implications Day 3",
-        "note": "Transcript"
-      },
-      {
-        "text": "Building a little product that is the Kinevan AI workshop… test that with ourselves and with some clients.",
-        "session": "client-facing ideas and experiments",
-        "note": "Upload"
-      },
-      {
-        "text": "I wasn't really sure why we needed it and if we need to build our own. I think sometimes we fall in love with tools rather than just buy the thing.",
-        "session": "CLara feedback",
-        "note": "Upload"
       }
     ]
   },
   "culture-language": {
     "title": "Building our own culture & language of AI expertise",
-    "narrative": "The AI Pedal aims to help CL build shared culture and language — competency through experimentation, learning together across differences without othering or judging, generating trust and intimacy in the challenge of AI transformation.",
+    "narrative": "The AI Petal aims to help CL build shared culture and language — competency through experimentation, learning together across differences without othering or judging, generating trust and intimacy in the challenge of AI transformation.",
     "sessions": [
       "Camp CLai opening & check-in A",
       "CLAI North America Relay",
@@ -425,11 +371,6 @@
     "quotes": [
       {
         "text": "For those of you that find this overwhelming, like me, read whatever calls to you… don't feel like you need to read and digest it all.",
-        "session": "CLAI North America Relay",
-        "note": "Transcript"
-      },
-      {
-        "text": "Getting usefulness somewhere is, somewhere accessible by many probably outweighs the overwhelm.",
         "session": "CLAI North America Relay",
         "note": "Transcript"
       },
@@ -466,11 +407,6 @@
         "note": "Transcript"
       },
       {
-        "text": "If I'm a user of AI and not a producer of AI, and I'm also not completely sold on the hype…",
-        "session": "How To Talk To Clients About AI",
-        "note": "Transcript"
-      },
-      {
         "text": "We need death doulas for the roles that are disappearing… walk them through the messy middle and midwife what comes next.",
         "session": "Day 1 PM breakouts: key themes_Cambridge",
         "note": "Transcript"
@@ -503,11 +439,6 @@
         "note": "Upload"
       },
       {
-        "text": "Sovereignty particularly matters for Indigenous people… traditional knowledge… being put into data centers.",
-        "session": "Regional Perspectives on AI",
-        "note": "Upload"
-      },
-      {
         "text": "We came up with, like four programs for non-exec directors… governing AI. Not the know-how to write risk policies, but kind of what they need to know.",
         "session": "what can we do for our clients? afternoon response to morning",
         "note": "Upload"
@@ -516,22 +447,23 @@
   },
   "tech-infrastructure": {
     "title": "Tech infrastructure",
-    "narrative": "Building bespoke technology like CLara supports our learning journey and augments the feedback loop in ways we couldn't when we couldn't build our own tech. Consolidation amid tool sprawl is both opportunity and risk.",
+    "narrative": "Building bespoke technology like CLara supports our learning journey and augments the feedback loop. At the intersection of human and AI expertise, CL can build tools only we can build — for ourselves and for clients. Camp surfaced many internal tools already; consolidation amid tool sprawl is both opportunity and risk.",
     "sessions": [
       "CLara feedback",
       "CLAI Relay- India/MENA/Europe AM",
-      "Rules and Guidelines for use of AI Apps",
-      "CLAI North America Relay"
+      "Client Implications Day 3",
+      "client-facing ideas and experiments",
+      "kinevan ai workshop development"
     ],
     "insights": [
       "CLara enables simultaneous shared access to transcripts and harvest data.",
-      "Tool sprawl ('cambrian explosion') vs possible consolidation point.",
-      "Regional relays use CLara as upload/harvest infrastructure."
+      "CL-values tools alongside live coaches imagined as client offerings.",
+      "Tool sprawl vs possible consolidation — tools that support clients flow from this layer."
     ],
     "conflicts": [
       "Consolidate on CLara vs distributed tool ecosystem.",
-      "Platform depth vs client go-to-market speed.",
-      "Capture for harvest vs minimize sensitive data exposure."
+      "Build bespoke vs buy off-the-shelf.",
+      "Platform depth vs client go-to-market speed."
     ],
     "quotes": [
       {
@@ -540,13 +472,13 @@
         "note": "Upload"
       },
       {
-        "text": "America submitted everything on to Clara, and once we are done, we're going to upload everything on to Clara.",
-        "session": "CLAI Relay- India/MENA/Europe AM",
+        "text": "What if there was something designed with CL values, principles, that was another coaching tool to use alongside our live coaches?",
+        "session": "Client Implications Day 3",
         "note": "Transcript"
       },
       {
-        "text": "The possibility set is that we have so many distributed tools… is there a possible point of consolidation… Even all our world calls.",
-        "session": "CLara feedback",
+        "text": "Building a little product that is the Kinevan AI workshop… test that with ourselves and with some clients.",
+        "session": "client-facing ideas and experiments",
         "note": "Upload"
       }
     ]
@@ -579,179 +511,143 @@
         "text": "Can we list some places where we can trust AI to actually help us become more efficient with the work that we already do?",
         "session": "Client Implications Day 3",
         "note": "Transcript"
-      },
-      {
-        "text": "How do we best facilitate integration with the tools and practices we have at our disposal?",
-        "session": "discussion on AI and client needs",
-        "note": "Transcript"
       }
     ]
   }
 }
 ;</script>
 <script>
+    const NODE_STYLES = {
+      "client-value-trust": { fill: "#f0dcc8", stroke: "#c97b4a", scale: 1.15 },
+      "cl-expertise-human": { fill: "#dce8e0", stroke: "#7fa093", scale: 1 },
+      "ai-expertise": { fill: "#d4f0e8", stroke: "#5aab96", scale: 1.05 },
+      "culture-language": { fill: "#d8e4ef", stroke: "#3e6e8e", scale: 1 },
+      "risks-fears": { fill: "#e8e6e0", stroke: "#8a8a82", scale: 1 },
+      "safety-governance": { fill: "#d0ddd8", stroke: "#2e4b45", scale: 1 },
+      "tech-infrastructure": { fill: "#cce0e4", stroke: "#4a8090", scale: 1 },
+      "support-business-ops": { fill: "#ebe4d4", stroke: "#a89070", scale: 1 },
+    };
+
     const nodes = [
-      { id: "client-value-trust", label: "Client Value\n& Trust", x: 180, y: 20, w: 155, h: 52, theme: "client-value-trust" },
-      { id: "build-own-tools", label: "Build our\nown tools", x: 380, y: 90, w: 130, h: 52, theme: "build-own-tools" },
-      { id: "cl-expertise-human", label: "Our CL Expertise\n(Human)", x: 30, y: 180, w: 155, h: 52, theme: "cl-expertise-human" },
-      { id: "ai-expertise", label: "Our Expertise\nwith AI", x: 300, y: 200, w: 145, h: 52, theme: "ai-expertise" },
-      { id: "safety-governance", label: "Safety &\nGovernance", x: 580, y: 60, w: 140, h: 52, theme: "safety-governance" },
-      { id: "tech-infrastructure", label: "Tech\ninfrastructure", x: 720, y: 200, w: 130, h: 52, theme: "tech-infrastructure" },
-      { id: "support-business-ops", label: "Support business\noperations", x: 900, y: 240, w: 155, h: 52, theme: "support-business-ops" },
-      { id: "culture-language", label: "Building our own culture\n& language of AI expertise", x: 260, y: 380, w: 220, h: 52, theme: "culture-language" },
-      { id: "risks-fears", label: "Risks\n& Fears", x: 320, y: 520, w: 120, h: 52, theme: "risks-fears" },
+      { id: "client-value-trust", label: "Client Value\n& Trust", anchorX: 400, anchorY: 42, w: 168, h: 62, theme: "client-value-trust", northStar: true },
+      { id: "cl-expertise-human", label: "Our CL Expertise\n(Human)", anchorX: 55, anchorY: 195, w: 158, h: 58, theme: "cl-expertise-human" },
+      { id: "ai-expertise", label: "Our Expertise\nwith AI", anchorX: 365, anchorY: 205, w: 152, h: 58, theme: "ai-expertise" },
+      { id: "safety-governance", label: "Safety &\nGovernance", anchorX: 575, anchorY: 115, w: 148, h: 56, theme: "safety-governance" },
+      { id: "tech-infrastructure", label: "Tech\ninfrastructure", anchorX: 695, anchorY: 225, w: 138, h: 56, theme: "tech-infrastructure" },
+      { id: "support-business-ops", label: "Support business\noperations", anchorX: 875, anchorY: 255, w: 158, h: 56, theme: "support-business-ops" },
+      { id: "culture-language", label: "Building our own culture\n& language of AI expertise", anchorX: 335, anchorY: 355, w: 210, h: 58, theme: "culture-language" },
+      { id: "risks-fears", label: "Risks\n& Fears", anchorX: 400, anchorY: 475, w: 128, h: 56, theme: "risks-fears" },
     ];
 
     const edges = [
-      { from: "cl-expertise-human", to: "client-value-trust" },
-      { from: "cl-expertise-human", to: "build-own-tools" },
-      { from: "cl-expertise-human", to: "culture-language", curve: "down" },
-      { from: "ai-expertise", to: "client-value-trust" },
-      { from: "ai-expertise", to: "build-own-tools" },
-      { from: "ai-expertise", to: "safety-governance" },
-      { from: "ai-expertise", to: "tech-infrastructure", bidirectional: true },
-      { from: "culture-language", to: "ai-expertise" },
-      { from: "risks-fears", to: "culture-language" },
-      { from: "risks-fears", to: "tech-infrastructure", curve: "sweep" },
-      { from: "safety-governance", to: "tech-infrastructure" },
-      { from: "tech-infrastructure", to: "support-business-ops" },
-      { from: "build-own-tools", to: "client-value-trust" },
-      { from: "support-business-ops", to: "client-value-trust", curve: "sweep-back" },
+      { from: "risks-fears", to: "culture-language", curve: "straight" },
+      { from: "risks-fears", to: "tech-infrastructure", curve: "sweep-right", label: "Human design principles / AI supports human sensemaking" },
+      { from: "cl-expertise-human", to: "client-value-trust", curve: "sweep-left" },
+      { from: "cl-expertise-human", to: "culture-language", curve: "gentle" },
+      { from: "culture-language", to: "ai-expertise", curve: "straight" },
+      { from: "ai-expertise", to: "client-value-trust", curve: "straight" },
+      { from: "ai-expertise", to: "safety-governance", curve: "gentle" },
+      { from: "safety-governance", to: "tech-infrastructure", curve: "straight" },
+      { from: "tech-infrastructure", to: "ai-expertise", curve: "straight", bidirectional: true },
+      { from: "tech-infrastructure", to: "support-business-ops", curve: "straight" },
+      { from: "tech-infrastructure", to: "client-value-trust", curve: "sweep-back-left", label: "We can build tools that support clients" },
+      { from: "support-business-ops", to: "client-value-trust", curve: "sweep-back-right", label: "Go-to-market and business development processes" },
     ];
 
-    let evidence = null;
-    async function loadEvidence() {
-      if (window.__SYNTHESIS_EVIDENCE__) {
-        evidence = window.__SYNTHESIS_EVIDENCE__;
-        return;
+    nodes.forEach((n, i) => {
+      n.x = 0;
+      n.y = 0;
+      n.driftPhase = i * 1.7 + 0.3;
+      n.dragging = false;
+      n.vx = 0;
+      n.vy = 0;
+    });
+
+    let evidence = {};
+    let selectedId = null;
+    let settleTimer = null;
+    let springing = false;
+    let springStart = 0;
+    let springFrom = { x: 0, y: 0 };
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const MAX_DRAG = 90;
+    const SETTLE_MS = 5000;
+    const SPRING_MS = 900;
+
+    function hashSeed(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+      return Math.abs(h);
+    }
+
+    function makeBlobPath(id, cx, cy, w, h) {
+      const seed = hashSeed(id);
+      const pts = 8;
+      const rx = w / 2;
+      const ry = h / 2;
+      let d = "";
+      for (let i = 0; i < pts; i++) {
+        const angle = (i / pts) * Math.PI * 2 - Math.PI / 2;
+        const wobble = 0.88 + ((seed >> (i * 3)) & 7) / 40;
+        const px = cx + Math.cos(angle) * rx * wobble;
+        const py = cy + Math.sin(angle) * ry * wobble;
+        if (i === 0) d += `M ${px} ${py}`;
+        else {
+          const prevAngle = ((i - 1) / pts) * Math.PI * 2 - Math.PI / 2;
+          const cAngle = (angle + prevAngle) / 2 + 0.15;
+          const cr = rx * 0.55;
+          d += ` Q ${cx + Math.cos(cAngle) * cr} ${cy + Math.sin(cAngle) * cr}, ${px} ${py}`;
+        }
       }
-      try {
-        const res = await fetch("./theme-evidence-ui.json", { cache: "no-store" });
-        if (res.ok) evidence = await res.json();
-      } catch (_) {}
-      if (!evidence) evidence = {};
+      return d + " Z";
+    }
+
+    function nodeCenter(n) {
+      return { x: n.anchorX + n.x + n.w / 2, y: n.anchorY + n.y + n.h / 2 };
+    }
+
+    function ellipseBorderPoint(from, to) {
+      const c = nodeCenter(from);
+      const tc = nodeCenter(to);
+      const dx = tc.x - c.x;
+      const dy = tc.y - c.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const style = NODE_STYLES[from.theme] || { scale: 1 };
+      const rx = (from.w / 2) * (style.scale || 1) * 0.92;
+      const ry = (from.h / 2) * (style.scale || 1) * 0.92;
+      const ux = dx / len;
+      const uy = dy / len;
+      const denom = Math.sqrt((ux * ux) / (rx * rx) + (uy * uy) / (ry * ry)) || 1;
+      return { x: c.x + (ux / denom), y: c.y + (uy / denom) };
+    }
+
+    function edgePathD(e) {
+      const a = nodeById(e.from);
+      const b = nodeById(e.to);
+      if (!a || !b) return "";
+      const p1 = ellipseBorderPoint(a, b);
+      const p2 = ellipseBorderPoint(b, a);
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      switch (e.curve) {
+        case "sweep-left":
+          return `M ${p1.x} ${p1.y} Q ${p1.x - 80} ${my - 60}, ${p2.x} ${p2.y}`;
+        case "sweep-right":
+          return `M ${p1.x} ${p1.y} Q ${mx + 100} ${my + 40}, ${p2.x} ${p2.y}`;
+        case "sweep-back-left":
+          return `M ${p1.x} ${p1.y} Q ${mx} ${Math.min(p1.y, p2.y) - 90}, ${p2.x} ${p2.y}`;
+        case "sweep-back-right":
+          return `M ${p1.x} ${p1.y} Q ${mx + 60} ${Math.min(p1.y, p2.y) - 100}, ${p2.x} ${p2.y}`;
+        case "gentle":
+          return `M ${p1.x} ${p1.y} Q ${mx + 30} ${my + 25}, ${p2.x} ${p2.y}`;
+        case "straight":
+        default:
+          return `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`;
+      }
     }
 
     function nodeById(id) {
       return nodes.find((n) => n.id === id);
-    }
-
-    function center(n) {
-      return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
-    }
-
-    function edgePath(e, a, b) {
-      const ca = center(a);
-      const cb = center(b);
-      if (e.curve === "sweep") {
-        const cx = Math.max(ca.x, cb.x) + 120;
-        const cy = (ca.y + cb.y) / 2 - 80;
-        return `M ${ca.x} ${ca.y} Q ${cx} ${cy}, ${cb.x} ${cb.y}`;
-      }
-      if (e.curve === "sweep-back") {
-        const cx = (ca.x + cb.x) / 2;
-        const cy = Math.min(ca.y, cb.y) - 100;
-        return `M ${ca.x} ${ca.y} Q ${cx} ${cy}, ${cb.x} ${cb.y}`;
-      }
-      if (e.curve === "down") {
-        const midX = (ca.x + cb.x) / 2;
-        const midY = (ca.y + cb.y) / 2 + 40;
-        return `M ${ca.x} ${ca.y} Q ${midX} ${midY}, ${cb.x} ${cb.y}`;
-      }
-      const midX = (ca.x + cb.x) / 2;
-      return `M ${ca.x} ${ca.y} C ${midX} ${ca.y}, ${midX} ${cb.y}, ${cb.x} ${cb.y}`;
-    }
-
-    function draw() {
-      const svg = document.getElementById("map");
-      const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      edgeLayer.setAttribute("id", "edges");
-      const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      nodeLayer.setAttribute("id", "nodes");
-      svg.appendChild(edgeLayer);
-      svg.appendChild(nodeLayer);
-
-      for (const e of edges) {
-        const a = nodeById(e.from);
-        const b = nodeById(e.to);
-        if (!a || !b) continue;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", edgePath(e, a, b));
-        let cls = "edge";
-        if (e.bidirectional) cls += " bidirectional";
-        path.setAttribute("class", cls);
-        path.dataset.from = e.from;
-        path.dataset.to = e.to;
-        edgeLayer.appendChild(path);
-      }
-
-      for (const n of nodes) {
-        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        g.setAttribute("class", "node");
-        g.dataset.id = n.id;
-        g.dataset.theme = n.theme;
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", n.x);
-        rect.setAttribute("y", n.y);
-        rect.setAttribute("width", n.w);
-        rect.setAttribute("height", n.h);
-        g.appendChild(rect);
-        const lines = n.label.split("\n");
-        const lineHeight = lines.length > 2 ? 12 : 14;
-        lines.forEach((line, i) => {
-          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute("x", n.x + n.w / 2);
-          text.setAttribute("y", n.y + n.h / 2 + (i - (lines.length - 1) / 2) * lineHeight);
-          text.setAttribute("text-anchor", "middle");
-          text.setAttribute("dominant-baseline", "middle");
-          text.textContent = line;
-          g.appendChild(text);
-        });
-        g.addEventListener("click", () => selectNode(n.id));
-        nodeLayer.appendChild(g);
-      }
-    }
-
-    function selectNode(id) {
-      document.querySelectorAll(".node").forEach((el) => {
-        el.classList.toggle("active", el.dataset.id === id);
-      });
-      document.querySelectorAll(".edge").forEach((el) => {
-        const on = el.dataset.from === id || el.dataset.to === id;
-        el.classList.toggle("active", on);
-      });
-      const n = nodeById(id);
-      const data = evidence?.[n.theme] || evidence?.[id];
-      const panel = document.getElementById("detail");
-      if (!data) {
-        panel.innerHTML = `<div class="eyebrow">Node</div><h2>${escapeHtml(n.label.replace(/\n/g, " "))}</h2><p class="empty">No packaged evidence for this node yet.</p>`;
-        return;
-      }
-      const narrative = data.narrative
-        ? `<p class="narrative">${escapeHtml(data.narrative)}</p>`
-        : "";
-      const insights = (data.insights || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
-      const conflicts = (data.conflicts || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
-      const quotes = (data.quotes || [])
-        .map(
-          (q) =>
-            `<blockquote>${escapeHtml(q.text)}<span class="session">${escapeHtml(q.session || "")}${q.note ? " · " + escapeHtml(q.note) : ""}</span></blockquote>`,
-        )
-        .join("");
-      const sessions = (data.sessions || []).join(" · ");
-      panel.innerHTML = `
-        <div class="eyebrow">Node</div>
-        <h2>${escapeHtml(data.title || n.label.replace(/\n/g, " "))}</h2>
-        ${narrative}
-        <h3>Insights</h3>
-        <ul>${insights || "<li class='empty'>None packaged</li>"}</ul>
-        <h3>Conflicting perspectives</h3>
-        <ul>${conflicts || "<li class='empty'>None packaged</li>"}</ul>
-        <h3>Key quotes</h3>
-        ${quotes || "<p class='empty'>None packaged</p>"}
-        <h3>Sessions</h3>
-        <p class="sessions">${escapeHtml(sessions)}</p>
-      `;
     }
 
     function escapeHtml(s) {
@@ -762,8 +658,233 @@
         .replace(/"/g, "&quot;");
     }
 
-    draw();
-    loadEvidence();
+    function selectNode(id) {
+      selectedId = id;
+      document.querySelectorAll(".node").forEach((el) => {
+        el.classList.toggle("active", el.dataset.id === id);
+      });
+      document.querySelectorAll(".edge").forEach((el) => {
+        const on = el.dataset.from === id || el.dataset.to === id;
+        el.classList.toggle("active", on);
+      });
+      document.querySelectorAll(".edge-label").forEach((el) => {
+        const on = el.dataset.from === id || el.dataset.to === id;
+        el.classList.toggle("hidden", !on && selectedId && !on);
+      });
+      const n = nodeById(id);
+      const data = evidence[n.theme] || evidence[id];
+      const panel = document.getElementById("detail");
+      if (!data) {
+        panel.innerHTML = `<div class="eyebrow">Node</div><h2>${escapeHtml(n.label.replace(/\n/g, " "))}</h2><p class="empty">No evidence packaged yet.</p>`;
+        return;
+      }
+      const narrative = data.narrative ? `<p class="narrative">${escapeHtml(data.narrative)}</p>` : "";
+      const quotes = (data.quotes || [])
+        .slice(0, 2)
+        .map((q) => `<blockquote>${escapeHtml(q.text)}<span class="session">${escapeHtml(q.session || "")}${q.note ? " · " + escapeHtml(q.note) : ""}</span></blockquote>`)
+        .join("");
+      const insights = (data.insights || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+      const conflicts = (data.conflicts || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+      const sessions = (data.sessions || []).join(" · ");
+      panel.innerHTML = `
+        <div class="eyebrow">Node</div>
+        <h2>${escapeHtml(data.title || n.label.replace(/\n/g, " "))}</h2>
+        ${narrative}
+        <h3 style="font-family:var(--font-mono);font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--forest);margin:1rem 0 0.4rem">Key quotes</h3>
+        ${quotes || "<p class='empty'>None packaged</p>"}
+        <details><summary>Insights</summary><ul>${insights || "<li class='empty'>None</li>"}</ul></details>
+        <details><summary>Conflicting perspectives</summary><ul>${conflicts || "<li class='empty'>None</li>"}</ul></details>
+        <details><summary>Sessions</summary><p class="empty" style="margin-top:0.4rem">${escapeHtml(sessions)}</p></details>
+      `;
+    }
+
+    function scheduleSettle() {
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        if (nodes.some((n) => n.dragging)) return;
+        springing = true;
+        springStart = performance.now();
+        springFrom = { x: nodes[0]?.x || 0, y: nodes[0]?.y || 0 };
+        nodes.forEach((n) => {
+          n.springStartX = n.x;
+          n.springStartY = n.y;
+        });
+      }, SETTLE_MS);
+    }
+
+    function buildScene() {
+      const nodeLayer = document.getElementById("nodes");
+      nodeLayer.innerHTML = "";
+      nodes.forEach((n) => {
+        const style = NODE_STYLES[n.theme] || { fill: "#d8ead8", stroke: "#6b9a6b", scale: 1 };
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node" + (n.northStar ? " north-star" : ""));
+        g.dataset.id = n.id;
+        const cx = n.anchorX + n.w / 2;
+        const cy = n.anchorY + n.h / 2;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("class", "blob");
+        path.setAttribute("fill", style.fill);
+        path.setAttribute("stroke", style.stroke);
+        path.setAttribute("stroke-width", "2");
+        path.dataset.blob = "1";
+        g.appendChild(path);
+        const lines = n.label.split("\n");
+        const lh = lines.length > 2 ? 13 : 15;
+        lines.forEach((line, i) => {
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", cx);
+          text.setAttribute("y", cy + (i - (lines.length - 1) / 2) * lh);
+          text.setAttribute("dominant-baseline", "middle");
+          text.textContent = line;
+          g.appendChild(text);
+        });
+        g.addEventListener("click", (ev) => {
+          if (g.dataset.dragged === "1") { g.dataset.dragged = "0"; return; }
+          selectNode(n.id);
+        });
+        bindDrag(g, n);
+        nodeLayer.appendChild(g);
+      });
+    }
+
+    function bindDrag(g, n) {
+      let startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
+      g.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        n.dragging = true;
+        g.classList.add("dragging");
+        springing = false;
+        clearTimeout(settleTimer);
+        startX = ev.clientX;
+        startY = ev.clientY;
+        origX = n.x;
+        origY = n.y;
+        moved = false;
+        g.setPointerCapture(ev.pointerId);
+      });
+      g.addEventListener("pointermove", (ev) => {
+        if (!n.dragging) return;
+        const svg = document.getElementById("map");
+        const scale = svg.getBoundingClientRect().width / 1050;
+        const dx = (ev.clientX - startX) / scale;
+        const dy = (ev.clientY - startY) / scale;
+        if (Math.hypot(dx, dy) > 3) moved = true;
+        n.x = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, origX + dx));
+        n.y = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, origY + dy));
+        selectNode(n.id);
+      });
+      g.addEventListener("pointerup", (ev) => {
+        n.dragging = false;
+        g.classList.remove("dragging");
+        if (moved) g.dataset.dragged = "1";
+        try { g.releasePointerCapture(ev.pointerId); } catch (_) {}
+        scheduleSettle();
+      });
+      g.addEventListener("pointercancel", () => {
+        n.dragging = false;
+        g.classList.remove("dragging");
+        scheduleSettle();
+      });
+    }
+
+    function updatePositions() {
+      const t = performance.now() * 0.001;
+      nodes.forEach((n) => {
+        if (!n.dragging && !springing && !reduceMotion) {
+          n.x = Math.sin(t * 0.55 + n.driftPhase) * 2.8;
+          n.y = Math.cos(t * 0.45 + n.driftPhase * 1.1) * 2.2;
+        } else if (!n.dragging && !springing && reduceMotion) {
+          n.x = 0;
+          n.y = 0;
+        }
+        if (springing && !n.dragging) {
+          const elapsed = performance.now() - springStart;
+          const p = Math.min(1, elapsed / SPRING_MS);
+          const ease = 1 - Math.pow(1 - p, 3);
+          n.x = n.springStartX + (0 - n.springStartX) * ease;
+          n.y = n.springStartY + (0 - n.springStartY) * ease;
+        }
+      });
+      if (springing && performance.now() - springStart >= SPRING_MS) {
+        springing = false;
+        nodes.forEach((n) => { n.x = 0; n.y = 0; });
+      }
+
+      nodes.forEach((n) => {
+        const g = document.querySelector(`.node[data-id="${n.id}"]`);
+        if (!g) return;
+        const cx = n.anchorX + n.x + n.w / 2;
+        const cy = n.anchorY + n.y + n.h / 2;
+        const blob = g.querySelector("[data-blob]");
+        if (blob) blob.setAttribute("d", makeBlobPath(n.id, cx, cy, n.w * (NODE_STYLES[n.theme]?.scale || 1), n.h * (NODE_STYLES[n.theme]?.scale || 1)));
+        const lines = n.label.split("\n");
+        const lh = lines.length > 2 ? 13 : 15;
+        g.querySelectorAll("text").forEach((text, i) => {
+          text.setAttribute("x", cx);
+          text.setAttribute("y", cy + (i - (lines.length - 1) / 2) * lh);
+        });
+        g.setAttribute("transform", `translate(0,0)`);
+      });
+
+      const edgeLayer = document.getElementById("edges");
+      const labelLayer = document.getElementById("edge-labels");
+      edgeLayer.innerHTML = "";
+      labelLayer.innerHTML = "";
+
+      edges.forEach((e, idx) => {
+        const d = edgePathD(e);
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d);
+        let cls = "edge";
+        if (e.bidirectional) cls += " bidirectional";
+        path.setAttribute("class", cls);
+        path.dataset.from = e.from;
+        path.dataset.to = e.to;
+        if (selectedId === e.from || selectedId === e.to) path.classList.add("active");
+        edgeLayer.appendChild(path);
+
+        if (e.label) {
+          const labelPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          labelPath.setAttribute("id", `edge-label-path-${idx}`);
+          labelPath.setAttribute("d", d);
+          labelPath.setAttribute("fill", "none");
+          labelPath.setAttribute("stroke", "none");
+          labelLayer.appendChild(labelPath);
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("class", "edge-label" + (selectedId && selectedId !== e.from && selectedId !== e.to ? " hidden" : ""));
+          text.dataset.from = e.from;
+          text.dataset.to = e.to;
+          const tp = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
+          tp.setAttribute("href", `#edge-label-path-${idx}`);
+          tp.setAttribute("startOffset", "50%");
+          tp.setAttribute("text-anchor", "middle");
+          tp.textContent = e.label;
+          text.appendChild(tp);
+          labelLayer.appendChild(text);
+        }
+      });
+    }
+
+    function tick() {
+      updatePositions();
+      requestAnimationFrame(tick);
+    }
+
+    async function loadEvidence() {
+      if (window.__SYNTHESIS_EVIDENCE__) {
+        evidence = window.__SYNTHESIS_EVIDENCE__;
+        return;
+      }
+      try {
+        const res = await fetch("./theme-evidence-ui.json", { cache: "no-store" });
+        if (res.ok) evidence = await res.json();
+      } catch (_) {}
+    }
+
+    buildScene();
+    loadEvidence().then(() => selectNode("client-value-trust"));
+    tick();
   </script>
 </body>
 </html>

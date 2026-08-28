@@ -128,11 +128,28 @@ function GenerativeSystemMap({
           >
             Generative system map
           </h2>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-ink/60">
-            How CL human expertise, AI learning, infrastructure, and client value
-            connect as a generative system — walking our walk as we learn together.
-            Click a node for narrative, tensions, and Commons-backed quotes.
-          </p>
+          <div className="mt-3 max-w-3xl space-y-3 text-[1.02rem] leading-7 text-ink/90">
+            <p>
+              <strong className="font-semibold text-ink">Walking our walk.</strong>{" "}
+              Clients have trusted CL for how we hold human complexity — in bodies,
+              relationships, culture, and strategy. They now ask us to bring that
+              together with real expertise in AI and technological change, at the
+              same moment our own fluency is uneven across the organization.
+            </p>
+            <p>
+              This map is a preliminary <strong className="font-semibold text-ink">generative system</strong>, not a project plan:{" "}
+              <strong className="font-semibold text-ink">risks and fears</strong> and{" "}
+              <strong className="font-semibold text-ink">shared culture and language</strong> ground how we learn;{" "}
+              <strong className="font-semibold text-ink">AI expertise</strong> grows through experimentation;{" "}
+              <strong className="font-semibold text-ink">safety, governance, and tech infrastructure</strong> let us build boldly without breaking trust — including tools only CL can build for clients;{" "}
+              <strong className="font-semibold text-ink">business operations</strong> turn capacity into reach — and all of it loops back to{" "}
+              <strong className="font-semibold text-ink">client value and trust</strong>. The{" "}
+              <strong className="font-semibold text-ink">AI Petal</strong> holds this whole arc: listening to fear without stalling clarity, and helping every part of CL learn together across our differences.
+            </p>
+            <p className="text-sm leading-6 text-ink/60">
+              Drag a node to explore tension in the system — it settles back after a few seconds. Click for harvest-backed quotes.
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -167,7 +184,7 @@ function GenerativeSystemMap({
           className={
             isMapFullscreen
               ? "h-[calc(100vh-3.5rem)] w-full rounded-lg border border-cloud bg-paper"
-              : "h-[min(70vh,640px)] w-full border-0"
+              : "h-[min(75vh,720px)] w-full border-0"
           }
         />
       </div>
