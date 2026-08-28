@@ -52,7 +52,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
   {
     label: "Synthesis",
     children: [
-      { href: "/synthesis/preliminary", label: "Preliminary Synthesis" },
+      { href: "/synthesis/preliminary", label: "Naryan and Gayle's Synthesis" },
       { href: "/ask", label: "Ask CLara" },
       { href: "/map", label: "Knowledge Map" },
       { href: "/top10", label: "Top 10" },

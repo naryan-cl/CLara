@@ -1,21 +1,22 @@
-# Preliminary Synthesis
-
-A first reading of the Camp CLAI harvest through the organizer theme rubric — drawn **only from source materials** (transcripts, reflections, uploads). Harvest briefs, session summaries, and external uploads are excluded.
+# Naryan and Gayle's Synthesis
 
 Generated: 2026-08-27 (revised) · Corpus: 17 sessions with sources · 31 transcripts · 11 uploads · 0 reflections in export scope · 4 external docs excluded
 
-> Preliminary draft for organizers and participants. Quotes are de-identified from raw source text. Separate from Ask CLara.
-
-
 ## Method note
 
-Evidence was retrieved with **meaning-oriented concept maps** aligned to the organizer seed themes — not bare keyword search, and not Ask CLara as the analysis engine.
+Camp CLAI was a three-day inquiry into AI and it's relationship to CL. Colleagues met in Cambridge to think together in person, and a 'relay' of conversations were held virtually around the world.
 
-**Corpus policy (this revision):**
-- **Included:** Transcript, Reflection, and Note (upload) **source content** only (`documents.content`).
-- **Excluded:** Element/session harvest briefs (`documents.summary`), Summary/synthesis documents, and anything flagged **`is_external`**.
+1. Naryan, Ali and Gayle built CLara, a tool/platform, to help us record our dialogue and reflections, contributing to a shared commons, available for all to synthesize from.
+2. After the camp, Gayle drafted a letter that highlighted the key themes she felt were most meaningful for CL's AI journey.
+3. Naryan took those themes as 'seeds' and asked CLara to connect those themes to portions of transcripts, noticing where there was resonance, differences, and to share colleague quotes to illustrate.
+4. Naryan checked these insights with Gayle - did the fleshed-out synthesis match her experience? In this dialogue, Naryan mapped out how these themes might form a coherent system and how we might build from this new understanding.
+5. Finally, Naryan asked Cursor (AI) to create an interactive version of the map he drew, supported with the insights from the AI analysis and human synthesis.
 
-There is **no pre-event / welcome survey** in this project, so this document does not invent hopes↔emerged tables. Quotes attribute speakers as participants. The generative system map below is **preliminary**.
+This synthesis is a combination of Gayle's grounded experience in Camp CLAI, Naryan's systems thinking, and AI's ability to connect patterns and themes across data. All built from the beautiful dialogue that we have together as colleagues.
+
+We invite others to share the 'seeds' or themes that they found most valuable, to create alternate 'synthetic perspectives' so that we might build from an even richer tapestry of thinking as we move forward from here.
+
+Seriously, email Naryan if you are interested in making your own synthesis page with your own thinking and process.
 
 <!-- synthesis-map -->
 

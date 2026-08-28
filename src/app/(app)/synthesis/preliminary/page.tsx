@@ -7,9 +7,9 @@ import {
 } from "@/lib/synthesis/preliminary-synthesis";
 
 export const metadata = {
-  title: "Preliminary Synthesis — CLara",
+  title: "Naryan and Gayle's Synthesis — CLara",
   description:
-    "One-time Camp CLAI harvest reading through the organizer theme rubric.",
+    "Camp CLAI synthesis combining Gayle's grounded experience, Naryan's systems thinking, and AI pattern-finding across the commons.",
 };
 
 export default async function PreliminarySynthesisPage() {
@@ -26,26 +26,20 @@ export default async function PreliminarySynthesisPage() {
           Synthesis
         </p>
         <h1 className="mt-2 font-display text-3xl font-medium text-ink sm:text-4xl">
-          Preliminary Synthesis
+          Naryan and Gayle&apos;s Synthesis
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-ink/60">
-          A stream-wide reading of the Camp CLAI harvest through the organizer
-          seed themes — drawn from transcripts, reflections, and uploads only
-          (no harvest briefs; external sources excluded). Separate from Ask
-          CLara. Quotes are de-identified for organizers and participants.
-        </p>
       </div>
 
       {!stream ? (
         <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <p className="text-sm text-ink/70">
-            Join a stream to open Preliminary Synthesis.
+            Join a stream to open Naryan and Gayle&apos;s Synthesis.
           </p>
         </div>
       ) : !canView || !markdown ? (
         <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
           <p className="text-sm text-ink/70">
-            Preliminary Synthesis is not available yet.
+            Naryan and Gayle&apos;s Synthesis is not available yet.
           </p>
         </div>
       ) : (
