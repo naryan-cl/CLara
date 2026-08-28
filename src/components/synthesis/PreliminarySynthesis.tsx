@@ -141,7 +141,7 @@ function GenerativeSystemMapSection({ titleId }: { titleId: string }) {
               <strong className="font-semibold text-ink">AI Petal</strong> holds this whole arc: listening to fear without stalling clarity, and helping every part of CL learn together across our differences.
             </p>
             <p className="text-sm leading-6 text-ink/60">
-              Drag nodes to pin and rearrange the layout — double-click a pinned node to release it. Press Build story to walk from CL expertise to the full generative loop.
+              Scroll to zoom, drag the canvas to pan, drag nodes to pin them. Press Build story to walk from CL expertise to the full generative loop.
             </p>
           </div>
         </div>
