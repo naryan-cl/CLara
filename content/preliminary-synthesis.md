@@ -15,14 +15,9 @@ Evidence was retrieved with **meaning-oriented concept maps** aligned to the org
 - **Included:** Transcript, Reflection, and Note (upload) **source content** only (`documents.content`).
 - **Excluded:** Element/session harvest briefs (`documents.summary`), Summary/synthesis documents, and anything flagged **`is_external`**.
 
-There is **no pre-event / welcome survey** in this project, so this document does not invent hopes↔emerged tables. Quotes attribute speakers as participants. The relational theme map below is **preliminary**.
+There is **no pre-event / welcome survey** in this project, so this document does not invent hopes↔emerged tables. Quotes attribute speakers as participants. The generative system map below is **preliminary**.
 
-### Catchphrases that traveled (in source text)
-
-- **mind traps / mind trap** — recurring in client-facing and relay transcripts (e.g. *How To Talk To Clients About AI*, *Client Implications Day 3*).
-- **data sovereignty** — transcripts and uploads on regional AI perspectives and CL AI app rules.
-- **death doula / death duelers** — spoken in Cambridge breakouts on roles disappearing (*Day 1 PM breakouts*, *What can we do for our clients?* afternoon response).
-- **cambrian explosion** — named once in source conversation on tool sprawl.
+<!-- synthesis-map -->
 
 ---
 
@@ -311,9 +306,3 @@ There is **no pre-event / welcome survey** in this project, so this document doe
 > — a participant · *CLAI Relay- India/MENA/Europe AM* (Transcript)
 
 **Sessions:** Client Implications Day 3, CLAI CLANZ Relay, Camp CLai opening & check-in A, CLAI Relay- India/MENA/Europe AM, How To Talk To Clients About AI
-
----
-
-## Theme map
-
-Scroll to the interactive map below (or open Full screen) for a **preliminary** relational view of these themes — click a node for insights, tensions, and quotes from **source materials only**.

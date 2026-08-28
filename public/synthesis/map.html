@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Preliminary Synthesis Map — CLara</title>
+  <title>Generative System Map — CLara</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -20,11 +20,10 @@
       --paper: #fbf9f5;
       --cloud: #e7e1d6;
       --muted: color-mix(in srgb, var(--ink) 55%, transparent);
-      --node: color-mix(in srgb, var(--horizon) 18%, var(--paper));
-      --node-stroke: var(--horizon);
-      --node-meta: color-mix(in srgb, var(--glow) 35%, var(--paper));
-      --node-meta-stroke: var(--forest);
-      --shadow: 0 10px 30px rgba(28, 42, 46, 0.08);
+      --node: #d8ead8;
+      --node-stroke: #6b9a6b;
+      --edge: #5a5a5a;
+      --shadow: 0 4px 12px rgba(28, 42, 46, 0.12);
       --font-heading: "Fraunces", Georgia, serif;
       --font-body: "Inter", system-ui, sans-serif;
       --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -33,11 +32,7 @@
     body {
       margin: 0;
       font-family: var(--font-body);
-      background:
-        radial-gradient(ellipse at 10% 0%, rgba(143, 214, 196, 0.18) 0%, transparent 42%),
-        radial-gradient(ellipse at 90% 8%, rgba(62, 110, 142, 0.12) 0%, transparent 40%),
-        radial-gradient(ellipse at 70% 100%, rgba(201, 123, 74, 0.08) 0%, transparent 45%),
-        var(--sand);
+      background: var(--sand);
       color: var(--ink);
       min-height: 100vh;
     }
@@ -107,18 +102,20 @@
     body.embed .canvas-wrap { min-height: calc(100vh - 1.5rem); }
     svg { width: 100%; height: auto; display: block; }
     .edge {
-      stroke: var(--cloud);
+      stroke: var(--edge);
       stroke-width: 2;
       fill: none;
       marker-end: url(#arrow);
     }
-    .edge.dashed {
-      stroke-dasharray: 6 6;
-      stroke: color-mix(in srgb, var(--sage) 70%, var(--cloud));
+    .edge.bidirectional {
+      marker-start: url(#arrowStart);
     }
     .edge.active {
       stroke: var(--horizon);
       marker-end: url(#arrowActive);
+    }
+    .edge.active.bidirectional {
+      marker-start: url(#arrowActiveStart);
     }
     .node {
       cursor: pointer;
@@ -127,21 +124,18 @@
       fill: var(--node);
       stroke: var(--node-stroke);
       stroke-width: 1.5;
-      rx: 10;
+      rx: 6;
+      filter: drop-shadow(0 2px 4px rgba(28, 42, 46, 0.1));
       transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
     }
-    .node.meta rect {
-      fill: var(--node-meta);
-      stroke: var(--node-meta-stroke);
-    }
     .node:hover rect, .node.active rect {
-      fill: color-mix(in srgb, var(--glow) 28%, var(--paper));
+      fill: color-mix(in srgb, var(--glow) 35%, var(--node));
       stroke: var(--forest);
-      filter: drop-shadow(0 0 12px rgba(143, 214, 196, 0.35));
+      filter: drop-shadow(0 4px 12px rgba(143, 214, 196, 0.4));
     }
     .node text {
       font-family: var(--font-body);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       fill: var(--ink);
       pointer-events: none;
@@ -169,6 +163,12 @@
       text-transform: uppercase;
       color: var(--horizon);
       margin-bottom: 0.5rem;
+    }
+    .panel .narrative {
+      margin: 0.5rem 0 0;
+      line-height: 1.55;
+      font-size: 0.93rem;
+      color: var(--ink);
     }
     .panel h3 {
       font-family: var(--font-mono);
@@ -220,51 +220,170 @@
     })();
   </script>
   <header>
-    <h1>Theme map</h1>
+    <h1>Generative system map</h1>
     <p>
-      Preliminary relational map of organizer seed themes. Click a node for insights,
-      tensions, and session-cited quotes from the Camp CLAI harvest.
+      A preliminary view of how CL expertise, AI learning, infrastructure, and client value
+      connect as a generative system. Click a node for narrative, insights, tensions, and
+      session-cited quotes from the Camp CLAI harvest.
     </p>
-    <div class="badge">Preliminary · not a whiteboard import</div>
+    <div class="badge">Preliminary · AI Pedal synthesis</div>
   </header>
 
   <div class="layout">
     <div class="canvas-wrap">
-      <svg id="map" viewBox="0 0 980 640" role="img" aria-label="CLara preliminary synthesis theme map">
+      <svg id="map" viewBox="0 0 1100 620" role="img" aria-label="Camp CLAI generative system map">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#E7E1D6" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a5a5a" />
+          </marker>
+          <marker id="arrowStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a5a5a" />
           </marker>
           <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#3E6E8E" />
+          </marker>
+          <marker id="arrowActiveStart" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#3E6E8E" />
           </marker>
         </defs>
       </svg>
     </div>
     <aside class="panel" id="detail">
-      <h2>Explore a theme</h2>
-      <p class="empty">Click any node to open insights, conflicting perspectives, and session-backed quotes.</p>
+      <h2>Explore the system</h2>
+      <p class="empty">Click any node to open narrative, insights, conflicting perspectives, and session-backed quotes.</p>
     </aside>
   </div>
 
   <script>window.__SYNTHESIS_EVIDENCE__ = {
-  "ai-principles-humanist": {
-    "title": "AI Principles & The Humanist Stance",
+  "client-value-trust": {
+    "title": "Client Value & Trust",
+    "narrative": "Clients have trusted CL for our human expertise — somatic depth, culture, strategy, growing in complexity. They now want integrated expertise with AI and technological change. Walking our walk as we learn becomes what we can offer them; clumsy AI use risks visible slop and broken trust.",
     "sessions": [
       "Client Implications Day 3",
       "Day 3 principles discussion group",
-      "Taking Stock of AI at CL - 2",
+      "How To Talk To Clients About AI",
+      "client needs - themes/patterns"
+    ],
+    "insights": [
+      "Clients want CL to bring integrated human + AI expertise, not just legacy CL strengths.",
+      "Trust deficit when AI touches deliverables — even partial AI generation erodes confidence.",
+      "Case studies and sophisticated AI conversations named as concrete client-value paths."
+    ],
+    "conflicts": [
+      "Move fast on AI experiments vs protect client trust.",
+      "Demonstrate AI fluency vs avoid visible workslop.",
+      "Client-first clarity vs CL's own uneven AI maturity."
+    ],
+    "quotes": [
+      {
+        "text": "If there's something which is generated by AI, even partially… there is a deficit of trust.",
+        "session": "Day 3 principles discussion group",
+        "note": "Transcript"
+      },
+      {
+        "text": "We need to have more sophisticated conversations on AI with clients… every case study is a brief for five other clients.",
+        "session": "Client Implications Day 3",
+        "note": "Transcript"
+      },
+      {
+        "text": "What is our obligation to support the conversation that stretches in between the stuff right in front of our face and the 10-year thing?",
+        "session": "client needs - themes/patterns",
+        "note": "Upload"
+      }
+    ]
+  },
+  "cl-expertise-human": {
+    "title": "Our CL Expertise (Human)",
+    "narrative": "Our value in the adult development world — somatic experience, depth each colleague brings, understanding of humans, organizations, culture, strategy, and growing in complexity. This remains vital to who we are and what clients have trusted.",
+    "sessions": [
+      "Day 1 Synthesis_Cambridge",
+      "discussion about AI and coaching",
+      "CLara feedback",
       "If CL were AI Native.... what principles etc?"
     ],
     "insights": [
-      "AI as augment for CL-shaped practice — tools alongside live coaches, not replacement-only.",
-      "Polarities and service-scan language in live client-implications conversation.",
-      "Trust deficit when AI touches client deliverables, even partially."
+      "Craft and relationships named as CL's distinguishing assets in a 'time for craft' framing.",
+      "Human sensing and connection as a whole field of information to explore with clients.",
+      "What makes CL special isn't bytecoding — it's relational and developmental depth."
     ],
     "conflicts": [
-      "Augment coaching vs protect relational core.",
-      "Experiment fast vs scan every service for CL-values fit.",
-      "Transparency vs client trust erosion."
+      "Protect the relational core vs augment with AI tools.",
+      "Scale support vs premium human relationship.",
+      "Repurpose existing frameworks vs invent new agentic-AI offerings."
+    ],
+    "quotes": [
+      {
+        "text": "That human connection, that human sensing that a participant can't do. And that's a whole lot, that's a whole field of new information to explore with the client.",
+        "session": "discussion about AI and coaching",
+        "note": "Transcript"
+      },
+      {
+        "text": "I don't think it's CL's expertise to be bytecoding and to be coding stuff… what makes CL special isn't stuff that we've just spent the last few hours talking about.",
+        "session": "CLara feedback",
+        "note": "Upload"
+      },
+      {
+        "text": "Productivity without prosperity, execution without verification, capacity without constraint are the downsides of not attending to…",
+        "session": "Day 1 Synthesis_Cambridge",
+        "note": "Transcript"
+      }
+    ]
+  },
+  "ai-expertise": {
+    "title": "Our Expertise with AI",
+    "narrative": "AI fluency varies widely across CL — some surf the edge, others feel overwhelmed and unsure how to talk about it. Building real expertise matters: ungrounded adoption can destroy sense-making and break client trust. Verification labor rises with output volume.",
+    "sessions": [
+      "If CL were AI Native.... what principles etc?",
+      "CLAI North America Relay",
+      "Day 1 PM breakouts: key themes_Cambridge",
+      "Taking Stock of AI at CL - 2"
+    ],
+    "insights": [
+      "Verification labor may triple — expertise to catch AI errors becomes more valuable.",
+      "Many different perspectives and roles within CL create uneven fluency and overwhelm.",
+      "Building expertise through experimentation parallels the support we can offer clients."
+    ],
+    "conflicts": [
+      "AI extends experts vs removes junior learning tasks.",
+      "Surfing the edge vs feeling left behind.",
+      "More AI drafts vs fewer people to read carefully."
+    ],
+    "quotes": [
+      {
+        "text": "The amount of labor required to verify what you're hearing and seeing is triple.",
+        "session": "If CL were AI Native.... what principles etc?",
+        "note": "Transcript"
+      },
+      {
+        "text": "I think one of the reasons why I was overwhelmed by all of this is that there are many different perspectives and role within CL.",
+        "session": "CLAI North America Relay",
+        "note": "Transcript"
+      },
+      {
+        "text": "I would also want it to help me build expertise.",
+        "session": "If CL were AI Native.... what principles etc?",
+        "note": "Transcript"
+      }
+    ]
+  },
+  "build-own-tools": {
+    "title": "Build our own tools",
+    "narrative": "At the intersection of human and AI expertise, CL can build tools only we can build — for ourselves and for clients. Camp surfaced 10–20 internal tools already; some become client offerings that deepen our value.",
+    "sessions": [
+      "Client Implications Day 3",
+      "client-facing ideas and experiments",
+      "kinevan ai workshop development",
+      "CLara feedback"
+    ],
+    "insights": [
+      "CL-values coaching tool alongside live coaches imagined explicitly in client implications.",
+      "Productized workshop experiments (e.g. Kinevan) to test with ourselves and clients.",
+      "Tools at the intersection of CL practice and AI lens on familiar frameworks."
+    ],
+    "conflicts": [
+      "Build bespoke vs buy off-the-shelf.",
+      "Fall in love with tools vs focus on client need.",
+      "Scale internal experiments vs maintain craft quality."
     ],
     "quotes": [
       {
@@ -273,312 +392,197 @@
         "note": "Transcript"
       },
       {
-        "text": "I think just to scan across all our current services to say, is there a place for AI augmentation here?",
-        "session": "Client Implications Day 3",
-        "note": "Transcript"
-      },
-      {
-        "text": "If there's something generated by AI, even partially… there is a deficit of trust.",
-        "session": "Day 3 principles discussion group",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "organizational-overwhelm": {
-    "title": "Organizational Overwhelm & Ludicrousness",
-    "sessions": [
-      "discussion on AI and client needs",
-      "Day 1 PM breakouts: key themes_Cambridge",
-      "CLAI CLANZ Relay"
-    ],
-    "insights": [
-      "Overwhelm and confusion as lived relay/breakout experience.",
-      "Skepticism toward discernment as buzzword without practice.",
-      "Go-to-market excitement alongside regional/cultural hesitation."
-    ],
-    "conflicts": [
-      "AI augment for learning vs dismiss discernment talk as 'crap'.",
-      "Client-first clarity vs practitioners' own disorientation.",
-      "Hype vs grounded client work."
-    ],
-    "quotes": [
-      {
-        "text": "There's this whole conversation about discernment and maybe that's just a load of crap.",
-        "session": "Day 1 PM breakouts: key themes_Cambridge",
-        "note": "Transcript"
-      },
-      {
-        "text": "Oh, I'm really interested in the go-to-market, because this feels like such a big opportunity for us.",
-        "session": "CLAI CLANZ Relay",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "expertise-paradox": {
-    "title": "The Expertise Paradox",
-    "sessions": [
-      "If CL were AI Native.... what principles etc?",
-      "Day 1 Synthesis_Cambridge",
-      "Day 1 PM breakouts: key themes_Cambridge"
-    ],
-    "insights": [
-      "Verification labor may triple — expertise to catch AI errors becomes more valuable.",
-      "Apprenticeship and talent development named explicitly in Cambridge synthesis.",
-      "Craft and relationships as CL differentiators in a 'time for craft'."
-    ],
-    "conflicts": [
-      "AI extends experts vs removes junior learning tasks.",
-      "Productivity without verification vs capacity without constraint.",
-      "Repurpose tools vs invent new agentic-AI frameworks."
-    ],
-    "quotes": [
-      {
-        "text": "I would also want it to help me build expertise.",
-        "session": "If CL were AI Native.... what principles etc?",
-        "note": "Transcript"
-      },
-      {
-        "text": "The amount of labor required to verify what you're hearing and seeing is triple.",
-        "session": "If CL were AI Native.... what principles etc?",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "workplace-grief": {
-    "title": "Workplace Grief",
-    "sessions": [
-      "Day 1 PM breakouts: key themes_Cambridge",
-      "What can we do for our clients? Afternoon response to morning session"
-    ],
-    "insights": [
-      "Death doulas for disappearing roles — messy middle, midwife what comes next.",
-      "Closure language: say goodbye well, kill the darlings, end relationships well.",
-      "Grief for role change named alongside organizational change."
-    ],
-    "conflicts": [
-      "Honor endings vs rush to next AI initiative.",
-      "Soft process language vs client-facing toughness.",
-      "Individual grief vs organizational denial."
-    ],
-    "quotes": [
-      {
-        "text": "We need death doulas for the roles that are disappearing… walk them through the messy middle and midwife what comes next.",
-        "session": "Day 1 PM breakouts: key themes_Cambridge",
-        "note": "Transcript"
-      },
-      {
-        "text": "Helping organizations do closure well and say goodbye.",
-        "session": "What can we do for our clients? Afternoon response",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "workslop-economy": {
-    "title": "Workslop Economy & Discernment",
-    "sessions": [
-      "Day 1 PM breakouts: key themes_Cambridge",
-      "Day 3 principles discussion group",
-      "If CL were AI Native.... what principles etc?"
-    ],
-    "insights": [
-      "Discernment as organizational wallpaper — cynicism when word outruns practice.",
-      "Trust deficit tied to AI-generated client material.",
-      "Verification labor rises with output volume."
-    ],
-    "conflicts": [
-      "Discernment essential vs buzzword cynicism.",
-      "More AI drafts vs fewer people to read carefully.",
-      "Transparency vs trust erosion."
-    ],
-    "quotes": [
-      {
-        "text": "Maybe discernment is just a load of crap.",
-        "session": "Day 1 PM breakouts: key themes_Cambridge",
-        "note": "Transcript"
-      },
-      {
-        "text": "Labor required to verify what you're hearing and seeing is triple.",
-        "session": "If CL were AI Native.... what principles etc?",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "ai-infrastructure-sovereignty": {
-    "title": "Infrastructure & Data Sovereignty",
-    "sessions": [
-      "Rules and Guidelines for use of AI Apps",
-      "CLAI Relay- India/MENA/Europe AM",
-      "CLAI North America Relay"
-    ],
-    "insights": [
-      "CL AI app rules name recording/LLM data-leak risk.",
-      "Data sovereignty in regional relay uploads and transcripts.",
-      "CLara as upload/harvest infrastructure in live relays."
-    ],
-    "conflicts": [
-      "Consolidate on CLara vs tool sprawl.",
-      "US-hosted convenience vs regional sovereignty.",
-      "Capture for harvest vs minimize sensitive data."
-    ],
-    "quotes": [
-      {
-        "text": "Recording and transcription / LLM apps are at high risk of personal and sensitive data leaks.",
-        "session": "Rules and Guidelines for use of AI Apps",
+        "text": "Building a little product that is the Kinevan AI workshop… test that with ourselves and with some clients.",
+        "session": "client-facing ideas and experiments",
         "note": "Upload"
       },
       {
-        "text": "Once we are done, we're going to upload everything on to Clara.",
-        "session": "CLAI Relay- India/MENA/Europe AM",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "leadership-sensemaking": {
-    "title": "Leadership & Sensemaking",
-    "sessions": [
-      "How To Talk To Clients About AI",
-      "CLAI Relay- India/MENA/Europe AM",
-      "Client Implications Day 3"
-    ],
-    "insights": [
-      "Complexity and uncertainty named; Cynefin-adjacent 'we know more than we can say.'",
-      "Hold space for fear while experimenting.",
-      "AI amplifies complexity without naming it — mind traps recur."
-    ],
-    "conflicts": [
-      "Name complexity vs simplify for anxious clients.",
-      "Embodiment/slowness vs AI pull toward speed.",
-      "Cautious users vs hype acceleration."
-    ],
-    "quotes": [
-      {
-        "text": "People are uncomfortable with uncertainty, uncomfortable with complexity.",
-        "session": "CLAI Relay- India/MENA/Europe AM",
-        "note": "Transcript"
-      },
-      {
-        "text": "Holding space for that — even letting people speak up their fears.",
-        "session": "How To Talk To Clients About AI",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "future-of-coaching": {
-    "title": "Future of Coaching & Coaching Bots",
-    "sessions": [
-      "Client Implications Day 3",
-      "AI @ CL Letter - 13 May 2026",
-      "kinevan ai workshop development"
-    ],
-    "insights": [
-      "CL-values coaching tool alongside live coaches imagined explicitly.",
-      "Wandering-with-clients metaphor in AI @ CL letter.",
-      "Productized AI workshop experiments (Kinevan)."
-    ],
-    "conflicts": [
-      "AI coaching augment vs trust deficit in client work.",
-      "Scale support vs premium human relationship.",
-      "New tools vs craft differentiator."
-    ],
-    "quotes": [
-      {
-        "text": "Another coaching tool to use alongside our live coaches — designed with CL values.",
-        "session": "Client Implications Day 3",
-        "note": "Transcript"
-      },
-      {
-        "text": "We are in such a wood now, wandering along with our clients.",
-        "session": "AI @ CL Letter - 13 May 2026",
+        "text": "I wasn't really sure why we needed it and if we need to build our own. I think sometimes we fall in love with tools rather than just buy the thing.",
+        "session": "CLara feedback",
         "note": "Upload"
       }
     ]
   },
-  "ai-support-cl": {
-    "title": "How AI might support CL",
+  "culture-language": {
+    "title": "Building our own culture & language of AI expertise",
+    "narrative": "The AI Pedal aims to help CL build shared culture and language — competency through experimentation, learning together across differences without othering or judging, generating trust and intimacy in the challenge of AI transformation.",
     "sessions": [
-      "CLAI Relay- India/MENA/Europe AM",
+      "Camp CLai opening & check-in A",
+      "CLAI North America Relay",
       "Client Implications Day 3",
-      "CLAI CLANZ Relay"
+      "How To Talk To Clients About AI"
     ],
     "insights": [
-      "CLara as harvest infrastructure — upload, submit, sense-make.",
-      "Experiments people could sign up for (Client Implications).",
-      "Opening uploads link AI to CL practice and inquiry."
+      "Messy-but-real learning: poetry, humor, tech glitches, candid fear in live conversation.",
+      "Getting usefulness somewhere accessible probably outweighs overwhelm — but structure is nascent.",
+      "How we talk about AI reflects our journey of transformation individually and as an organization."
     ],
     "conflicts": [
-      "Platform depth vs client GTM speed.",
-      "CLara enables conversation vs becomes primary interface.",
-      "Demonstrate internally before scaling."
-    ],
-    "quotes": [
-      {
-        "text": "Upload everything on to Clara.",
-        "session": "CLAI Relay- India/MENA/Europe AM",
-        "note": "Transcript"
-      },
-      {
-        "text": "Themes or experiments that people could literally sign up for.",
-        "session": "Client Implications Day 3",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "risks-fears-growth": {
-    "title": "Risks, Fears & Growth",
-    "sessions": [
-      "How To Talk To Clients About AI",
-      "Day 3 principles discussion group",
-      "CLAI Relay- India/MENA/Europe AM"
-    ],
-    "insights": [
-      "Explicit room to speak fears in client-facing conversations.",
-      "Trust deficit when AI touches deliverables.",
-      "Cautious users not sold on hype — internal diversity of stance."
-    ],
-    "conflicts": [
-      "Name fears vs keep conversations forward-looking.",
-      "Transparency vs vulnerability.",
-      "Caution vs acceleration inside CL."
-    ],
-    "quotes": [
-      {
-        "text": "Letting people speak up their fears.",
-        "session": "How To Talk To Clients About AI",
-        "note": "Transcript"
-      },
-      {
-        "text": "Not completely sold on the hype.",
-        "session": "How To Talk To Clients About AI",
-        "note": "Transcript"
-      }
-    ]
-  },
-  "meta-learning": {
-    "title": "Meta: How we spoke & learned",
-    "sessions": [
-      "Client Implications Day 3",
-      "CLAI CLANZ Relay",
-      "CLAI Relay- India/MENA/Europe AM"
-    ],
-    "insights": [
-      "Messy-but-real: poetry, humor, tech glitches, candid fear.",
-      "Ideas weave (CLara, death doula, mind traps) without full closure.",
-      "Hard to say: trust deficits, grief, regional hesitation, buzzword cynicism."
-    ],
-    "conflicts": [
-      "Client-first vs space for CL's own overwhelm.",
+      "Move fast where some feel clarity vs not leave others behind.",
       "Upbeat energy vs grief/endings language.",
       "Global comparison vs local specificity."
     ],
     "quotes": [
       {
-        "text": "Did I do that?",
+        "text": "For those of you that find this overwhelming, like me, read whatever calls to you… don't feel like you need to read and digest it all.",
+        "session": "CLAI North America Relay",
+        "note": "Transcript"
+      },
+      {
+        "text": "Getting usefulness somewhere is, somewhere accessible by many probably outweighs the overwhelm.",
+        "session": "CLAI North America Relay",
+        "note": "Transcript"
+      },
+      {
+        "text": "In terms of what I hope we walk away with is some themes or experiments that people could literally sign up for.",
+        "session": "Client Implications Day 3",
+        "note": "Transcript"
+      }
+    ]
+  },
+  "risks-fears": {
+    "title": "Risks & Fears",
+    "narrative": "Clients worry about slop; CL worries about ungrounded adoption breaking sense-making and trust. Fears around AI transformation need space — not moving too fast and leaving people behind, nor letting confusion slow clarity where we're ready to move.",
+    "sessions": [
+      "How To Talk To Clients About AI",
+      "Day 3 principles discussion group",
+      "What can we do for our clients? Afternoon response to morning session",
+      "Day 1 PM breakouts: key themes_Cambridge"
+    ],
+    "insights": [
+      "Explicit room to speak fears in client-facing and internal conversations.",
+      "Workslop and discernment cynicism when language outruns practice.",
+      "Grief for disappearing roles — death doulas for the messy middle."
+    ],
+    "conflicts": [
+      "Name fears vs keep conversations forward-looking.",
+      "Caution vs acceleration inside CL.",
+      "Transparency vs vulnerability with clients."
+    ],
+    "quotes": [
+      {
+        "text": "I think holding space for that — even letting people speak up their fears.",
+        "session": "How To Talk To Clients About AI",
+        "note": "Transcript"
+      },
+      {
+        "text": "If I'm a user of AI and not a producer of AI, and I'm also not completely sold on the hype…",
+        "session": "How To Talk To Clients About AI",
+        "note": "Transcript"
+      },
+      {
+        "text": "We need death doulas for the roles that are disappearing… walk them through the messy middle and midwife what comes next.",
+        "session": "Day 1 PM breakouts: key themes_Cambridge",
+        "note": "Transcript"
+      }
+    ]
+  },
+  "safety-governance": {
+    "title": "Safety & Governance",
+    "narrative": "As we develop AI expertise and tech infrastructure, safety and governance help us build strongly without stepping into the risks we fear — data sovereignty, approved tools, ethical integration aligned with CL values.",
+    "sessions": [
+      "Rules and Guidelines for use of AI Apps",
+      "Regional Perspectives on AI",
+      "Day 3 principles discussion group",
+      "what can we do for our clients? afternoon response to morning"
+    ],
+    "insights": [
+      "CL AI app rules name recording/LLM data-leak risk and approved-tool requirements.",
+      "Data sovereignty matters especially for Indigenous traditional knowledge and regional contexts.",
+      "Non-exec director programs on governing AI — what they need to know, not just policy writing."
+    ],
+    "conflicts": [
+      "Push forward vs safety/ethics conversation (varies by region).",
+      "US-hosted convenience vs regional sovereignty.",
+      "Governance frameworks vs practitioner experimentation speed."
+    ],
+    "quotes": [
+      {
+        "text": "Data sovereignty requirements are checked and any issues are addressed… AI Learning can be turned OFF… Data is deletable.",
+        "session": "Rules and Guidelines for use of AI Apps",
+        "note": "Upload"
+      },
+      {
+        "text": "Sovereignty particularly matters for Indigenous people… traditional knowledge… being put into data centers.",
+        "session": "Regional Perspectives on AI",
+        "note": "Upload"
+      },
+      {
+        "text": "We came up with, like four programs for non-exec directors… governing AI. Not the know-how to write risk policies, but kind of what they need to know.",
+        "session": "what can we do for our clients? afternoon response to morning",
+        "note": "Upload"
+      }
+    ]
+  },
+  "tech-infrastructure": {
+    "title": "Tech infrastructure",
+    "narrative": "Building bespoke technology like CLara supports our learning journey and augments the feedback loop in ways we couldn't when we couldn't build our own tech. Consolidation amid tool sprawl is both opportunity and risk.",
+    "sessions": [
+      "CLara feedback",
+      "CLAI Relay- India/MENA/Europe AM",
+      "Rules and Guidelines for use of AI Apps",
+      "CLAI North America Relay"
+    ],
+    "insights": [
+      "CLara enables simultaneous shared access to transcripts and harvest data.",
+      "Tool sprawl ('cambrian explosion') vs possible consolidation point.",
+      "Regional relays use CLara as upload/harvest infrastructure."
+    ],
+    "conflicts": [
+      "Consolidate on CLara vs distributed tool ecosystem.",
+      "Platform depth vs client go-to-market speed.",
+      "Capture for harvest vs minimize sensitive data exposure."
+    ],
+    "quotes": [
+      {
+        "text": "To have a tool we could all use simultaneously together on the same data… normally I would put all the transcripts into a cloud project, but you can't access it at the same time as I am.",
+        "session": "CLara feedback",
+        "note": "Upload"
+      },
+      {
+        "text": "America submitted everything on to Clara, and once we are done, we're going to upload everything on to Clara.",
+        "session": "CLAI Relay- India/MENA/Europe AM",
+        "note": "Transcript"
+      },
+      {
+        "text": "The possibility set is that we have so many distributed tools… is there a possible point of consolidation… Even all our world calls.",
+        "session": "CLara feedback",
+        "note": "Upload"
+      }
+    ]
+  },
+  "support-business-ops": {
+    "title": "Support business operations",
+    "narrative": "Tools we build for ourselves can support go-to-market, competitor analysis, operational efficiencies, and running the organization — which in turn helps us identify clients and meet their needs efficiently and safely.",
+    "sessions": [
+      "CLAI CLANZ Relay",
+      "Client Implications Day 3",
+      "discussion on AI and client needs"
+    ],
+    "insights": [
+      "Go-to-market excitement alongside regional hesitation in relay conversations.",
+      "Listing places where we can trust AI to help become more efficient with existing work.",
+      "Operational efficiency supports client identification and organizational viability."
+    ],
+    "conflicts": [
+      "Go-to-market speed vs demonstrate internally first.",
+      "Operational AI vs protect sensitive client data.",
+      "Efficiency gains vs verification labor."
+    ],
+    "quotes": [
+      {
+        "text": "Oh, I'm really interested in the go-to-market, because this feels like such a big opportunity for us.",
+        "session": "CLAI CLANZ Relay",
+        "note": "Transcript"
+      },
+      {
+        "text": "Can we list some places where we can trust AI to actually help us become more efficient with the work that we already do?",
         "session": "Client Implications Day 3",
         "note": "Transcript"
       },
       {
-        "text": "Continue with my, I think, I think it's working.",
-        "session": "CLAI CLANZ Relay",
+        "text": "How do we best facilitate integration with the tools and practices we have at our disposal?",
+        "session": "discussion on AI and client needs",
         "note": "Transcript"
       }
     ]
@@ -587,37 +591,34 @@
 ;</script>
 <script>
     const nodes = [
-      { id: "organizational-overwhelm", label: "Organizational\nOverwhelm", x: 40, y: 70, w: 150, h: 52, theme: "organizational-overwhelm" },
-      { id: "workslop-economy", label: "Workslop &\nDiscernment", x: 250, y: 70, w: 150, h: 52, theme: "workslop-economy" },
-      { id: "expertise-paradox", label: "Expertise\nParadox", x: 460, y: 70, w: 140, h: 52, theme: "expertise-paradox" },
-      { id: "future-of-coaching", label: "Future of\nCoaching", x: 660, y: 70, w: 140, h: 52, theme: "future-of-coaching" },
-
-      { id: "workplace-grief", label: "Workplace\nGrief", x: 40, y: 220, w: 140, h: 52, theme: "workplace-grief" },
-      { id: "leadership-sensemaking", label: "Leadership &\nSensemaking", x: 250, y: 220, w: 160, h: 52, theme: "leadership-sensemaking" },
-      { id: "ai-principles-humanist", label: "AI Principles &\nHumanist Stance", x: 470, y: 220, w: 170, h: 52, theme: "ai-principles-humanist" },
-      { id: "ai-support-cl", label: "How AI might\nsupport CL", x: 700, y: 220, w: 150, h: 52, theme: "ai-support-cl" },
-
-      { id: "ai-infrastructure-sovereignty", label: "Infrastructure &\nData Sovereignty", x: 700, y: 370, w: 170, h: 52, theme: "ai-infrastructure-sovereignty" },
-      { id: "risks-fears-growth", label: "Risks, Fears\n& Growth", x: 700, y: 500, w: 150, h: 52, theme: "risks-fears-growth" },
-      { id: "meta-learning", label: "Meta · how we\nspoke & learned", x: 250, y: 430, w: 180, h: 52, theme: "meta-learning", meta: true },
+      { id: "client-value-trust", label: "Client Value\n& Trust", x: 180, y: 20, w: 155, h: 52, theme: "client-value-trust" },
+      { id: "build-own-tools", label: "Build our\nown tools", x: 380, y: 90, w: 130, h: 52, theme: "build-own-tools" },
+      { id: "cl-expertise-human", label: "Our CL Expertise\n(Human)", x: 30, y: 180, w: 155, h: 52, theme: "cl-expertise-human" },
+      { id: "ai-expertise", label: "Our Expertise\nwith AI", x: 300, y: 200, w: 145, h: 52, theme: "ai-expertise" },
+      { id: "safety-governance", label: "Safety &\nGovernance", x: 580, y: 60, w: 140, h: 52, theme: "safety-governance" },
+      { id: "tech-infrastructure", label: "Tech\ninfrastructure", x: 720, y: 200, w: 130, h: 52, theme: "tech-infrastructure" },
+      { id: "support-business-ops", label: "Support business\noperations", x: 900, y: 240, w: 155, h: 52, theme: "support-business-ops" },
+      { id: "culture-language", label: "Building our own culture\n& language of AI expertise", x: 260, y: 380, w: 220, h: 52, theme: "culture-language" },
+      { id: "risks-fears", label: "Risks\n& Fears", x: 320, y: 520, w: 120, h: 52, theme: "risks-fears" },
     ];
 
     const edges = [
-      { from: "organizational-overwhelm", to: "workslop-economy" },
-      { from: "workslop-economy", to: "expertise-paradox" },
-      { from: "expertise-paradox", to: "future-of-coaching" },
-      { from: "organizational-overwhelm", to: "workplace-grief" },
-      { from: "workplace-grief", to: "leadership-sensemaking" },
-      { from: "leadership-sensemaking", to: "ai-principles-humanist" },
-      { from: "ai-principles-humanist", to: "ai-support-cl" },
-      { from: "ai-infrastructure-sovereignty", to: "ai-support-cl" },
-      { from: "ai-support-cl", to: "risks-fears-growth" },
-      { from: "meta-learning", to: "organizational-overwhelm", dashed: true },
-      { from: "meta-learning", to: "ai-principles-humanist", dashed: true },
-      { from: "meta-learning", to: "leadership-sensemaking", dashed: true },
+      { from: "cl-expertise-human", to: "client-value-trust" },
+      { from: "cl-expertise-human", to: "build-own-tools" },
+      { from: "cl-expertise-human", to: "culture-language", curve: "down" },
+      { from: "ai-expertise", to: "client-value-trust" },
+      { from: "ai-expertise", to: "build-own-tools" },
+      { from: "ai-expertise", to: "safety-governance" },
+      { from: "ai-expertise", to: "tech-infrastructure", bidirectional: true },
+      { from: "culture-language", to: "ai-expertise" },
+      { from: "risks-fears", to: "culture-language" },
+      { from: "risks-fears", to: "tech-infrastructure", curve: "sweep" },
+      { from: "safety-governance", to: "tech-infrastructure" },
+      { from: "tech-infrastructure", to: "support-business-ops" },
+      { from: "build-own-tools", to: "client-value-trust" },
+      { from: "support-business-ops", to: "client-value-trust", curve: "sweep-back" },
     ];
 
-    // Evidence embedded for offline / embed use (also available as theme-evidence-ui.json)
     let evidence = null;
     async function loadEvidence() {
       if (window.__SYNTHESIS_EVIDENCE__) {
@@ -639,6 +640,28 @@
       return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
     }
 
+    function edgePath(e, a, b) {
+      const ca = center(a);
+      const cb = center(b);
+      if (e.curve === "sweep") {
+        const cx = Math.max(ca.x, cb.x) + 120;
+        const cy = (ca.y + cb.y) / 2 - 80;
+        return `M ${ca.x} ${ca.y} Q ${cx} ${cy}, ${cb.x} ${cb.y}`;
+      }
+      if (e.curve === "sweep-back") {
+        const cx = (ca.x + cb.x) / 2;
+        const cy = Math.min(ca.y, cb.y) - 100;
+        return `M ${ca.x} ${ca.y} Q ${cx} ${cy}, ${cb.x} ${cb.y}`;
+      }
+      if (e.curve === "down") {
+        const midX = (ca.x + cb.x) / 2;
+        const midY = (ca.y + cb.y) / 2 + 40;
+        return `M ${ca.x} ${ca.y} Q ${midX} ${midY}, ${cb.x} ${cb.y}`;
+      }
+      const midX = (ca.x + cb.x) / 2;
+      return `M ${ca.x} ${ca.y} C ${midX} ${ca.y}, ${midX} ${cb.y}, ${cb.x} ${cb.y}`;
+    }
+
     function draw() {
       const svg = document.getElementById("map");
       const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -652,13 +675,11 @@
         const a = nodeById(e.from);
         const b = nodeById(e.to);
         if (!a || !b) continue;
-        const ca = center(a);
-        const cb = center(b);
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        const midX = (ca.x + cb.x) / 2;
-        const d = `M ${ca.x} ${ca.y} C ${midX} ${ca.y}, ${midX} ${cb.y}, ${cb.x} ${cb.y}`;
-        path.setAttribute("d", d);
-        path.setAttribute("class", e.dashed ? "edge dashed" : "edge");
+        path.setAttribute("d", edgePath(e, a, b));
+        let cls = "edge";
+        if (e.bidirectional) cls += " bidirectional";
+        path.setAttribute("class", cls);
         path.dataset.from = e.from;
         path.dataset.to = e.to;
         edgeLayer.appendChild(path);
@@ -666,7 +687,7 @@
 
       for (const n of nodes) {
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        g.setAttribute("class", n.meta ? "node meta" : "node");
+        g.setAttribute("class", "node");
         g.dataset.id = n.id;
         g.dataset.theme = n.theme;
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -676,10 +697,11 @@
         rect.setAttribute("height", n.h);
         g.appendChild(rect);
         const lines = n.label.split("\n");
+        const lineHeight = lines.length > 2 ? 12 : 14;
         lines.forEach((line, i) => {
           const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
           text.setAttribute("x", n.x + n.w / 2);
-          text.setAttribute("y", n.y + n.h / 2 + (i - (lines.length - 1) / 2) * 14);
+          text.setAttribute("y", n.y + n.h / 2 + (i - (lines.length - 1) / 2) * lineHeight);
           text.setAttribute("text-anchor", "middle");
           text.setAttribute("dominant-baseline", "middle");
           text.textContent = line;
@@ -702,9 +724,12 @@
       const data = evidence?.[n.theme] || evidence?.[id];
       const panel = document.getElementById("detail");
       if (!data) {
-        panel.innerHTML = `<div class="eyebrow">Theme</div><h2>${n.label.replace("\n", " ")}</h2><p class="empty">No packaged evidence for this node yet.</p>`;
+        panel.innerHTML = `<div class="eyebrow">Node</div><h2>${escapeHtml(n.label.replace(/\n/g, " "))}</h2><p class="empty">No packaged evidence for this node yet.</p>`;
         return;
       }
+      const narrative = data.narrative
+        ? `<p class="narrative">${escapeHtml(data.narrative)}</p>`
+        : "";
       const insights = (data.insights || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
       const conflicts = (data.conflicts || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
       const quotes = (data.quotes || [])
@@ -715,8 +740,9 @@
         .join("");
       const sessions = (data.sessions || []).join(" · ");
       panel.innerHTML = `
-        <div class="eyebrow">Theme</div>
-        <h2>${escapeHtml(data.title || n.label)}</h2>
+        <div class="eyebrow">Node</div>
+        <h2>${escapeHtml(data.title || n.label.replace(/\n/g, " "))}</h2>
+        ${narrative}
         <h3>Insights</h3>
         <ul>${insights || "<li class='empty'>None packaged</li>"}</ul>
         <h3>Conflicting perspectives</h3>
@@ -737,9 +763,7 @@
     }
 
     draw();
-    loadEvidence().then(() => {
-      // optional: auto-select meta as orientation
-    });
+    loadEvidence();
   </script>
 </body>
 </html>

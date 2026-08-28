@@ -3,6 +3,8 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 
+const MAP_SENTINEL = "<!-- synthesis-map -->";
+
 type PreliminarySynthesisProps = {
   markdown: string;
   isDraftPreview?: boolean;
@@ -80,13 +82,24 @@ function isSessionsLine(children: ReactNode): boolean {
   return /^sessions\s*:/i.test(plainText(children).trim());
 }
 
-export function PreliminarySynthesis({
-  markdown,
-  isDraftPreview,
-  mapSrc = "/synthesis/map.html?embed=1",
-}: PreliminarySynthesisProps) {
+function splitMarkdownAtMap(markdown: string): { beforeMap: string; afterMap: string } {
+  const idx = markdown.indexOf(MAP_SENTINEL);
+  if (idx < 0) {
+    return { beforeMap: markdown, afterMap: "" };
+  }
+  const beforeMap = markdown.slice(0, idx).trimEnd();
+  const afterMap = markdown.slice(idx + MAP_SENTINEL.length).trimStart();
+  return { beforeMap, afterMap };
+}
+
+function GenerativeSystemMap({
+  mapSrc,
+  titleId,
+}: {
+  mapSrc: string;
+  titleId: string;
+}) {
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const mapTitleId = useId();
 
   useEffect(() => {
     if (!isMapFullscreen) return;
@@ -104,6 +117,72 @@ export function PreliminarySynthesis({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isMapFullscreen]);
+
+  return (
+    <section className="flex flex-col gap-4" aria-labelledby={titleId}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2
+            id={titleId}
+            className="font-display text-2xl font-medium text-ink"
+          >
+            Generative system map
+          </h2>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-ink/60">
+            How CL human expertise, AI learning, infrastructure, and client value
+            connect as a generative system — walking our walk as we learn together.
+            Click a node for narrative, tensions, and Commons-backed quotes.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsMapFullscreen((v) => !v)}
+          className="inline-flex items-center gap-2 rounded-lg border border-cloud bg-paper px-3 py-2 font-mono text-xs font-medium uppercase tracking-wider text-forest shadow-soft transition hover:border-sage"
+        >
+          {isMapFullscreen ? "Exit full screen" : "Full screen"}
+        </button>
+      </div>
+
+      <div
+        className={
+          isMapFullscreen
+            ? "fixed inset-0 z-50 bg-sand p-3 sm:p-5"
+            : "overflow-hidden rounded-lg border border-cloud bg-paper shadow-soft"
+        }
+      >
+        {isMapFullscreen ? (
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsMapFullscreen(false)}
+              className="rounded-lg border border-cloud bg-paper px-3 py-2 font-mono text-xs font-medium uppercase tracking-wider text-forest shadow-soft"
+            >
+              Exit full screen
+            </button>
+          </div>
+        ) : null}
+        <iframe
+          title="Generative system map"
+          src={mapSrc}
+          className={
+            isMapFullscreen
+              ? "h-[calc(100vh-3.5rem)] w-full rounded-lg border border-cloud bg-paper"
+              : "h-[min(70vh,640px)] w-full border-0"
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
+export function PreliminarySynthesis({
+  markdown,
+  isDraftPreview,
+  mapSrc = "/synthesis/map.html?embed=1",
+}: PreliminarySynthesisProps) {
+  const mapTitleId = useId();
+  const { beforeMap, afterMap } = splitMarkdownAtMap(markdown);
+  const hasMapSplit = markdown.includes(MAP_SENTINEL);
 
   let leadParagraphSeen = false;
 
@@ -218,6 +297,44 @@ export function PreliminarySynthesis({
     ),
   };
 
+  const themeMarkdownComponents: Components = {
+    ...markdownComponents,
+    p: ({ children }) => {
+      const label = isSectionLabel(children);
+      if (label) {
+        const tone = toneForTitle(label);
+        return (
+          <div className="mt-9 mb-3">
+            <p
+              className={`inline-flex rounded-full border border-cloud px-3 py-1 font-mono text-[0.7rem] font-medium uppercase tracking-[0.12em] ${tone.soft} ${tone.text}`}
+            >
+              {label}
+            </p>
+          </div>
+        );
+      }
+
+      if (isSessionsLine(children)) {
+        const text = plainText(children);
+        const value = text.replace(/^sessions\s*:\s*/i, "");
+        return (
+          <p className="mt-6 rounded-lg border border-dashed border-cloud bg-paper/60 px-4 py-3 text-sm leading-relaxed text-ink/60">
+            <span className="mr-2 font-mono text-xs font-medium uppercase tracking-widest text-ink">
+              Sessions
+            </span>
+            {value}
+          </p>
+        );
+      }
+
+      return (
+        <p className="mt-4 max-w-3xl text-[1.05rem] leading-8 text-ink/90">
+          {children}
+        </p>
+      );
+    },
+  };
+
   return (
     <div className="flex flex-col gap-12">
       {isDraftPreview ? (
@@ -227,61 +344,20 @@ export function PreliminarySynthesis({
       ) : null}
 
       <article className="min-w-0">
-        <ReactMarkdown components={markdownComponents}>{markdown}</ReactMarkdown>
+        <ReactMarkdown components={markdownComponents}>{beforeMap}</ReactMarkdown>
       </article>
 
-      <section className="flex flex-col gap-4" aria-labelledby={mapTitleId}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2
-              id={mapTitleId}
-              className="font-display text-2xl font-medium text-ink"
-            >
-              Theme map
-            </h2>
-            <p className="mt-1 max-w-xl text-sm leading-6 text-ink/60">
-              Preliminary relational view of the organizer seed themes. Click a
-              node for insights, tensions, and quotes.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsMapFullscreen((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg border border-cloud bg-paper px-3 py-2 font-mono text-xs font-medium uppercase tracking-wider text-forest shadow-soft transition hover:border-sage"
-          >
-            {isMapFullscreen ? "Exit full screen" : "Full screen"}
-          </button>
-        </div>
+      {hasMapSplit ? (
+        <GenerativeSystemMap mapSrc={mapSrc} titleId={mapTitleId} />
+      ) : null}
 
-        <div
-          className={
-            isMapFullscreen
-              ? "fixed inset-0 z-50 bg-sand p-3 sm:p-5"
-              : "overflow-hidden rounded-lg border border-cloud bg-paper shadow-soft"
-          }
-        >
-          {isMapFullscreen ? (
-            <div className="mb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsMapFullscreen(false)}
-                className="rounded-lg border border-cloud bg-paper px-3 py-2 font-mono text-xs font-medium uppercase tracking-wider text-forest shadow-soft"
-              >
-                Exit full screen
-              </button>
-            </div>
-          ) : null}
-          <iframe
-            title="Preliminary synthesis theme map"
-            src={mapSrc}
-            className={
-              isMapFullscreen
-                ? "h-[calc(100vh-3.5rem)] w-full rounded-lg border border-cloud bg-paper"
-                : "h-[min(70vh,640px)] w-full border-0"
-            }
-          />
-        </div>
-      </section>
+      {afterMap ? (
+        <article className="min-w-0">
+          <ReactMarkdown components={themeMarkdownComponents}>
+            {afterMap}
+          </ReactMarkdown>
+        </article>
+      ) : null}
     </div>
   );
 }
