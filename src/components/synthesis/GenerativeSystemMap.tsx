@@ -1,5 +1,6 @@
 "use client";
 
+import { forceX, forceY } from "d3-force";
 import {
   useCallback,
   useEffect,
@@ -16,8 +17,9 @@ import {
   annotationsForNode,
   fillByNodeId,
   GENERATIVE_SYSTEM_NODES,
-  GENERATIVE_SYSTEM_EDGES,
+  MAP_BUILD_STEPS,
   radiusByNodeId,
+  strokeByNodeId,
   SYNTHESIS_MAP_HEIGHT,
   SYNTHESIS_MAP_LAYOUT,
   SYNTHESIS_MAP_WIDTH,
@@ -30,7 +32,6 @@ import {
 } from "@/lib/synthesis/theme-evidence-ui";
 
 const SETTLE_MS = 5000;
-const SNAP_MS = 850;
 const LABEL_FONT = 11;
 
 const LAYOUT_CONFIG: MapLayoutConfig = {
@@ -71,8 +72,8 @@ function buildInitialSimNodes(): SynthesisSimNode[] {
       y: anchor.y,
       vx: 0,
       vy: 0,
-      fx: anchor.x,
-      fy: anchor.y,
+      fx: null,
+      fy: null,
       radius: radii.get(node.id) ?? 28,
       evidenceKey: def.evidenceKey,
     };
@@ -186,6 +187,7 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
   const nodesRef = useRef<SynthesisSimNode[]>(buildInitialSimNodes());
   const anchorsRef = useRef(anchorByNodeId());
   const fillsRef = useRef(fillByNodeId());
+  const strokesRef = useRef(strokeByNodeId());
   const dragRef = useRef<{
     id: string;
     pointerId: number;
@@ -194,12 +196,12 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
   } | null>(null);
   const dragMovedRef = useRef(false);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const snapRafRef = useRef<number | null>(null);
 
   const [simNodes, setSimNodes] = useState<SynthesisSimNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>("client-value-trust");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [storyStep, setStoryStep] = useState<number | null>(null);
 
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -208,6 +210,15 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
   );
 
   const edges = toGraphEdges();
+  const inStoryMode = storyStep != null;
+  const currentStep = inStoryMode ? MAP_BUILD_STEPS[storyStep] : null;
+  const visibleNodeIds = new Set(
+    inStoryMode ? currentStep!.nodeIds : GENERATIVE_SYSTEM_NODES.map((n) => n.id),
+  );
+  const visibleEdgeIds = new Set(
+    inStoryMode ? currentStep!.edgeIds : edges.map((e) => e.id),
+  );
+
   const publishNodes = useCallback(() => {
     setSimNodes(nodesRef.current.slice());
   }, []);
@@ -215,26 +226,46 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
   useEffect(() => {
     const seeded = buildInitialSimNodes();
     nodesRef.current = seeded;
+    const anchors = anchorsRef.current;
     const simulation = createGraphSimulation(
       seeded,
       edges,
       SYNTHESIS_MAP_WIDTH,
       SYNTHESIS_MAP_HEIGHT,
       LAYOUT_CONFIG,
-      0.5,
+      0.85,
     );
+    simulation
+      .force(
+        "anchorX",
+        forceX<SynthesisSimNode>(
+          (d) => anchors.get(d.id)?.x ?? d.x,
+        ).strength(SYNTHESIS_MAP_LAYOUT.anchorStrength),
+      )
+      .force(
+        "anchorY",
+        forceY<SynthesisSimNode>(
+          (d) => anchors.get(d.id)?.y ?? d.y,
+        ).strength(SYNTHESIS_MAP_LAYOUT.anchorStrength),
+      );
     simulation.on("tick", publishNodes);
     simRef.current = simulation;
     publishNodes();
-    simulation.alpha(0.4).restart();
+    simulation.alphaTarget(0.02).restart();
 
     return () => {
       simulation.stop();
       simRef.current = null;
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-      if (snapRafRef.current) cancelAnimationFrame(snapRafRef.current);
     };
   }, [edges, publishNodes]);
+
+  useEffect(() => {
+    if (!inStoryMode || !currentStep?.focusNodeId) return;
+    setSelectedId(currentStep.focusNodeId);
+    reheat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reheat when step changes
+  }, [storyStep]);
 
   const clientToGraph = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current;
@@ -256,44 +287,37 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
     return nodesRef.current.find((n) => n.id === id);
   }
 
-  function scheduleSnapBack(nodeId: string) {
+  function scheduleReleasePin(nodeId: string) {
     if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
     settleTimerRef.current = setTimeout(() => {
-      const idx = nodesRef.current.findIndex((n) => n.id === nodeId);
-      const anchor = anchorsRef.current.get(nodeId);
-      if (idx < 0 || !anchor) return;
-
-      const snapNode = nodesRef.current[idx]!;
-      const target = anchor;
-      const startX = snapNode.x;
-      const startY = snapNode.y;
-      const startFx = snapNode.fx ?? startX;
-      const startFy = snapNode.fy ?? startY;
-      const startTime = performance.now();
-
-      function step(now: number) {
-        const t = Math.min(1, (now - startTime) / SNAP_MS);
-        const ease = 1 - Math.pow(1 - t, 3);
-        snapNode.x = startX + (target.x - startX) * ease;
-        snapNode.y = startY + (target.y - startY) * ease;
-        snapNode.fx = startFx + (target.x - startFx) * ease;
-        snapNode.fy = startFy + (target.y - startFy) * ease;
-        publishNodes();
-        if (t < 1) {
-          snapRafRef.current = requestAnimationFrame(step);
-        } else {
-          snapNode.x = target.x;
-          snapNode.y = target.y;
-          snapNode.fx = target.x;
-          snapNode.fy = target.y;
-          publishNodes();
-          snapRafRef.current = null;
-        }
-      }
-
-      if (snapRafRef.current) cancelAnimationFrame(snapRafRef.current);
-      snapRafRef.current = requestAnimationFrame(step);
+      const node = findNode(nodeId);
+      if (!node) return;
+      node.fx = null;
+      node.fy = null;
+      reheat();
+      publishNodes();
     }, SETTLE_MS);
+  }
+
+  function startStory() {
+    setStoryStep(0);
+  }
+
+  function exitStory() {
+    setStoryStep(null);
+    setSelectedId("client-value-trust");
+    reheat();
+  }
+
+  function stepStory(delta: number) {
+    setStoryStep((prev) => {
+      if (prev == null) return 0;
+      const next = Math.min(
+        MAP_BUILD_STEPS.length - 1,
+        Math.max(0, prev + delta),
+      );
+      return next;
+    });
   }
 
   const nodeById = new Map(simNodes.map((n) => [n.id, n]));
@@ -303,205 +327,283 @@ export function GenerativeSystemMap({ className = "" }: { className?: string }) 
 
   return (
     <div className={className}>
-      <div className="relative overflow-hidden rounded-t-lg bg-gradient-to-b from-paper to-sand/80">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${SYNTHESIS_MAP_WIDTH} ${SYNTHESIS_MAP_HEIGHT}`}
-          role="img"
-          aria-label="Generative system map. Drag nodes to explore; they return to place after a few seconds."
-          className="block h-[min(52vh,480px)] w-full touch-none"
-        >
-          <rect width={SYNTHESIS_MAP_WIDTH} height={SYNTHESIS_MAP_HEIGHT} fill="transparent" />
-
-          {edges.map((edge) => {
-            const source = nodeById.get(edge.sourceNodeId);
-            const target = nodeById.get(edge.targetNodeId);
-            if (!source || !target) return null;
-            const sr = source.radius ?? 28;
-            const tr = target.radius ?? 28;
-            const { x1, y1, x2, y2 } = edgeEndpoints(
-              source.x,
-              source.y,
-              sr,
-              target.x,
-              target.y,
-              tr,
-            );
-            const d = curvedPath(x1, y1, x2, y2, edge.id);
-            const active =
-              selectedId === edge.sourceNodeId ||
-              selectedId === edge.targetNodeId ||
-              hoveredId === edge.sourceNodeId ||
-              hoveredId === edge.targetNodeId;
-            return (
-              <path
-                key={edge.id}
-                d={d}
-                fill="none"
-                stroke={active ? "#3E6E8E" : "#7FA093"}
-                strokeOpacity={active ? 0.85 : 0.45}
-                strokeWidth={active ? 2 : 1.5}
-                strokeDasharray="4 6"
-                style={
-                  reducedMotion
-                    ? undefined
-                    : { animation: "km-edge-flow 3s linear infinite" }
-                }
-              />
-            );
-          })}
-
-          {simNodes.map((node) => {
-            const isSelected = node.id === selectedId;
-            const isHovered = node.id === hoveredId;
-            const isLit = isSelected || isHovered;
-            const isDragging = node.id === draggingId;
-            const r = node.radius ?? 28;
-            const fill = fillsRef.current.get(node.id) ?? "#7FA093";
-            const lines = (
-              GENERATIVE_SYSTEM_NODES.find((n) => n.id === node.id)?.label ?? node.label
-            ).split("\n");
-
-            return (
-              <g
-                key={node.id}
-                data-gsm-node={node.id}
-                transform={`translate(${node.x}, ${node.y})`}
-                className="cursor-grab outline-none active:cursor-grabbing"
-                onMouseEnter={() => setHoveredId(node.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return;
-                  event.stopPropagation();
-                  const live = findNode(node.id);
-                  if (!live) return;
-                  dragMovedRef.current = false;
-                  dragRef.current = {
-                    id: live.id,
-                    pointerId: event.pointerId,
-                    lastX: event.clientX,
-                    lastY: event.clientY,
-                  };
-                  if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-                  if (snapRafRef.current) cancelAnimationFrame(snapRafRef.current);
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }}
-                onPointerMove={(event) => {
-                  if (
-                    dragRef.current?.id !== node.id ||
-                    dragRef.current.pointerId !== event.pointerId
-                  ) {
-                    return;
-                  }
-                  const live = findNode(node.id);
-                  if (!live) return;
-                  const dx = event.clientX - dragRef.current.lastX;
-                  const dy = event.clientY - dragRef.current.lastY;
-                  if (!dragMovedRef.current) {
-                    if (Math.hypot(dx, dy) <= 4) return;
-                    dragMovedRef.current = true;
-                    setDraggingId(node.id);
-                    for (const n of nodesRef.current) {
-                      if (n.id !== node.id) {
-                        n.fx = null;
-                        n.fy = null;
-                      }
-                    }
-                    simRef.current?.alphaTarget(0.2).restart();
-                  }
-                  const point = clientToGraph(event.clientX, event.clientY);
-                  dragRef.current.lastX = event.clientX;
-                  dragRef.current.lastY = event.clientY;
-                  live.fx = point.x;
-                  live.fy = point.y;
-                  live.x = point.x;
-                  live.y = point.y;
-                  publishNodes();
-                }}
-                onPointerUp={(event) => {
-                  if (
-                    dragRef.current?.id !== node.id ||
-                    dragRef.current.pointerId !== event.pointerId
-                  ) {
-                    return;
-                  }
-                  const live = findNode(node.id);
-                  if (!live) return;
-                  const wasClick = !dragMovedRef.current;
-                  if (wasClick) {
-                    setSelectedId(live.id);
-                  } else {
-                    live.fx = live.x;
-                    live.fy = live.y;
-                    for (const n of nodesRef.current) {
-                      if (n.id === node.id) continue;
-                      const anchor = anchorsRef.current.get(n.id);
-                      if (!anchor) continue;
-                      n.x = anchor.x;
-                      n.y = anchor.y;
-                      n.vx = 0;
-                      n.vy = 0;
-                      n.fx = anchor.x;
-                      n.fy = anchor.y;
-                    }
-                    scheduleSnapBack(node.id);
-                    reheat();
-                  }
-                  setDraggingId(null);
-                  simRef.current?.alphaTarget(0);
-                  dragRef.current = null;
-                  event.currentTarget.releasePointerCapture(event.pointerId);
-                  publishNodes();
-                }}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cloud bg-paper px-3 py-2 sm:px-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {!inStoryMode ? (
+            <button
+              type="button"
+              onClick={startStory}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cloud bg-paper px-3 py-1.5 font-mono text-[0.68rem] font-medium uppercase tracking-wider text-forest shadow-soft transition hover:border-sage"
+              aria-label="Build the map step by step"
+            >
+              <span aria-hidden className="text-sm leading-none">
+                ▶
+              </span>
+              Build story
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => stepStory(-1)}
+                disabled={storyStep === 0}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cloud bg-paper text-forest shadow-soft transition hover:border-sage disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Previous step"
               >
-                <circle
-                  r={r}
-                  fill={fill}
-                  fillOpacity={isLit ? 0.95 : 0.82}
-                  stroke={isLit ? "#2E4B45" : "rgba(46,75,69,0.35)"}
-                  strokeWidth={isLit ? 2.5 : 1.5}
-                  style={
-                    isLit
-                      ? { filter: "drop-shadow(0 0 12px rgba(143,214,196,0.55))" }
-                      : undefined
-                  }
-                />
-                {isDragging ? (
-                  <circle
-                    r={r + 4}
-                    fill="none"
-                    stroke="#2E4B45"
-                    strokeWidth={1.5}
-                    strokeDasharray="3 3"
-                    style={{ pointerEvents: "none" }}
-                  />
-                ) : null}
-                <circle r={r + 6} fill="transparent" />
-                {lines.map((line, i) => (
-                  <text
-                    key={line}
-                    y={r + 16 + i * 13}
-                    textAnchor="middle"
-                    className="select-none fill-ink font-medium"
-                    style={{ pointerEvents: "none", fontSize: LABEL_FONT }}
-                  >
-                    {line}
-                  </text>
-                ))}
-              </g>
-            );
-          })}
-        </svg>
-        <p className="pointer-events-none absolute bottom-2 left-3 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-ink/45">
-          Drag to explore · settles in 5s · click for quotes
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={() => stepStory(1)}
+                disabled={storyStep === MAP_BUILD_STEPS.length - 1}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cloud bg-paper text-forest shadow-soft transition hover:border-sage disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Next step"
+              >
+                →
+              </button>
+              <span className="font-mono text-[0.68rem] font-medium uppercase tracking-[0.06em] text-ink/55">
+                Step {storyStep! + 1} / {MAP_BUILD_STEPS.length}
+                <span className="mx-1.5 text-cloud">·</span>
+                {currentStep?.title}
+              </span>
+              <button
+                type="button"
+                onClick={exitStory}
+                className="rounded-lg border border-cloud bg-sand/60 px-2.5 py-1 font-mono text-[0.65rem] font-medium uppercase tracking-wider text-ink/60 transition hover:border-sage hover:text-forest"
+              >
+                Exit
+              </button>
+            </>
+          )}
+        </div>
+        <p className="font-mono text-[0.62rem] uppercase tracking-[0.08em] text-ink/45">
+          Drag to explore · click for quotes
         </p>
       </div>
-      <div className="border-t border-cloud bg-paper px-4 py-4 sm:px-5">
-        <SynthesisMapDetail
-          evidenceKey={selected?.evidenceKey ?? null}
-          nodeLabel={selectedDef?.label.replace(/\n/g, " ") ?? "Explore the system"}
-          edgeAnnotations={edgeAnnotations}
-        />
+
+      <div className="grid min-h-[min(52vh,480px)] grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(260px,0.85fr)]">
+        <div className="relative overflow-hidden bg-gradient-to-b from-paper to-sand/80">
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${SYNTHESIS_MAP_WIDTH} ${SYNTHESIS_MAP_HEIGHT}`}
+            role="img"
+            aria-label="Generative system map. Drag nodes to explore connections."
+            className="block h-full min-h-[min(52vh,480px)] w-full touch-none"
+          >
+            <rect
+              width={SYNTHESIS_MAP_WIDTH}
+              height={SYNTHESIS_MAP_HEIGHT}
+              fill="transparent"
+            />
+
+            {edges.map((edge) => {
+              if (!visibleEdgeIds.has(edge.id)) return null;
+              const source = nodeById.get(edge.sourceNodeId);
+              const target = nodeById.get(edge.targetNodeId);
+              if (!source || !target) return null;
+              if (
+                !visibleNodeIds.has(edge.sourceNodeId) ||
+                !visibleNodeIds.has(edge.targetNodeId)
+              ) {
+                return null;
+              }
+              const sr = source.radius ?? 28;
+              const tr = target.radius ?? 28;
+              const { x1, y1, x2, y2 } = edgeEndpoints(
+                source.x,
+                source.y,
+                sr,
+                target.x,
+                target.y,
+                tr,
+              );
+              const d = curvedPath(x1, y1, x2, y2, edge.id);
+              const active =
+                selectedId === edge.sourceNodeId ||
+                selectedId === edge.targetNodeId ||
+                hoveredId === edge.sourceNodeId ||
+                hoveredId === edge.targetNodeId;
+              return (
+                <path
+                  key={edge.id}
+                  d={d}
+                  fill="none"
+                  stroke={active ? "#3E6E8E" : "#7FA093"}
+                  strokeOpacity={active ? 0.85 : 0.45}
+                  strokeWidth={active ? 2 : 1.5}
+                  strokeDasharray="4 6"
+                  style={
+                    reducedMotion
+                      ? undefined
+                      : { animation: "km-edge-flow 3s linear infinite" }
+                  }
+                />
+              );
+            })}
+
+            {simNodes.map((node) => {
+              if (!visibleNodeIds.has(node.id)) return null;
+              const isSelected = node.id === selectedId;
+              const isHovered = node.id === hoveredId;
+              const isLit = isSelected || isHovered;
+              const isDragging = node.id === draggingId;
+              const isPinned = node.fx != null && node.fy != null;
+              const r = node.radius ?? 28;
+              const fill = fillsRef.current.get(node.id) ?? "#7FA093";
+              const stroke =
+                strokesRef.current.get(node.id) ??
+                (isLit ? "#2E4B45" : "rgba(46,75,69,0.35)");
+              const lines = (
+                GENERATIVE_SYSTEM_NODES.find((n) => n.id === node.id)?.label ??
+                node.label
+              ).split("\n");
+
+              return (
+                <g
+                  key={node.id}
+                  data-gsm-node={node.id}
+                  transform={`translate(${node.x}, ${node.y})`}
+                  className="cursor-grab outline-none active:cursor-grabbing"
+                  style={{
+                    opacity: 1,
+                    transition: reducedMotion ? undefined : "opacity 0.35s ease",
+                  }}
+                  onMouseEnter={() => setHoveredId(node.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.stopPropagation();
+                    const live = findNode(node.id);
+                    if (!live) return;
+                    dragMovedRef.current = false;
+                    dragRef.current = {
+                      id: live.id,
+                      pointerId: event.pointerId,
+                      lastX: event.clientX,
+                      lastY: event.clientY,
+                    };
+                    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    if (
+                      dragRef.current?.id !== node.id ||
+                      dragRef.current.pointerId !== event.pointerId
+                    ) {
+                      return;
+                    }
+                    const live = findNode(node.id);
+                    if (!live) return;
+                    const dx = event.clientX - dragRef.current.lastX;
+                    const dy = event.clientY - dragRef.current.lastY;
+                    if (!dragMovedRef.current) {
+                      if (Math.hypot(dx, dy) <= 4) return;
+                      dragMovedRef.current = true;
+                      setDraggingId(node.id);
+                      const start = clientToGraph(
+                        dragRef.current.lastX,
+                        dragRef.current.lastY,
+                      );
+                      live.fx = start.x;
+                      live.fy = start.y;
+                      simRef.current?.alphaTarget(0.22).restart();
+                    }
+                    const point = clientToGraph(event.clientX, event.clientY);
+                    dragRef.current.lastX = event.clientX;
+                    dragRef.current.lastY = event.clientY;
+                    live.fx = point.x;
+                    live.fy = point.y;
+                    live.x = point.x;
+                    live.y = point.y;
+                    publishNodes();
+                  }}
+                  onPointerUp={(event) => {
+                    if (
+                      dragRef.current?.id !== node.id ||
+                      dragRef.current.pointerId !== event.pointerId
+                    ) {
+                      return;
+                    }
+                    const live = findNode(node.id);
+                    if (!live) return;
+                    const wasClick = !dragMovedRef.current;
+                    if (wasClick) {
+                      setSelectedId(live.id);
+                    } else {
+                      live.fx = live.x;
+                      live.fy = live.y;
+                      scheduleReleasePin(node.id);
+                      reheat();
+                    }
+                    setDraggingId(null);
+                    simRef.current?.alphaTarget(0.02);
+                    dragRef.current = null;
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                    publishNodes();
+                  }}
+                >
+                  <circle
+                    r={r}
+                    fill={fill}
+                    fillOpacity={isLit ? 0.95 : 0.82}
+                    stroke={isLit ? stroke : "rgba(46,75,69,0.35)"}
+                    strokeWidth={isLit ? 2.5 : 1.5}
+                    style={
+                      isLit
+                        ? {
+                            filter: `drop-shadow(0 0 12px ${stroke}88)`,
+                          }
+                        : undefined
+                    }
+                  />
+                  {isDragging || isPinned ? (
+                    <circle
+                      r={r + 4}
+                      fill="none"
+                      stroke={stroke}
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      style={{ pointerEvents: "none" }}
+                    />
+                  ) : null}
+                  <circle r={r + 6} fill="transparent" />
+                  {lines.map((line, i) => (
+                    <text
+                      key={line}
+                      y={r + 16 + i * 13}
+                      textAnchor="middle"
+                      className="select-none fill-ink font-medium"
+                      style={{ pointerEvents: "none", fontSize: LABEL_FONT }}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </g>
+              );
+            })}
+          </svg>
+
+          {inStoryMode && currentStep ? (
+            <div className="absolute inset-x-0 bottom-0 border-t border-cloud/80 bg-paper/92 px-4 py-3 backdrop-blur-sm">
+              <p className="font-mono text-[0.65rem] font-medium uppercase tracking-[0.08em] text-horizon">
+                {currentStep.title}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-ink/85">
+                {currentStep.caption}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="max-h-[min(52vh,480px)] overflow-y-auto border-t border-cloud bg-paper px-4 py-4 lg:border-l lg:border-t-0 sm:px-5">
+          <SynthesisMapDetail
+            evidenceKey={selected?.evidenceKey ?? null}
+            nodeLabel={
+              selectedDef?.label.replace(/\n/g, " ") ?? "Explore the system"
+            }
+            edgeAnnotations={edgeAnnotations}
+          />
+        </aside>
       </div>
     </div>
   );

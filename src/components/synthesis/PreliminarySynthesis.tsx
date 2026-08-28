@@ -141,7 +141,7 @@ function GenerativeSystemMapSection({ titleId }: { titleId: string }) {
               <strong className="font-semibold text-ink">AI Petal</strong> holds this whole arc: listening to fear without stalling clarity, and helping every part of CL learn together across our differences.
             </p>
             <p className="text-sm leading-6 text-ink/60">
-              Drag a node to explore tension in the system — it settles back after a few seconds. Click for harvest-backed quotes.
+              Drag nodes to feel tension in the system, or press Build story to walk the map from CL expertise to the full generative loop. Click any node for harvest-backed quotes.
             </p>
           </div>
         </div>
@@ -175,7 +175,7 @@ function GenerativeSystemMapSection({ titleId }: { titleId: string }) {
         <GenerativeSystemMapView
           className={
             isMapFullscreen
-              ? "flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden rounded-lg border border-cloud bg-paper"
+              ? "flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden rounded-lg border border-cloud bg-paper [&_.grid]:min-h-0 [&_.grid]:flex-1 [&_aside]:max-h-none"
               : undefined
           }
         />

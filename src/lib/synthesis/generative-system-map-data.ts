@@ -11,6 +11,8 @@ export type SynthesisMapNodeDef = {
   y: number;
   radius: number;
   fill: string;
+  /** Lit-state ring color (matches node identity on the diagram). */
+  stroke: string;
   evidenceKey: string;
 };
 
@@ -22,6 +24,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 72,
     radius: 36,
     fill: "#C97B4A",
+    stroke: "#C97B4A",
     evidenceKey: "client-value-trust",
   },
   {
@@ -31,6 +34,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 210,
     radius: 30,
     fill: "#7FA093",
+    stroke: "#7FA093",
     evidenceKey: "cl-expertise-human",
   },
   {
@@ -40,6 +44,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 220,
     radius: 32,
     fill: "#5AAB96",
+    stroke: "#4A9A88",
     evidenceKey: "ai-expertise",
   },
   {
@@ -49,6 +54,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 130,
     radius: 28,
     fill: "#2E4B45",
+    stroke: "#2E4B45",
     evidenceKey: "safety-governance",
   },
   {
@@ -58,6 +64,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 230,
     radius: 28,
     fill: "#3E6E8E",
+    stroke: "#4A8090",
     evidenceKey: "tech-infrastructure",
   },
   {
@@ -67,6 +74,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 280,
     radius: 28,
     fill: "#A89070",
+    stroke: "#A89070",
     evidenceKey: "support-business-ops",
   },
   {
@@ -76,6 +84,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 340,
     radius: 30,
     fill: "#3E6E8E",
+    stroke: "#3E6E8E",
     evidenceKey: "culture-language",
   },
   {
@@ -85,6 +94,7 @@ export const GENERATIVE_SYSTEM_NODES: SynthesisMapNodeDef[] = [
     y: 420,
     radius: 28,
     fill: "#8A8A82",
+    stroke: "#8A8A82",
     evidenceKey: "risks-fears",
   },
 ];
@@ -167,6 +177,10 @@ export function fillByNodeId(): Map<string, string> {
   return new Map(GENERATIVE_SYSTEM_NODES.map((n) => [n.id, n.fill]));
 }
 
+export function strokeByNodeId(): Map<string, string> {
+  return new Map(GENERATIVE_SYSTEM_NODES.map((n) => [n.id, n.stroke]));
+}
+
 export function annotationsForNode(nodeId: string): string[] {
   return GENERATIVE_SYSTEM_EDGES.filter(
     (e) =>
@@ -174,10 +188,158 @@ export function annotationsForNode(nodeId: string): string[] {
   ).map((e) => e.annotation as string);
 }
 
-/** Softer layout tuned for pinned-anchor synthesis map. */
+export type MapBuildStep = {
+  title: string;
+  nodeIds: string[];
+  edgeIds: string[];
+  caption: string;
+  focusNodeId?: string;
+};
+
+/** Progressive reveal order from the original narrative walkthrough. */
+export const MAP_BUILD_STEPS: MapBuildStep[] = [
+  {
+    title: "Our CL expertise",
+    nodeIds: ["cl-expertise-human"],
+    edgeIds: [],
+    focusNodeId: "cl-expertise-human",
+    caption:
+      "Our CL expertise — somatic depth, culture, strategy, growing in complexity — is who we have been in the adult development world.",
+  },
+  {
+    title: "Client value & trust",
+    nodeIds: ["cl-expertise-human", "client-value-trust"],
+    edgeIds: ["e3"],
+    focusNodeId: "client-value-trust",
+    caption:
+      "Clients trusted us for human expertise. They now want integrated expertise with AI and technological change — the north star we serve.",
+  },
+  {
+    title: "Expertise with AI",
+    nodeIds: ["cl-expertise-human", "client-value-trust", "ai-expertise"],
+    edgeIds: ["e3"],
+    focusNodeId: "ai-expertise",
+    caption:
+      "Fluency with AI is uneven across CL — some colleagues surf the edge while others feel overwhelmed and unsure how to talk about it.",
+  },
+  {
+    title: "Risks & fears",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+    ],
+    edgeIds: ["e3"],
+    focusNodeId: "risks-fears",
+    caption:
+      "Clumsy AI use risks visible slop and broken trust. Ungrounded adoption can erode our own sensemaking — fears we must name, not ignore.",
+  },
+  {
+    title: "Culture & language",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+      "culture-language",
+    ],
+    edgeIds: ["e3", "e4", "e1"],
+    focusNodeId: "culture-language",
+    caption:
+      "The AI Petal helps us build shared culture and language — competency through experimentation, learning together without othering or judging.",
+  },
+  {
+    title: "Walking our walk",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+      "culture-language",
+    ],
+    edgeIds: ["e3", "e4", "e1", "e5", "e6"],
+    focusNodeId: "ai-expertise",
+    caption:
+      "As we learn to build AI expertise, walking our walk becomes what we can offer clients — parallels between our journey and theirs.",
+  },
+  {
+    title: "Safety & governance",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+      "culture-language",
+      "safety-governance",
+    ],
+    edgeIds: ["e3", "e4", "e1", "e5", "e6", "e7"],
+    focusNodeId: "safety-governance",
+    caption:
+      "Safety and governance help us build strongly without stepping into the risks we fear — data sovereignty, approved tools, values-aligned integration.",
+  },
+  {
+    title: "Tech infrastructure",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+      "culture-language",
+      "safety-governance",
+      "tech-infrastructure",
+    ],
+    edgeIds: ["e3", "e4", "e1", "e5", "e6", "e7", "e8", "e9", "e2", "e10"],
+    focusNodeId: "tech-infrastructure",
+    caption:
+      "Bespoke infrastructure like CLara accelerates our learning loop. Human design principles guide how AI supports human sensemaking in what we build.",
+  },
+  {
+    title: "Business operations",
+    nodeIds: [
+      "cl-expertise-human",
+      "client-value-trust",
+      "ai-expertise",
+      "risks-fears",
+      "culture-language",
+      "safety-governance",
+      "tech-infrastructure",
+      "support-business-ops",
+    ],
+    edgeIds: [
+      "e3",
+      "e4",
+      "e1",
+      "e5",
+      "e6",
+      "e7",
+      "e8",
+      "e9",
+      "e2",
+      "e10",
+      "e11",
+      "e12",
+      "e13",
+    ],
+    focusNodeId: "support-business-ops",
+    caption:
+      "Tools we build can support go-to-market, competitor analysis, and operational efficiency — looping back to how we reach and serve clients safely.",
+  },
+  {
+    title: "The full generative system",
+    nodeIds: GENERATIVE_SYSTEM_NODES.map((n) => n.id),
+    edgeIds: GENERATIVE_SYSTEM_EDGES.map((e) => e.id),
+    focusNodeId: "client-value-trust",
+    caption:
+      "The whole arc is generative: the more we learn and support that learning, the better we serve clients. The AI Petal holds this process — listening to fear without stalling clarity, finding wholeness across our differences.",
+  },
+];
+
+/** Softer layout tuned for anchor-floating synthesis map. */
 export const SYNTHESIS_MAP_LAYOUT = {
-  chargeStrength: -120,
-  linkDistance: 100,
-  linkStrength: 0.35,
+  chargeStrength: -140,
+  linkDistance: 108,
+  linkStrength: 0.38,
   collidePadding: 10,
+  anchorStrength: 0.055,
 };
