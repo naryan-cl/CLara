@@ -199,7 +199,7 @@ export function ReceiveUploadForm({
     let fileExtension: ListensStagingExtension = "webm";
 
     try {
-      const prepared = await prepareListensRecording();
+      const prepared = await prepareListensRecording(sessionIds);
       if (!prepared.ok) {
         setError(prepared.error);
         return;
@@ -249,6 +249,8 @@ export function ReceiveUploadForm({
           blob: blobs[i]!,
           mimeType,
           fileExtension,
+          sessionIds,
+          useSignedUpload: prepared.useSignedUpload,
         });
         if (!uploaded.ok) {
           setError(uploaded.error);
@@ -257,6 +259,7 @@ export function ReceiveUploadForm({
               recordingId: prepared.recordingId,
               segmentCount: uploadedCount,
               fileExtension,
+              sessionIds,
             });
           }
           return;
@@ -296,6 +299,7 @@ export function ReceiveUploadForm({
           recordingId,
           segmentCount: uploadedCount,
           fileExtension,
+          sessionIds,
         });
       }
     } finally {

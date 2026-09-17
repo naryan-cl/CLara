@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { getAccessContext } from "@/lib/access/get-access-context";
 import { createSession } from "@/lib/sessions/create-session";
 import { listSessions } from "@/lib/sessions/list-sessions";
 import { getSessionById } from "@/lib/sessions/get-session";
@@ -34,30 +35,60 @@ export type SessionComposerBootstrap = {
 };
 
 /** Load sessions + peers + relate targets for Connect on Add pages. */
-export async function loadSessionComposerData(): Promise<SessionComposerBootstrap> {
-  const { stream } = await getActiveStream();
-  if (!stream) {
+export async function loadSessionComposerData(
+  initialSessionId?: string,
+): Promise<SessionComposerBootstrap> {
+  const access = await getAccessContext();
+
+  if (access.kind === "member" && access.stream) {
+    const stream = access.stream;
+    const [sessionsResult, peersResult, commonsResult] = await Promise.all([
+      listSessions(stream.id),
+      listStreamPeers(stream.id),
+      listRelateTargets(stream.id),
+    ]);
+
     return {
-      sessions: [],
-      peers: [],
-      relateTargets: [],
-      streamId: null,
-      error: "No active stream. Ask an admin to add you to Camp CLAI.",
+      sessions: sessionsResult.sessions,
+      peers: peersResult.peers,
+      relateTargets: commonsResult,
+      streamId: stream.id,
+      error: sessionsResult.error ?? peersResult.error,
     };
   }
 
-  const [sessionsResult, peersResult, commonsResult] = await Promise.all([
-    listSessions(stream.id),
-    listStreamPeers(stream.id),
-    listRelateTargets(stream.id),
-  ]);
+  if (access.kind === "guest" || access.kind === "link_guest") {
+    if (
+      initialSessionId &&
+      !access.guestSessions.some((s) => s.id === initialSessionId)
+    ) {
+      return {
+        sessions: [],
+        peers: [],
+        relateTargets: [],
+        streamId: null,
+        error:
+          access.kind === "link_guest"
+            ? "You can only contribute to the session you joined."
+            : "You are not approved for that session.",
+      };
+    }
+
+    return {
+      sessions: access.guestSessions,
+      peers: [],
+      relateTargets: [],
+      streamId: access.guestSessions[0]?.stream_id ?? null,
+      error: null,
+    };
+  }
 
   return {
-    sessions: sessionsResult.sessions,
-    peers: peersResult.peers,
-    relateTargets: commonsResult,
-    streamId: stream.id,
-    error: sessionsResult.error ?? peersResult.error,
+    sessions: [],
+    peers: [],
+    relateTargets: [],
+    streamId: null,
+    error: "No active stream. Ask an admin to add you to Camp CLAI.",
   };
 }
 
@@ -169,6 +200,31 @@ export async function resolveJoinCodeAction(
   | { ok: true; session: SessionSummary }
   | { ok: false; error: string }
 > {
+  const access = await getAccessContext();
+
+  if (access.kind === "guest" || access.kind === "link_guest") {
+    return {
+      ok: false,
+      error: "Session guests cannot connect to additional gatherings.",
+    };
+  }
+
+  if (access.kind !== "member") {
+    const { requestSessionGuestAccess } = await import(
+      "@/lib/access/request-guest-access"
+    );
+    const guest = await requestSessionGuestAccess(code, "reflect");
+    if (guest.outcome === "pending" || guest.outcome === "rejected") {
+      return {
+        ok: false,
+        error: "An admin must approve your access before you can join.",
+      };
+    }
+    if (guest.outcome !== "member" && guest.outcome !== "approved") {
+      return { ok: false, error: guest.error ?? "Session not found." };
+    }
+  }
+
   const { session, error } = await getSessionByJoinCode(code);
   if (error || !session) {
     return { ok: false, error: error ?? "Session not found." };

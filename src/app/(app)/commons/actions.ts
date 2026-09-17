@@ -32,6 +32,7 @@ import {
   listLinksForDocument,
 } from "@/lib/documents/list-document-links";
 import { listAllRelatedSessionIds } from "@/lib/sessions/list-session-relations";
+import { resolveGuestParticipantProfiles } from "@/lib/access/link-guest";
 import type { CommonsDocument } from "@/lib/documents/types";
 import type { SessionSummary } from "@/lib/sessions/types";
 import {
@@ -117,6 +118,25 @@ async function resolveCreatedBy(
   );
 }
 
+async function resolveDocumentAuthor(
+  document: CommonsDocument,
+): Promise<UserPublicProfile | null> {
+  if (document.created_by) {
+    return resolveCreatedBy(document.created_by);
+  }
+  const guestId = document.guest_participant_id?.trim();
+  if (!guestId) return null;
+  const names = await resolveGuestParticipantProfiles([guestId]);
+  const displayName = names.get(guestId);
+  if (!displayName) return null;
+  return {
+    user_id: guestId,
+    email: null,
+    display_name: displayName,
+    avatar_url: null,
+  };
+}
+
 export async function loadCommonsDetail(
   kind: CommentTargetType,
   id: string,
@@ -157,7 +177,7 @@ export async function loadCommonsDetail(
       document.session_id
         ? isAttending(document.session_id, user.id)
         : Promise.resolve({ attending: false, error: null }),
-      resolveCreatedBy(document.created_by),
+      resolveDocumentAuthor(document),
       document.session_id
         ? listSessionAttendeeProfiles(document.session_id)
         : Promise.resolve({ attendees: [] as UserPublicProfile[], error: null }),

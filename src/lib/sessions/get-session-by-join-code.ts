@@ -7,10 +7,10 @@ import {
   SESSION_SELECT_NO_HIGHLIGHT,
   type SessionSummary,
 } from "@/lib/sessions/types";
-import { getActiveStream } from "@/lib/streams/get-active-stream";
 
 /**
- * Resolve a session by short join code within the caller's active stream.
+ * Resolve a session by short join code. Members use active stream scope;
+ * non-members use global lookup (SECURITY DEFINER RPC).
  */
 export async function getSessionByJoinCode(
   rawCode: string,
@@ -20,15 +20,57 @@ export async function getSessionByJoinCode(
     return { session: null, error: "Enter a valid join code." };
   }
 
+  const supabase = await createClient();
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "lookup_join_session",
+    { p_token: code },
+  );
+
+  if (!rpcError && rpcData?.[0]?.session_id) {
+    const row = rpcData[0] as {
+      session_id: string;
+      stream_id: string;
+      name: string;
+      join_code: string;
+      seed_question: string | null;
+    };
+    const { data, error } = await supabase
+      .from("sessions")
+      .select(SESSION_SELECT)
+      .eq("id", row.session_id)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        session: coerceSession(data as Record<string, unknown>),
+        error: null,
+      };
+    }
+
+    if (error && isMissingHighlightColorSchemaError(error.message)) {
+      const retry = await supabase
+        .from("sessions")
+        .select(SESSION_SELECT_NO_HIGHLIGHT)
+        .eq("id", row.session_id)
+        .maybeSingle();
+      if (!retry.error && retry.data) {
+        return {
+          session: coerceSession(retry.data as Record<string, unknown>),
+          error: null,
+        };
+      }
+    }
+  }
+
+  const { getActiveStream } = await import("@/lib/streams/get-active-stream");
   const { stream } = await getActiveStream();
   if (!stream) {
     return {
       session: null,
-      error: "No active stream. Ask an admin to add you to Camp CLAI.",
+      error: rpcError?.message ?? "No session matches that join code.",
     };
   }
 
-  const supabase = await createClient();
   let { data, error } = await supabase
     .from("sessions")
     .select(SESSION_SELECT)
@@ -48,7 +90,6 @@ export async function getSessionByJoinCode(
   }
 
   if (error) {
-    // Pre-migration: try matching share_token prefix.
     if (
       error.message?.includes("join_code") ||
       error.message?.includes("schema cache")

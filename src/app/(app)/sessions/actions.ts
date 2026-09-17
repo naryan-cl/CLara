@@ -1,11 +1,18 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { getActiveStream } from "@/lib/streams/get-active-stream";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  normalizeSessionIdsForContribution,
+  resolveContributionContext,
+} from "@/lib/access/resolve-contribution";
+import { getContributionSupabase } from "@/lib/access/contribution-client";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { setDocumentLinks } from "@/lib/documents/set-document-links";
-import { parseSessionIdsFromFormData, parseIdListFromFormData } from "@/lib/documents/parse-session-ids";
+import {
+  parseSessionIdsFromFormData,
+  parseIdListFromFormData,
+} from "@/lib/documents/parse-session-ids";
 import {
   inngest,
   CLARA_DOCUMENT_CREATED,
@@ -51,8 +58,9 @@ async function persistRelateLinks(
   formData: FormData,
   streamId: string,
   documentId: string,
-  userId: string,
+  userId: string | null,
 ) {
+  if (!userId) return;
   await setDocumentLinks({
     streamId,
     sourceDocumentId: documentId,
@@ -71,22 +79,18 @@ export async function receiveTextContent(
   formData: FormData,
 ): Promise<ReceiveResult> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { ok: false, error: "You must be signed in to upload." };
+    const contribution = await resolveContributionContext(
+      parseSessionIdsFromFormData(formData),
+    );
+    if (!contribution.ok) {
+      return { ok: false, error: contribution.error };
     }
-
-    const { stream } = await getActiveStream();
-    if (!stream) {
-      return {
-        ok: false,
-        error: "No active stream. Ask an admin to add you to Camp CLAI.",
-      };
-    }
+    const stream = contribution.stream;
+    const writeClient = await getContributionSupabase(contribution);
+    const sessionIds = normalizeSessionIdsForContribution(
+      parseSessionIdsFromFormData(formData),
+      contribution.requiredSessionId,
+    );
 
     const source = String(formData.get("source") ?? "").trim();
     const file = formData.get("file");
@@ -145,8 +149,12 @@ export async function receiveTextContent(
           file,
           extension: extension as ".pdf" | ".docx",
           formData,
-          user,
+          createdBy: contribution.userId,
+          guestParticipantId: contribution.linkParticipantId,
+          displayName: contribution.displayName,
           stream,
+          writeClient,
+          sessionIds,
         });
       }
 
@@ -179,30 +187,43 @@ export async function receiveTextContent(
     const titleFromForm = String(formData.get("title") ?? "").trim();
     const typeFromForm = String(formData.get("type") ?? "").trim() || "Note";
     const title = titleFromForm || defaultTitle;
-    const sessionIds = parseSessionIdsFromFormData(formData);
     const primarySessionId = sessionIds[0] ?? null;
 
     const { document, error } = await createDocument({
       streamId: stream.id,
-      createdBy: user.id,
+      createdBy: contribution.userId,
+      guestParticipantId: contribution.linkParticipantId,
       content,
       title,
       type: typeFromForm,
       privacyStatus: "public",
       sessionId: primarySessionId,
       isExternal: isExternalFromForm(formData),
+      participants: contribution.displayName
+        ? [contribution.displayName]
+        : undefined,
+      supabase: writeClient,
     });
 
     if (error || !document) {
       return { ok: false, error: error ?? "Receive failed." };
     }
 
-    const linkError = await linkDocumentSessions(document.id, sessionIds);
+    const linkError = await linkDocumentSessions(
+      document.id,
+      sessionIds,
+      writeClient,
+    );
     if (linkError.error) {
       return { ok: false, error: linkError.error };
     }
 
-    await persistRelateLinks(formData, stream.id, document.id, user.id);
+    await persistRelateLinks(
+      formData,
+      stream.id,
+      document.id,
+      contribution.userId,
+    );
 
     try {
       await inngest.send({
@@ -238,14 +259,22 @@ async function receiveConvertibleUpload({
   file,
   extension,
   formData,
-  user,
+  createdBy,
+  guestParticipantId,
+  displayName,
   stream,
+  writeClient,
+  sessionIds,
 }: {
   file: File;
   extension: ".pdf" | ".docx";
   formData: FormData;
-  user: { id: string };
+  createdBy: string | null;
+  guestParticipantId: string | null;
+  displayName: string | null;
   stream: StreamSummary;
+  writeClient: SupabaseClient;
+  sessionIds: string[];
 }): Promise<ReceiveResult> {
   if (file.size > MAX_CONVERTIBLE_BYTES) {
     return {
@@ -254,10 +283,9 @@ async function receiveConvertibleUpload({
     };
   }
 
-  const supabase = await createClient();
   const storagePath = `${stream.id}/${crypto.randomUUID()}${extension}`;
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await writeClient.storage
     .from("receives-staging")
     .upload(storagePath, file, {
       contentType: file.type || undefined,
@@ -272,12 +300,12 @@ async function receiveConvertibleUpload({
   const defaultTitle =
     file.name.replace(/\.(pdf|docx)$/i, "").replace(/[-_]+/g, " ").trim() ||
     "Untitled upload";
-  const sessionIds = parseSessionIdsFromFormData(formData);
   const primarySessionId = sessionIds[0] ?? null;
 
   const { document, error } = await createDocument({
     streamId: stream.id,
-    createdBy: user.id,
+    createdBy,
+    guestParticipantId,
     content: "",
     title: titleFromForm || defaultTitle,
     type: typeFromForm,
@@ -285,21 +313,27 @@ async function receiveConvertibleUpload({
     needsReview: true, // pending conversion
     sessionId: primarySessionId,
     isExternal: isExternalFromForm(formData),
+    participants: displayName ? [displayName] : undefined,
+    supabase: writeClient,
   });
 
   if (error || !document) {
-    await supabase.storage.from("receives-staging").remove([storagePath]);
+    await writeClient.storage.from("receives-staging").remove([storagePath]);
     return { ok: false, error: error ?? "Receive failed." };
   }
 
-  const linkError = await linkDocumentSessions(document.id, sessionIds);
+  const linkError = await linkDocumentSessions(
+    document.id,
+    sessionIds,
+    writeClient,
+  );
   if (linkError.error) {
-    await supabase.storage.from("receives-staging").remove([storagePath]);
-    await supabase.from("documents").delete().eq("id", document.id);
+    await writeClient.storage.from("receives-staging").remove([storagePath]);
+    await writeClient.from("documents").delete().eq("id", document.id);
     return { ok: false, error: linkError.error };
   }
 
-  await persistRelateLinks(formData, stream.id, document.id, user.id);
+  await persistRelateLinks(formData, stream.id, document.id, createdBy);
 
   try {
     await inngest.send({
@@ -313,15 +347,19 @@ async function receiveConvertibleUpload({
     });
   } catch (err) {
     console.error("Failed to enqueue upload conversion:", err);
-    await supabase.storage.from("receives-staging").remove([storagePath]);
-    await supabase.from("documents").delete().eq("id", document.id);
+    await writeClient.storage.from("receives-staging").remove([storagePath]);
+    await writeClient.from("documents").delete().eq("id", document.id);
     return {
       ok: false,
       error: "Couldn't start processing this file. Try again.",
     };
   }
 
-  return { ok: true, documentId: document.id, needsReview: true };
+  return {
+    ok: true,
+    documentId: document.id,
+    needsReview: true,
+  };
 }
 
 /** @deprecated Use receiveTextContent — kept so old imports don't break mid-deploy. */

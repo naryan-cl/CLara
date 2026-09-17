@@ -23,6 +23,12 @@ import { listStreamTrash } from "@/lib/trash/list-stream-trash";
 import { TrashPanel } from "@/components/admin/TrashPanel";
 import { RetranscribePanel } from "@/components/admin/RetranscribePanel";
 import { listRetranscribableTranscripts } from "@/lib/listens/list-retranscribable";
+import { listStreamGuestRequests } from "@/lib/access/guest-requests";
+import { listStreamAllowlist } from "@/lib/access/allowlist";
+import {
+  AllowlistPanel,
+  GuestRequestsPanel,
+} from "@/components/admin/GuestAccessPanels";
 
 export default async function AdminPage() {
   const { stream } = await getActiveStream();
@@ -49,6 +55,10 @@ export default async function AdminPage() {
 
   const { documents, error } = await listNeedsReviewDocuments(stream.id);
   const { members, error: membersError } = await listStreamMembers(stream.id);
+  const { requests: guestRequests, error: guestRequestsError } =
+    await listStreamGuestRequests(stream.id);
+  const { entries: allowlistEntries, error: allowlistError } =
+    await listStreamAllowlist(stream.id);
   const { prompts, error: promptsError } = await getStreamPrompts(stream.id);
   const { settings: themeSettings, error: themeError } =
     await getStreamThemeSettings(stream.id);
@@ -246,6 +256,28 @@ export default async function AdminPage() {
       </AdminSection>
 
       <AdminSection
+        title="Session guest requests"
+        hint={
+          guestRequestsError
+            ? undefined
+            : guestRequests.filter((r) => r.status === "pending").length > 0
+              ? `${guestRequests.filter((r) => r.status === "pending").length} pending`
+              : undefined
+        }
+        description="Externals who opened a join link but are not @cultivatingleadership.com. Approve for session-only access — not the full Commons."
+        defaultOpen={Boolean(
+          !guestRequestsError &&
+            guestRequests.some((r) => r.status === "pending"),
+        )}
+      >
+        {guestRequestsError ? (
+          <p className="font-mono text-sm text-danger">{guestRequestsError}</p>
+        ) : (
+          <GuestRequestsPanel requests={guestRequests} />
+        )}
+      </AdminSection>
+
+      <AdminSection
         title="Membership"
         hint={
           membersError
@@ -259,6 +291,24 @@ export default async function AdminPage() {
           <p className="font-mono text-sm text-danger">{membersError}</p>
         ) : (
           <MembersPanel members={members} currentUserId={user?.id ?? ""} />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Invited emails (full access)"
+        hint={
+          allowlistError
+            ? undefined
+            : allowlistEntries.length > 0
+              ? `${allowlistEntries.length} pending signup`
+              : undefined
+        }
+        description="People who have not signed up yet but should become full stream members on first login."
+      >
+        {allowlistError ? (
+          <p className="font-mono text-sm text-danger">{allowlistError}</p>
+        ) : (
+          <AllowlistPanel entries={allowlistEntries} />
         )}
       </AdminSection>
 

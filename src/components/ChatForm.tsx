@@ -141,7 +141,7 @@ export function ChatForm({
     scheduleAutosave(nextMessages);
 
     startTransition(async () => {
-      const result = await sendChatMessage(nextMessages);
+      const result = await sendChatMessage(nextMessages, sessionIds);
       if (!result.ok) {
         setError(result.error);
         return;

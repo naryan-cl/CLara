@@ -16,6 +16,8 @@ export type CommonsDocument = {
   id: string;
   stream_id: string;
   created_by: string | null;
+  /** Named join-link guest when created_by is null. */
+  guest_participant_id?: string | null;
   content: string;
   /** LLM Markdown summary of `content`. Null until the summarize job runs. */
   summary?: string | null;

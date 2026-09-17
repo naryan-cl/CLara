@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Attach the signed-in user to Camp CLAI if they have no membership yet.
- * Backed by `ensure_my_camp_clai_membership` (migration 0024). No-ops when
- * the function is missing or the user is already a member.
+ * Attach the signed-in user to Camp CLAI when their email is
+ * @cultivatingleadership.com or on the stream allowlist (migration 0038).
+ * No-ops for other domains — those need admin approval or session-guest access.
  */
 export async function ensureCampClaiMembership(): Promise<{
   error: string | null;

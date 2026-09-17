@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { DOCUMENT_SELECT } from "@/lib/documents/columns";
 import type {
@@ -8,7 +9,10 @@ import type {
 
 export type CreateDocumentInput = {
   streamId: string;
-  createdBy: string;
+  /** Null for named join-link guests. */
+  createdBy: string | null;
+  /** session_link_participants.id when createdBy is null. */
+  guestParticipantId?: string | null;
   content: string;
   title?: string | null;
   type?: OkfDocumentType | null;
@@ -22,27 +26,29 @@ export type CreateDocumentInput = {
   isDraft?: boolean;
   /** Upload flagged as from outside CL. Default false. */
   isExternal?: boolean;
+  /** Override client (admin for link guests). */
+  supabase?: SupabaseClient;
 };
 
 /**
  * Insert one Commons document. Caller must pass a stream the user belongs to;
- * RLS still enforces membership on insert.
+ * RLS still enforces membership on insert unless an admin client is passed.
  */
 export async function createDocument(
   input: CreateDocumentInput,
 ): Promise<{ document: CommonsDocument | null; error: string | null }> {
-  const supabase = await createClient();
+  const supabase = input.supabase ?? (await createClient());
 
   const title = input.title?.trim() || null;
   const type = input.type?.trim() || null;
-  const needsReview =
-    input.needsReview ?? (!title || !type);
+  const needsReview = input.needsReview ?? (!title || !type);
 
   const { data, error } = await supabase
     .from("documents")
     .insert({
       stream_id: input.streamId,
       created_by: input.createdBy,
+      guest_participant_id: input.guestParticipantId ?? null,
       content: input.content,
       title,
       type,

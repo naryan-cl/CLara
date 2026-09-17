@@ -3,7 +3,8 @@ export type StreamSummary = {
   slug: string;
   name: string;
   isolation_enabled: boolean;
-  role: "admin" | "member";
+  /** `guest` is contribution-only (session-scoped); never a stream_members row. */
+  role: "admin" | "member" | "guest";
 };
 
 export const DEFAULT_STREAM_SLUG = "camp-clai";

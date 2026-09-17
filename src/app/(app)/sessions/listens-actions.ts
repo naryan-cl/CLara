@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveStream } from "@/lib/streams/get-active-stream";
+import {
+  normalizeSessionIdsForContribution,
+  resolveContributionContext,
+  resolveStorageStreamId,
+} from "@/lib/access/resolve-contribution";
+import { getContributionSupabase } from "@/lib/access/contribution-client";
 import { createDocument } from "@/lib/documents/create-document";
 import { getDocumentById } from "@/lib/documents/get-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
@@ -27,35 +32,26 @@ export type ListensResult =
   | { ok: false; error: string };
 
 export type PrepareListensRecordingResult =
-  | { ok: true; streamId: string; recordingId: string }
+  | { ok: true; streamId: string; recordingId: string; useSignedUpload: boolean }
   | { ok: false; error: string };
 
 /**
  * Allocate a recording folder under listens-staging:
  * `{streamId}/{recordingId}/{segmentIndex}.webm`
  */
-export async function prepareListensRecording(): Promise<PrepareListensRecordingResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "You must be signed in to record." };
-  }
-
-  const { stream } = await getActiveStream();
-  if (!stream) {
-    return {
-      ok: false,
-      error: "No active stream. Ask an admin to add you to Camp CLAI.",
-    };
+export async function prepareListensRecording(
+  sessionIds?: string[],
+): Promise<PrepareListensRecordingResult> {
+  const contribution = await resolveContributionContext(sessionIds);
+  if (!contribution.ok) {
+    return { ok: false, error: contribution.error };
   }
 
   return {
     ok: true,
-    streamId: stream.id,
+    streamId: contribution.stream.id,
     recordingId: crypto.randomUUID(),
+    useSignedUpload: contribution.kind === "link_guest",
   };
 }
 
@@ -79,22 +75,16 @@ export async function finalizeListensUpload(input: {
   const uploadedPaths: string[] = [];
 
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { ok: false, error: "You must be signed in to record." };
+    const contribution = await resolveContributionContext(input.sessionIds);
+    if (!contribution.ok) {
+      return { ok: false, error: contribution.error };
     }
-
-    const { stream } = await getActiveStream();
-    if (!stream) {
-      return {
-        ok: false,
-        error: "No active stream. Ask an admin to add you to Camp CLAI.",
-      };
-    }
+    const stream = contribution.stream;
+    const writeClient = await getContributionSupabase(contribution);
+    const sessionIds = normalizeSessionIdsForContribution(
+      input.sessionIds,
+      contribution.requiredSessionId,
+    );
 
     const recordingId = input.recordingId.trim();
     if (!recordingId || recordingId.includes("/")) {
@@ -125,7 +115,7 @@ export async function finalizeListensUpload(input: {
     // Trust client upload; a quick signed-URL check on segment 0 catches
     // obvious missing files without a flaky folder list.
     {
-      const { error: probeError } = await supabase.storage
+      const { error: probeError } = await writeClient.storage
         .from("listens-staging")
         .createSignedUrl(`${prefix}/0.${ext}`, 60);
       if (probeError) {
@@ -144,15 +134,27 @@ export async function finalizeListensUpload(input: {
     const title =
       (input.title ?? "").trim() ||
       `Recording — ${new Date().toLocaleString()}`;
-    const sessionIds = (input.sessionIds ?? []).filter(Boolean);
     const primarySessionId = sessionIds[0] ?? null;
     // Seed OKF participants from session attendees so the dashboard can show
     // names while Whisper runs, and so diarize can map Speaker A/B → people.
     const participants = await resolveSessionParticipantNames(sessionIds);
+    if (
+      contribution.displayName &&
+      !participants.some(
+        (name) =>
+          name.toLowerCase() === contribution.displayName!.toLowerCase(),
+      )
+    ) {
+      participants.unshift(contribution.displayName);
+    }
+
+    const isGuestKind =
+      contribution.kind === "guest" || contribution.kind === "link_guest";
 
     const { document, error } = await createDocument({
       streamId: stream.id,
-      createdBy: user.id,
+      createdBy: contribution.userId,
+      guestParticipantId: contribution.linkParticipantId,
       content: withListensJobMeta(LISTENS_PENDING_PLACEHOLDER, {
         recordingId,
         segmentCount,
@@ -166,27 +168,34 @@ export async function finalizeListensUpload(input: {
       sessionId: primarySessionId,
       participants,
       isExternal: input.isExternal ?? false,
+      supabase: writeClient,
     });
 
     if (error || !document) {
-      await supabase.storage.from("listens-staging").remove(uploadedPaths);
+      await writeClient.storage.from("listens-staging").remove(uploadedPaths);
       return { ok: false, error: error ?? "Saving the transcript failed." };
     }
 
-    const linkError = await linkDocumentSessions(document.id, sessionIds);
+    const linkError = await linkDocumentSessions(
+      document.id,
+      sessionIds,
+      writeClient,
+    );
     if (linkError.error) {
-      await supabase.storage.from("listens-staging").remove(uploadedPaths);
-      await supabase.from("documents").delete().eq("id", document.id);
+      await writeClient.storage.from("listens-staging").remove(uploadedPaths);
+      await writeClient.from("documents").delete().eq("id", document.id);
       return { ok: false, error: linkError.error };
     }
 
-    await setDocumentLinks({
-      streamId: stream.id,
-      sourceDocumentId: document.id,
-      createdBy: user.id,
-      targetDocumentIds: input.relatedDocumentIds,
-      targetSessionIds: input.relatedSessionIds,
-    });
+    if (contribution.userId && !isGuestKind) {
+      await setDocumentLinks({
+        streamId: stream.id,
+        sourceDocumentId: document.id,
+        createdBy: contribution.userId,
+        targetDocumentIds: input.relatedDocumentIds,
+        targetSessionIds: input.relatedSessionIds,
+      });
+    }
 
     await enqueueRecordingTranscription({
       documentId: document.id,
@@ -218,20 +227,15 @@ export async function discardListensStaging(input: {
   recordingId: string;
   segmentCount: number;
   fileExtension?: string;
+  sessionIds?: string[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return { ok: false, error: "You must be signed in." };
+    const contribution = await resolveContributionContext(input.sessionIds);
+    if (!contribution.ok) {
+      return { ok: false, error: contribution.error };
     }
-
-    const { stream } = await getActiveStream();
-    if (!stream) {
-      return { ok: false, error: "No active stream." };
-    }
+    const writeClient = await getContributionSupabase(contribution);
+    const streamId = contribution.stream.id;
 
     const recordingId = input.recordingId.trim();
     if (!recordingId || recordingId.includes("/")) {
@@ -251,10 +255,10 @@ export async function discardListensStaging(input: {
     });
     const paths = Array.from(
       { length: segmentCount },
-      (_, i) => `${stream.id}/${recordingId}/${i}.${ext}`,
+      (_, i) => `${streamId}/${recordingId}/${i}.${ext}`,
     );
 
-    const { error } = await supabase.storage
+    const { error } = await writeClient.storage
       .from("listens-staging")
       .remove(paths);
     if (error) {
@@ -297,13 +301,14 @@ export async function retryListensTranscription(
       return { ok: false, error: "You must be signed in." };
     }
 
-    const { stream } = await getActiveStream();
-    if (!stream) {
-      return { ok: false, error: "No active stream." };
+    const storage = await resolveStorageStreamId();
+    if ("error" in storage) {
+      return { ok: false, error: storage.error };
     }
+    const streamId = storage.streamId;
 
     const { document, error } = await getDocumentById(id);
-    if (error || !document || document.stream_id !== stream.id) {
+    if (error || !document) {
       return { ok: false, error: error ?? "Document not found." };
     }
     if (document.type !== "Transcript") {
@@ -313,10 +318,11 @@ export async function retryListensTranscription(
     const attending = document.session_id
       ? (await isAttending(document.session_id, user.id)).attending
       : false;
+    const { getAccessContext } = await import("@/lib/access/get-access-context");
+    const access = await getAccessContext();
+    const isAdmin = access.stream?.role === "admin";
     const canEdit =
-      document.created_by === user.id ||
-      stream.role === "admin" ||
-      attending === true;
+      document.created_by === user.id || isAdmin || attending === true;
     if (!canEdit) {
       return {
         ok: false,
@@ -326,7 +332,7 @@ export async function retryListensTranscription(
 
     const result = await startRetranscribe({
       documentId: document.id,
-      streamId: stream.id,
+      streamId: document.stream_id,
       client: supabase,
     });
     if (!result.ok) return result;

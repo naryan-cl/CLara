@@ -16,6 +16,7 @@ type Props = {
   relateTargets: RelateTarget[];
   initialSessionIds?: string[];
   loadError?: string | null;
+  guestMode?: boolean;
 };
 
 export function ReflectPageClient({
@@ -23,6 +24,7 @@ export function ReflectPageClient({
   relateTargets,
   initialSessionIds = [],
   loadError,
+  guestMode = false,
 }: Props) {
   const [selection, setSelection] = useState<ConnectSelection>({
     ...EMPTY_CONNECT,
@@ -42,21 +44,30 @@ export function ReflectPageClient({
           <HelpTip description="Reflect is a one-on-one conversation with CLara. It cannot see other people's Commons contributions — unlike Ask CLara. Reflections are private by default; uncheck Private to share to the Commons." />
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
-          Explore your thinking with CLara. Connect to an open Session from
-          the dropdown (or paste a join code), Relate to other Commons
-          elements — or leave this as a stand-alone reflection.
+          {guestMode
+            ? "Explore your thinking with CLara for this gathering. Your reflection is added to the session you were approved for."
+            : "Explore your thinking with CLara. Connect to an open Session from the dropdown (or paste a join code), Relate to other Commons elements — or leave this as a stand-alone reflection."}
         </p>
         {loadError ? (
           <p className="mt-2 text-sm text-danger">{loadError}</p>
         ) : null}
       </div>
 
-      <ConnectPanel
-        sessions={sessions}
-        relateTargets={relateTargets}
-        initialSessionIds={initialSessionIds}
-        onSelectionChange={onSelectionChange}
-      />
+      {guestMode ? (
+        <p className="rounded-md border border-horizon/30 bg-paper px-4 py-3 text-sm text-ink/70">
+          Adding to{" "}
+          <span className="font-medium text-ink">
+            {selection.sessions[0]?.name ?? "your approved session"}
+          </span>
+        </p>
+      ) : (
+        <ConnectPanel
+          sessions={sessions}
+          relateTargets={relateTargets}
+          initialSessionIds={initialSessionIds}
+          onSelectionChange={onSelectionChange}
+        />
+      )}
 
       <ChatForm
         sessionIds={selection.sessionIds}

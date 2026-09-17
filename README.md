@@ -28,6 +28,8 @@ If a secret is ever committed: rotate it immediately (OpenAI / Inngest / Supabas
 - Build plan / handoff: `dev-plan-v0.3.md`
 - UI: `DESIGN_GUIDE.md`
 
+Access (after **`0038_session_guest_access.sql`**): `@cultivatingleadership.com` auto-joins Camp CLAI. Other domains need a session join link + admin approval (session-only) or an admin invite (full stream). Comments need **`0011_comments_and_attendee_edit.sql`**.
+
 ## Local setup
 
 ```bash

@@ -3,7 +3,7 @@
 **Version:** 0.5  
 **Owner:** Ali / Naryan  
 **Status:** Living — implementation in progress  
-**Last updated:** 2026-08-20 (transcript turn formatting)  
+**Last updated:** 2026-09-02 (session-scoped guest access)  
 **Target Audience:** AI Coding Assistants (Cursor) and Engineering Team  
 **Supersedes:** `prd-v0.4.md`
 
@@ -18,6 +18,7 @@
 *   Confirmed infra: Vercel production URL, public GitHub while building, Inngest separate from Old Clara.
 
 ### Progress since 0.5 (no version bump — see `dev-plan-v0.3.md` §4 for full detail)
+*   **Session-scoped guests (2026-09-02):** `@cultivatingleadership.com` still auto-joins Camp CLAI as a full `member`. Other domains do **not**. They sign in, request access via a session join link, and wait for a stream admin to approve **session-only** guest access (Reflect / Record / Upload into that gathering — not the rest of the Commons). Admins can still grant **full stream membership** by adding an existing account or inviting an email (allowlist until first login). Login preserves the join URL (`?next=`). Apply **`0011_comments_and_attendee_edit.sql`** (if comments were missing) and **`0038_session_guest_access.sql`**. See §3, §7.2, §7.5.
 *   **Transcript turns + re-run (2026-08-20):** Whisper fallback no longer merges a whole audio chunk into one paragraph. Timestamp-only segments split on pauses and every ~20s. Session name mapping no longer collapses Speaker A/B/C onto a single listed participant. Admins can **Re-transcribe recordings** on `/admin` for every Transcript that still has original audio; each recording also has **Re-transcribe** when you can edit it. Existing mashed rows are not rewritten until that job runs. See §5.1.
 *   **Admin Trash (2026-08-19):** Commons **Delete** (documents and sessions) is not permanent. Items move to Admin → **Trash** (`deleted_at`). Admins can **Restore**. Comments, embeddings, and original Record audio stay with the row. Apply **`0035_soft_delete_trash.sql`**. Failed upload/record rollbacks (never published) still hard-delete. See §7.3, §7.5.
 *   **Knowledge Map closeness + Top 10 order (2026-08-17):** `/map` circle size is SNA **harmonic closeness** (fewest steps to other nodes), not type. Top 10 lists order by that same closeness (then mention count). See §6, §7.3, §7.4.
@@ -54,7 +55,7 @@
 *   **Sessions as intentional gatherings (IA v2, 2026-08-10):** **Session** is the only nesting parent for multi-person contribution. **Add → Session** is first in the Add menu (`/add/session`): host creates a gathering (name, inquiry, short join code + share links), stays on a **live board** with Reflect/Record/Upload share icons (copy link + QR), live in-progress vs submitted counts, and **Finalize** (soft close — synthesizes current children into a Summary; late Adds still allowed; optional refresh synthesis). Solo Reflect / Record / Upload create **one Add** with no session create UI. **Connect** = **Relate** (user-described edge to another element) and/or nest under a Session (pick an **open session** from the dropdown, or enter a **join code** / share/QR link). Three connection kinds stay distinct: session parent/child (nesting), user-described links, auto-generated (OKF/map). Commons list hides session children until the parent is opened. Dashboard map keeps the same top-level set; **selecting a session expands its children with nest lines**; Relate lines draw among visible nodes. Dashboard Commons map uses Reflect/Record/Upload/Session visuals — not Atom/Concept/Framework/Theme (those stay on `/map`). Apply migration **`0021_session_gathering.sql`**.
 *   **Dashboard session edit (2026-08-13):** Ask-pane pencil edits **sessions** (title, date, inquiry, description) for host, attendees, stream admins, and authors of nested documents. Apply **`0023_session_edit_rls.sql`**. **Session Delete (2026-08-16):** same people; Commons popup + archive + dashboard. Confirm: ungroup nested docs or delete them too. Apply **`0026_session_delete_rls.sql`**. OKF no longer auto-creates a gathering whose name is a UUID.
 *   **Edit connections (2026-08-16):** Session edit can Relate to other sessions or elements. Document edit can **nest** into a session (`session_id`) **or** Relate to another session/element without nesting. Apply **`0027_connection_edit_rls.sql`**. Dashboard clicks no longer shove other map nodes apart.
-*   **Auto-join Camp CLAI (2026-08-14):** New registrants become Camp CLAI `member`s on account creation; existing accounts with no membership are backfilled. Apply **`0024_auto_join_camp_clai.sql`**. Temporary while Camp CLAI is the only populated stream.
+*   **Auto-join Camp CLAI (2026-08-14; superseded 2026-09-02):** Temporary blanket auto-join for every new account (`0024`). Replaced by domain + session-guest gating (`0038`) — see the 2026-09-02 progress note.
 
 ---
 
@@ -82,6 +83,7 @@ Unlike standard chat interfaces where threads are private, **all conversations, 
 | **OKF** | Open Knowledge Format — standardized metadata on every Commons document (UI label for document kind is just **Type**, not “OKF type”). |
 | **Receives** | Add path for files / typed notes into the Commons (vs Listens for live audio). Product nav label is **Upload**. |
 | **Listens** | Add path for live audio → transcript. Product nav label is **Record**. |
+| **Session guest** | External (non-CL domain) with admin-approved access to **one gathering** only — not stream membership / full Commons. |
 
 ---
 
@@ -90,13 +92,17 @@ Unlike standard chat interfaces where threads are private, **all conversations, 
 ### 3.1 Platform Authentication
 *   Auth is for the **CLara platform**, not a single stream.
 *   **Unauthenticated State:** Users arriving at the website see a CLara landing page (context & framing).
-*   **Sign-in:** Login with CL Account via **Google SSO** or **email + password** (no magic link).
-*   **Access Control:** Primarily CL email domains; admin exception list for externals (as configured).
-*   **Stream membership:** After login, Commons access depends on `stream_members` (+ isolation). **For now (2026-08-14):** every new account is added to **Camp CLAI** as a `member` on signup (migration `0024`); existing accounts with no membership are backfilled. Admins still manage roles and other streams from `/admin`.
+*   **Sign-in:** Login with CL Account via **Google SSO** or **email + password** (no magic link). Join links send unauthenticated visitors to `/login?next=…` so they return to the gathering after sign-in.
+*   **Access Control:**
+    *   **`@cultivatingleadership.com`** — auto full **Camp CLAI** membership on signup (`0038` replaces blanket `0024` auto-join).
+    *   **Admin exception list** (`stream_access_allowlist`) — invited emails become full stream members on first login. Adding an email that already has an account attaches `stream_members` immediately.
+    *   **Everyone else** — may create a CLara account, but gets **no stream Commons** until a stream admin approves them. The usual path is a **session join link**: pending at `/waiting`, then **session-scoped guest** (that gathering only).
+*   **Stream membership:** Full Commons access still depends on `stream_members` (+ isolation). Existing membership rows are not revoked by `0038`. Admins manage roles, full-access invites, and session-guest approvals from `/admin`.
 
 ### 3.2 Roles
 *   **member** — contribute and explore within streams they belong to.
-*   **admin** (per stream) — membership edge cases, metadata / `needs_review` queue, isolation settings.
+*   **admin** (per stream) — membership, session-guest approvals, metadata / `needs_review` queue, isolation settings.
+*   **session guest** — not a `stream_members` row. After admin approval, contribute to **one session** (Reflect / Record / Upload + that session’s documents/comments). No Dashboard Commons map, Ask, Knowledge Map, Admin, or other gatherings.
 
 **Production note:** Supabase Auth Site URL / redirect allow list for `https://clara-cl.vercel.app` may still need a project **owner** to configure (needed for Google OAuth redirect). Email+password works without that redirect allow list once Email provider is enabled.
 
@@ -202,7 +208,7 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 *   **Reflect** (`/add/chat`) — Solo Add; Connect = Relate + open session / join code; autosave + Submit. Separate from Ask CLara.
 *   **Record** — Mic → Whisper → Transcript; recording title ≠ session; same Connect chrome.
 *   **Upload** — Upload / Add text / PDF / DOCX / audio (async Whisper, same path as Record); same Connect chrome; optional **from outside CL** flag.
-*   **Join link** — `/join/[token]?mode=reflect|record|upload` marks attendance and opens the matching Add surface with the session pre-linked (works after Finalize).
+*   **Join link** — `/join/[token]?mode=reflect|record|upload`. Unauthenticated users are sent through login with `next` preserved. **Stream members** are marked attended and opened on the matching Add surface (works after Finalize). **Non-members** create a pending `session_guests` row; `/waiting` until a stream admin **Approves** (session-only) or **Rejects**. Apply **`0038_session_guest_access.sql`**.
 
 ### 7.3 Commons — repository
 *   **Filterable / sortable list:** top-level = sessions + **ungrouped** Adds; children appear when a session is opened. Colour-coded by element type (Chat / Record / Upload / Session / Other).
@@ -220,7 +226,9 @@ Streams are first-class in V1. Multi-stream plumbing is required even if only Ca
 
 ### 7.5 Admin — *(Shipped.)* `/admin` (stream admins only) has these sections:
 *   **Metadata queue** — lists documents with `needs_review = true`. No separate "approve" action — opening a flagged document through the normal editor and saving with Title + Type filled clears the flag.
-*   **Membership** — add an *existing* account to the stream by email, promote/demote member ↔ admin, remove a member. Deliberately does not create accounts or send invite email — the person must have signed in at least once already; a UI guard prevents an admin from removing/demoting themselves. **For now (2026-08-14):** new CLara accounts auto-join Camp CLAI as members (`0024`); this panel is for role changes, removals, and other streams.
+*   **Session guest requests** — pending/approved/rejected join-link requests from non-CL emails. **Approve** grants session-only access; **Reject** leaves them on `/waiting`. Apply **`0038`**.
+*   **Membership** — add/invite by email (existing account → full member immediately; unknown email → allowlist until first login — **does not send email**; share a join link or tell them to sign in), promote/demote member ↔ admin, remove a member. A UI guard prevents an admin from removing/demoting themselves. **`@cultivatingleadership.com`** still auto-joins Camp CLAI (`0038`). This panel is for full-stream exceptions, role changes, and removals — not session guests.
+*   **Invited emails** — allowlist of people who have not signed up yet; they become full members on first login. Remove from this list to cancel the invite.
 *   **Isolation** — toggle for `streams.isolation_enabled` (§4.2), previously database-only.
 *   **CLara prompts** *(2026-08-06; summarize 2026-08-17):* view and edit the Reflect (Chatbot), Ask CLara, and per-element summary system prompts for the active stream. Overrides live on `streams.reflect_system_prompt` / `streams.ask_system_prompt` / `streams.summarize_system_prompt` (NULL = product default in `src/lib/prompts/defaults.ts`). Reset clears the override. Admin-only for v1; pipelines stay separate. Apply **`0030`** to persist a summarize override. `/admin` sections start collapsed with Expand on the right.
 *   **Map themes** *(shipped 2026-08-07):* set the stream’s **default wallpaper theme** (Plant / Ocean / Desert) and the **contribution counts** required to unlock additional themes. Product defaults: Plant free, Ocean @ 5, Desert @ 10. Unlock counting = authored Public non-draft Commons documents in that stream. Per-member theme selection and unlock popup are participant-facing (not admin-only). Apply **`0017_map_themes.sql`**.

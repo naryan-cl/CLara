@@ -6,6 +6,8 @@ import { SessionSummaryTabs } from "@/components/commons/ElementReadView";
 import { SessionEditor } from "@/components/SessionEditor";
 import { loadCommonsDetail } from "@/app/(app)/commons/actions";
 import { createClient } from "@/lib/supabase/server";
+import { getAccessContext } from "@/lib/access/get-access-context";
+import { loadGuestScopedSession } from "@/lib/access/load-guest-scoped-session";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
 import { getSessionById } from "@/lib/sessions/get-session";
 import { listDocumentsBySession } from "@/lib/documents/list-by-session";
@@ -17,6 +19,82 @@ type PageProps = {
 
 export default async function SessionArchiveDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const access = await getAccessContext();
+
+  if (access.kind === "link_guest") {
+    const scoped = await loadGuestScopedSession(id);
+    if (!scoped.allowed) {
+      return (
+        <div className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+          <p className="text-sm text-ink/70">
+            {scoped.error ?? "You can only open the session you joined."}
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-4 inline-block text-sm text-horizon hover:underline"
+          >
+            ← Back to your sessions
+          </Link>
+        </div>
+      );
+    }
+    if (!scoped.session) {
+      notFound();
+    }
+
+    return (
+      <div className="flex flex-col gap-6">
+        <Link
+          href="/dashboard"
+          className="text-sm text-horizon hover:underline"
+        >
+          ← Back to your sessions
+        </Link>
+        <div>
+          <p className="font-mono text-xs uppercase tracking-wide text-sage">
+            {access.guestSessions[0]?.streamName ?? "Session"}
+          </p>
+          <h1 className="mt-1 font-display text-2xl font-medium text-ink">
+            {scoped.session.name}
+          </h1>
+          {scoped.session.seed_question ? (
+            <p className="mt-2 text-sm text-ink/60">
+              {scoped.session.seed_question}
+            </p>
+          ) : null}
+        </div>
+        <section className="rounded-lg border border-cloud bg-paper p-6 shadow-soft">
+          <h2 className="font-mono text-[11px] uppercase tracking-wide text-ink/50">
+            Contributions
+          </h2>
+          {scoped.documents.length === 0 ? (
+            <p className="mt-3 text-sm text-ink/60">
+              No contributions in this session yet.
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-3">
+              {scoped.documents.map((doc) => (
+                <li key={doc.id}>
+                  <Link
+                    href={`/sessions/documents/${doc.id}`}
+                    className="text-sm font-medium text-horizon hover:underline"
+                  >
+                    {doc.title?.trim() || "Untitled"}
+                  </Link>
+                  {doc.type ? (
+                    <span className="ml-2 font-mono text-[11px] uppercase text-ink/45">
+                      {doc.type}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   const { stream } = await getActiveStream();
   const { session, error } = await getSessionById(id);
 

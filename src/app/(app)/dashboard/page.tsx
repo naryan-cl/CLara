@@ -3,9 +3,12 @@ import { listDocumentLinks } from "@/lib/documents/list-document-links";
 import { listSessionRelations } from "@/lib/sessions/list-session-relations";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
+import { getAccessContext } from "@/lib/access/get-access-context";
 import { getThemeUnlockState } from "@/lib/map-theme/theme-state";
 import { getStreamMapLayoutConfig } from "@/lib/graph/get-map-layout-config";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
+import { GuestHome } from "@/components/access/GuestHome";
+import { redirect } from "next/navigation";
 
 type Props = {
   searchParams?: Promise<{ select?: string; fresh?: string }>;
@@ -33,6 +36,16 @@ export default async function DashboardPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
 
   const { stream } = await getActiveStream();
+  const access = await getAccessContext();
+
+  if (access.kind === "guest" || access.kind === "link_guest") {
+    return <GuestHome sessions={access.guestSessions} />;
+  }
+
+  if (access.kind === "pending" || access.kind === "none") {
+    redirect("/waiting");
+  }
+
   const { items, error: commonsError } =
     stream && user
       ? await listCommonsItems(stream.id, user.id)

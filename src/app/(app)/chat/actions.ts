@@ -1,14 +1,20 @@
 "use server";
 
 import OpenAI from "openai";
-import { createClient } from "@/lib/supabase/server";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
-import { getActiveStream } from "@/lib/streams/get-active-stream";
+import {
+  normalizeSessionIdsForContribution,
+  resolveContributionContext,
+} from "@/lib/access/resolve-contribution";
+import { getContributionSupabase } from "@/lib/access/contribution-client";
 import { getEffectiveSystemPrompt } from "@/lib/prompts/get-stream-prompts";
 import { createDocument } from "@/lib/documents/create-document";
 import { linkDocumentSessions } from "@/lib/documents/link-document-sessions";
 import { setDocumentLinks } from "@/lib/documents/set-document-links";
-import { enqueueDocumentCreated, enqueueDocumentSummarize } from "@/lib/embeddings/enqueue-document-created";
+import {
+  enqueueDocumentCreated,
+  enqueueDocumentSummarize,
+} from "@/lib/embeddings/enqueue-document-created";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -29,23 +35,13 @@ const MAX_HISTORY_MESSAGES = 20;
  */
 export async function sendChatMessage(
   history: ChatMessage[],
+  sessionIds?: string[],
 ): Promise<ChatResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "You must be signed in to chat." };
+  const contribution = await resolveContributionContext(sessionIds);
+  if (!contribution.ok) {
+    return { ok: false, error: contribution.error };
   }
-
-  const { stream, error: streamError } = await getActiveStream();
-  if (!stream) {
-    return {
-      ok: false,
-      error: streamError ?? "No active stream — join a stream to reflect.",
-    };
-  }
+  const stream = contribution.stream;
 
   const apiKey = getOpenAiApiKey();
   if (!apiKey) {
@@ -124,36 +120,42 @@ export async function saveChatConversation(
   const privacy: "public" | "private" =
     privacyStatus === "public" ? "public" : "private";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "You must be signed in to save." };
+  const contribution = await resolveContributionContext(options?.sessionIds);
+  if (!contribution.ok) {
+    return { ok: false, error: contribution.error };
   }
-
-  const { stream } = await getActiveStream();
-  if (!stream) {
-    return {
-      ok: false,
-      error: "No active stream. Ask an admin to add you to Camp CLAI.",
-    };
-  }
-
+  const stream = contribution.stream;
+  const writeClient = await getContributionSupabase(contribution);
+  const authorUserId = contribution.userId;
   const content = formatMessages(messages);
-  const sessionIds = (options?.sessionIds ?? []).slice(0, 3);
+  const sessionIds = normalizeSessionIdsForContribution(
+    options?.sessionIds,
+    contribution.requiredSessionId,
+  );
   const primarySessionId = sessionIds[0] ?? null;
-  const relatedDocumentIds = options?.relatedDocumentIds ?? [];
-  const relatedSessionIds = options?.relatedSessionIds ?? [];
+  const isGuestKind =
+    contribution.kind === "guest" || contribution.kind === "link_guest";
+  const relatedDocumentIds = isGuestKind
+    ? []
+    : (options?.relatedDocumentIds ?? []);
+  const relatedSessionIds = isGuestKind
+    ? []
+    : (options?.relatedSessionIds ?? []);
 
   async function persistLinks(documentId: string) {
-    const linkError = await linkDocumentSessions(documentId, sessionIds);
+    const linkError = await linkDocumentSessions(
+      documentId,
+      sessionIds,
+      writeClient,
+    );
     if (linkError.error) return linkError.error;
+    if (!authorUserId || relatedDocumentIds.length + relatedSessionIds.length === 0) {
+      return null;
+    }
     const relateError = await setDocumentLinks({
-      streamId: stream!.id,
+      streamId: stream.id,
       sourceDocumentId: documentId,
-      createdBy: user!.id,
+      createdBy: authorUserId,
       targetDocumentIds: relatedDocumentIds,
       targetSessionIds: relatedSessionIds,
     });
@@ -161,7 +163,7 @@ export async function saveChatConversation(
   }
 
   if (options?.documentId) {
-    const { data, error } = await supabase
+    let updateQuery = writeClient
       .from("documents")
       .update({
         content,
@@ -170,10 +172,20 @@ export async function saveChatConversation(
         needs_review: false,
         is_draft: false,
       })
-      .eq("id", options.documentId)
-      .eq("created_by", user.id)
-      .select("id")
-      .maybeSingle();
+      .eq("id", options.documentId);
+
+    if (contribution.kind === "link_guest" && contribution.linkParticipantId) {
+      updateQuery = updateQuery.eq(
+        "guest_participant_id",
+        contribution.linkParticipantId,
+      );
+    } else if (contribution.userId) {
+      updateQuery = updateQuery.eq("created_by", contribution.userId);
+    } else {
+      return { ok: false, error: "Could not update draft." };
+    }
+
+    const { data, error } = await updateQuery.select("id").maybeSingle();
 
     if (error || !data) {
       return { ok: false, error: error?.message ?? "Could not update draft." };
@@ -187,7 +199,6 @@ export async function saveChatConversation(
     if (privacy === "public") {
       await enqueueDocumentCreated(data.id, stream.id);
     } else {
-      // Private stays off the map/Ask index; still get a per-element summary.
       await enqueueDocumentSummarize(data.id, stream.id);
     }
 
@@ -203,7 +214,8 @@ export async function saveChatConversation(
 
   const { document, error } = await createDocument({
     streamId: stream.id,
-    createdBy: user.id,
+    createdBy: contribution.userId,
+    guestParticipantId: contribution.linkParticipantId,
     content,
     title,
     type: "Reflection",
@@ -211,6 +223,10 @@ export async function saveChatConversation(
     sessionId: primarySessionId,
     needsReview: false,
     isDraft: false,
+    participants: contribution.displayName
+      ? [contribution.displayName]
+      : undefined,
+    supabase: writeClient,
   });
 
   if (error || !document) {
@@ -248,29 +264,21 @@ export async function autosaveReflectDraft(
   const privacy: "public" | "private" =
     privacyStatus === "public" ? "public" : "private";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, error: "You must be signed in to save." };
+  const contribution = await resolveContributionContext(sessionIds);
+  if (!contribution.ok) {
+    return { ok: false, error: contribution.error };
   }
-
-  const { stream } = await getActiveStream();
-  if (!stream) {
-    return {
-      ok: false,
-      error: "No active stream. Ask an admin to add you to Camp CLAI.",
-    };
-  }
-
+  const stream = contribution.stream;
+  const writeClient = await getContributionSupabase(contribution);
   const content = formatMessages(messages);
-  const ids = sessionIds.slice(0, 3);
+  const ids = normalizeSessionIdsForContribution(
+    sessionIds,
+    contribution.requiredSessionId,
+  );
   const primarySessionId = ids[0] ?? null;
 
   if (documentId) {
-    const { data, error } = await supabase
+    let updateQuery = writeClient
       .from("documents")
       .update({
         content,
@@ -278,16 +286,26 @@ export async function autosaveReflectDraft(
         session_id: primarySessionId,
         is_draft: true,
       })
-      .eq("id", documentId)
-      .eq("created_by", user.id)
-      .select("id")
-      .maybeSingle();
+      .eq("id", documentId);
+
+    if (contribution.kind === "link_guest" && contribution.linkParticipantId) {
+      updateQuery = updateQuery.eq(
+        "guest_participant_id",
+        contribution.linkParticipantId,
+      );
+    } else if (contribution.userId) {
+      updateQuery = updateQuery.eq("created_by", contribution.userId);
+    } else {
+      return { ok: false, error: "Autosave failed." };
+    }
+
+    const { data, error } = await updateQuery.select("id").maybeSingle();
 
     if (error || !data) {
       return { ok: false, error: error?.message ?? "Autosave failed." };
     }
 
-    const linkError = await linkDocumentSessions(data.id, ids);
+    const linkError = await linkDocumentSessions(data.id, ids, writeClient);
     if (linkError.error) {
       return { ok: false, error: linkError.error };
     }
@@ -303,7 +321,8 @@ export async function autosaveReflectDraft(
 
   const { document, error } = await createDocument({
     streamId: stream.id,
-    createdBy: user.id,
+    createdBy: contribution.userId,
+    guestParticipantId: contribution.linkParticipantId,
     content,
     title: `Reflection — ${dateLabel}`,
     type: "Reflection",
@@ -311,13 +330,17 @@ export async function autosaveReflectDraft(
     sessionId: primarySessionId,
     needsReview: false,
     isDraft: true,
+    participants: contribution.displayName
+      ? [contribution.displayName]
+      : undefined,
+    supabase: writeClient,
   });
 
   if (error || !document) {
     return { ok: false, error: error ?? "Autosave failed." };
   }
 
-  const linkError = await linkDocumentSessions(document.id, ids);
+  const linkError = await linkDocumentSessions(document.id, ids, writeClient);
   if (linkError.error) {
     return { ok: false, error: linkError.error };
   }

@@ -72,3 +72,32 @@ export function visibleAppNavItems(isAdmin: boolean): NavItem[] {
   if (isAdmin) return APP_NAV_ITEMS;
   return APP_NAV_ITEMS.filter((item) => !isAdminNavItem(item));
 }
+
+/** Session guests: Dashboard + Add (no Session create) + Guide. */
+export const GUEST_NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard" },
+  {
+    label: "Add",
+    children: [
+      { href: "/add/chat", label: "Reflect" },
+      { href: "/add/record", label: "Record" },
+      { href: "/add/upload", label: "Upload" },
+    ],
+  },
+  { href: "/guide", label: "Guide" },
+];
+
+/** Pending / no access: Guide + Waiting only. */
+export const PENDING_NAV_ITEMS: NavItem[] = [
+  { href: "/waiting", label: "Access" },
+  { href: "/guide", label: "Guide" },
+];
+
+export function navItemsForAccess(
+  kind: "member" | "guest" | "link_guest" | "pending" | "none",
+  isAdmin: boolean,
+): NavItem[] {
+  if (kind === "guest" || kind === "link_guest") return GUEST_NAV_ITEMS;
+  if (kind === "pending" || kind === "none") return PENDING_NAV_ITEMS;
+  return visibleAppNavItems(isAdmin);
+}

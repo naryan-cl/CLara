@@ -22,6 +22,7 @@ type Props = {
   initialSessionIds?: string[];
   loadError?: string | null;
   mode: "record" | "upload";
+  guestMode?: boolean;
 };
 
 /**
@@ -35,6 +36,7 @@ export function AddWithSessionComposer({
   initialSessionIds = [],
   loadError,
   mode,
+  guestMode = false,
 }: Props) {
   const [selection, setSelection] = useState<ConnectSelection>({
     ...EMPTY_CONNECT,
@@ -87,7 +89,14 @@ export function AddWithSessionComposer({
     recorderRef.current?.stopAndSubmit();
   }
 
-  const connect = (
+  const connect = guestMode ? (
+    <p className="rounded-md border border-horizon/30 bg-paper px-4 py-3 text-sm text-ink/70">
+      Adding to{" "}
+      <span className="font-medium text-ink">
+        {selection.sessions[0]?.name ?? "your approved session"}
+      </span>
+    </p>
+  ) : (
     <ConnectPanel
       sessions={sessions}
       relateTargets={relateTargets}

@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import type { ListensStagingExtension } from "@/lib/listens/audio-format";
+import { createListensStagingSignedUpload } from "@/app/(app)/sessions/listens-signed-upload";
 
 /**
  * Browser → private `listens-staging` object.
  * Why: Vercel Server Actions cap the body around 4.5MB, so long audio must
  * never travel through a form POST. Record already uses this path.
+ * Named join-link guests use a signed upload URL (no auth session).
  */
 export async function uploadListensStagingBlob(input: {
   streamId: string;
@@ -14,6 +16,8 @@ export async function uploadListensStagingBlob(input: {
   blob: Blob;
   mimeType: string;
   fileExtension: ListensStagingExtension;
+  sessionIds?: string[];
+  useSignedUpload?: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (input.blob.size === 0) {
     return { ok: false, error: "Empty audio segment. Try a different file." };
@@ -23,6 +27,36 @@ export async function uploadListensStagingBlob(input: {
       ok: false,
       error: `This piece is too large for Whisper (${Math.round(input.blob.size / 1024 / 1024)}MB). Try a compressed M4A/MP3.`,
     };
+  }
+
+  if (input.useSignedUpload) {
+    const signed = await createListensStagingSignedUpload({
+      streamId: input.streamId,
+      recordingId: input.recordingId,
+      index: input.index,
+      mimeType: input.mimeType,
+      fileExtension: input.fileExtension,
+      sessionIds: input.sessionIds,
+    });
+    if (!signed.ok) {
+      return { ok: false, error: signed.error };
+    }
+
+    const response = await fetch(signed.signedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type":
+          input.mimeType || input.blob.type || "application/octet-stream",
+      },
+      body: input.blob,
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: `Audio upload failed (${response.status}). Try again.`,
+      };
+    }
+    return { ok: true };
   }
 
   const supabase = createClient();

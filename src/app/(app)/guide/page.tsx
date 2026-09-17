@@ -108,8 +108,8 @@ export default function GuidePage() {
           <Ol
             items={[
               "Go to the CLara sign-in page and choose Google SSO or CL email + password. There is no magic-link option.",
-              "Access is controlled primarily by CL email domains, with an admin exception list for externals.",
-              "After signing in, new accounts are added to the Camp CLAI stream automatically. Commons access still follows stream membership — later streams will not be automatic.",
+              "@cultivatingleadership.com accounts join Camp CLAI automatically with full Commons access.",
+              "Other domains open a session join link / QR, then wait for a stream admin to approve session-only guest access — or ask an admin to add your email for full stream membership.",
             ]}
           />
           <H3>The Dashboard</H3>
@@ -152,6 +152,7 @@ export default function GuidePage() {
             items={[
               "The host names the gathering and adds an inquiry or short description.",
               "CLara issues a short join code, plus share links and a QR code.",
+              "CL colleagues with the link join immediately. People on other domains sign in (the join URL is kept), then wait until a stream admin approves them for that session only.",
               "The host stays on a live board: Reflect / Record / Upload share icons (copy link + QR), live counts of in-progress vs. submitted contributions.",
               "Finalize is a soft close — it synthesizes everything submitted so far into a session Summary. Late Adds via the join code are still allowed afterward, and the host can refresh the synthesis.",
             ]}
@@ -316,7 +317,11 @@ export default function GuidePage() {
               ],
               [
                 "Membership",
-                "New accounts join Camp CLAI automatically. Admins can still add an existing account by email, promote/demote, or remove. Never creates accounts or sends invites.",
+                "@cultivatingleadership.com joins Camp CLAI automatically. Add an existing email for full stream access, or invite an email that has not signed up yet (they join on first login — no invite email is sent). Session-only guests are approved separately.",
+              ],
+              [
+                "Session guest requests",
+                "Externals who opened a join link wait here. Approve = that gathering only (not the full Commons). Reject keeps them on Waiting.",
               ],
               ["Isolation", "Toggle whether the stream's Commons is visible from other streams."],
               ["CLara prompts", "Edit the Reflect and Ask CLara system prompts for this stream."],

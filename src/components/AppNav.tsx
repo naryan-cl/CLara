@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { SignOutButton } from "@/components/SignOutButton";
+import { LeaveLinkGuestButton } from "@/components/LeaveLinkGuestButton";
 import {
   isNavGroup,
   isNavGroupActive,
   isNavLinkActive,
-  visibleAppNavItems,
+  navItemsForAccess,
   type NavGroup,
   type NavLink,
 } from "@/lib/nav/app-nav";
+import type { AccessKind } from "@/lib/access/types";
 
 /**
  * App chrome navigation: nested Add / Synthesis groups + mobile hamburger.
@@ -26,10 +28,12 @@ import {
  */
 export function AppNav({
   isAdmin = false,
+  accessKind = "member",
   userEmail,
   streamLabel,
 }: {
   isAdmin?: boolean;
+  accessKind?: AccessKind;
   userEmail?: string | null;
   streamLabel?: string | null;
 }) {
@@ -39,6 +43,7 @@ export function AppNav({
       key={pathname}
       pathname={pathname}
       isAdmin={isAdmin}
+      accessKind={accessKind}
       userEmail={userEmail}
       streamLabel={streamLabel}
     />
@@ -48,15 +53,17 @@ export function AppNav({
 function AppNavInner({
   pathname,
   isAdmin,
+  accessKind,
   userEmail,
   streamLabel,
 }: {
   pathname: string;
   isAdmin: boolean;
+  accessKind: AccessKind;
   userEmail?: string | null;
   streamLabel?: string | null;
 }) {
-  const items = visibleAppNavItems(isAdmin);
+  const items = navItemsForAccess(accessKind, isAdmin);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState<string | null>(null);
   const menuId = useId();
@@ -206,7 +213,13 @@ function AppNavInner({
                       {userEmail}
                     </p>
                   ) : null}
-                  <SignOutButton className="mt-2 flex min-h-11 w-full items-center rounded-md px-3 text-left text-sm font-medium text-ink/70 hover:bg-sand hover:text-danger" />
+                  <div className="mt-2">
+                    {accessKind === "link_guest" ? (
+                      <LeaveLinkGuestButton />
+                    ) : (
+                      <SignOutButton className="flex min-h-11 w-full items-center rounded-md px-3 text-left text-sm font-medium text-ink/70 hover:bg-sand hover:text-danger" />
+                    )}
+                  </div>
                 </div>
               ) : null}
             </nav>

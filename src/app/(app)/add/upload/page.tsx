@@ -1,5 +1,6 @@
 import { AddWithSessionComposer } from "@/components/AddWithSessionComposer";
 import { loadSessionComposerData } from "@/app/(app)/sessions/composer-actions";
+import { getAccessContext } from "@/lib/access/get-access-context";
 
 type Props = {
   searchParams?: Promise<{ session?: string }>;
@@ -7,8 +8,9 @@ type Props = {
 
 export default async function AddUploadPage({ searchParams }: Props) {
   const params = searchParams ? await searchParams : {};
-  const bootstrap = await loadSessionComposerData();
   const initialSessionIds = params.session ? [params.session] : [];
+  const bootstrap = await loadSessionComposerData(params.session);
+  const access = await getAccessContext();
 
   return (
     <div className="flex flex-col gap-10">
@@ -27,6 +29,7 @@ export default async function AddUploadPage({ searchParams }: Props) {
         initialSessionIds={initialSessionIds}
         loadError={bootstrap.error}
         mode="upload"
+        guestMode={access.kind === "guest" || access.kind === "link_guest"}
       />
     </div>
   );

@@ -17,10 +17,10 @@ import {
   prepareListensRecording,
 } from "@/app/(app)/sessions/listens-actions";
 import { FlowerMark } from "@/components/FlowerMark";
-import { createClient } from "@/lib/supabase/client";
 import { MAX_LISTENS_STAGING_BYTES } from "@/lib/openai/transcribe";
 import { MAX_LISTENS_SEGMENTS } from "@/lib/listens/constants";
 import { listensFileExtension } from "@/lib/listens/audio-format";
+import { uploadListensStagingBlob } from "@/lib/listens/upload-staging-blob";
 import {
   hasSeenMobileRecordHint,
   markMobileRecordHintSeen,
@@ -374,6 +374,8 @@ export const ListensRecorder = forwardRef<
   const meterCloneRef = useRef<MediaStream | null>(null);
   const streamIdRef = useRef<string | null>(null);
   const recordingIdRef = useRef<string | null>(null);
+  const useSignedUploadRef = useRef(false);
+  const sessionIdsRef = useRef<string[]>([]);
   const segmentIndexRef = useRef(0);
   /** How many segments are already in Storage (0..n). */
   const uploadedCountRef = useRef(0);
@@ -625,24 +627,21 @@ export const ListensRecorder = forwardRef<
     }
 
     setSegmentUploading(true);
-    const supabase = createClient();
     const ext = listensFileExtension(mimeTypeRef.current);
-    const path = `${streamId}/${recordingId}/${index}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from("listens-staging")
-      .upload(path, blob, {
-        contentType: mimeTypeRef.current || blob.type || "audio/webm",
-        upsert: false,
-      });
+    const uploaded = await uploadListensStagingBlob({
+      streamId,
+      recordingId,
+      index,
+      blob,
+      mimeType: mimeTypeRef.current || blob.type || "audio/webm",
+      fileExtension: ext,
+      sessionIds: sessionIdsRef.current,
+      useSignedUpload: useSignedUploadRef.current,
+    });
     setSegmentUploading(false);
 
-    if (uploadError) {
-      setError(
-        uploadError.message.includes("not found") ||
-          uploadError.message.includes("Bucket")
-          ? "Listens storage isn’t set up yet. Ask an admin to run migration 0014."
-          : `Segment upload failed: ${uploadError.message}`,
-      );
+    if (!uploaded.ok) {
+      setError(uploaded.error);
       return false;
     }
     uploadedCountRef.current = index + 1;
@@ -777,6 +776,7 @@ export const ListensRecorder = forwardRef<
               recordingId,
               segmentCount: uploaded,
               fileExtension,
+              sessionIds: sessionIdsRef.current,
             });
           }
           resetAll();
@@ -1030,12 +1030,26 @@ export const ListensRecorder = forwardRef<
       return;
     }
 
-    const prepared = await prepareListensRecording();
+    let sessionIdsForPrepare: string[] = [];
+    const resolve = resolveSessionIdsRef.current;
+    if (resolve) {
+      const resolved = await resolve();
+      if (!resolved.ok) {
+        setError(resolved.error);
+        void releaseWakeLock();
+        return;
+      }
+      sessionIdsForPrepare = resolved.sessionIds;
+    }
+    sessionIdsRef.current = sessionIdsForPrepare;
+
+    const prepared = await prepareListensRecording(sessionIdsForPrepare);
     if (!prepared.ok) {
       setError(prepared.error);
       void releaseWakeLock();
       return;
     }
+    useSignedUploadRef.current = prepared.useSignedUpload;
 
     let micStream: MediaStream;
     try {
@@ -1100,6 +1114,7 @@ export const ListensRecorder = forwardRef<
           recordingId,
           segmentCount: uploaded,
           fileExtension,
+          sessionIds: sessionIdsRef.current,
         });
         if (!result.ok) {
           setError(result.error);

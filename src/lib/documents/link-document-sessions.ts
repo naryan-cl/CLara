@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_SESSIONS = 3;
@@ -9,8 +10,9 @@ const MAX_SESSIONS = 3;
 export async function linkDocumentSessions(
   documentId: string,
   sessionIds: string[],
+  supabaseClient?: SupabaseClient,
 ): Promise<{ error: string | null }> {
-  const supabase = await createClient();
+  const supabase = supabaseClient ?? (await createClient());
   const unique = [
     ...new Set(sessionIds.map((id) => id.trim()).filter(Boolean)),
   ].slice(0, MAX_SESSIONS);

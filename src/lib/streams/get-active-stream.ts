@@ -52,9 +52,8 @@ export const getActiveStream = cache(async (): Promise<{
     };
   }
 
-  // For now, new accounts join Camp CLAI automatically. If this user has no
-  // membership yet (signed up before the trigger, or trigger missed), attach
-  // one and re-read. If migration 0024 is not applied, the RPC fails softly.
+  // Self-heal CL / allowlisted accounts only (0038). Non-CL emails are not
+  // auto-joined — they wait for admin approval or session-guest access.
   if ((data ?? []).length === 0) {
     const { error: ensureError } = await ensureCampClaiMembership();
     if (!ensureError) {
@@ -68,7 +67,7 @@ export const getActiveStream = cache(async (): Promise<{
     }
   }
 
-  const streams: StreamSummary[] = (data ?? [])
+  const streams = (data ?? [])
     .map((row) => {
       const streamRow = normalizeStream(
         row.streams as StreamFields | StreamFields[] | null,
@@ -81,7 +80,7 @@ export const getActiveStream = cache(async (): Promise<{
         name: streamRow.name,
         isolation_enabled: streamRow.isolation_enabled,
         role,
-      } satisfies StreamSummary;
+      } as StreamSummary;
     })
     .filter((s): s is StreamSummary => s !== null);
 

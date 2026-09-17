@@ -85,9 +85,11 @@ export function looksLikeShareToken(token: string): boolean {
 
 /** 6-char uppercase alphanumeric join code (no ambiguous 0/O/1/I). */
 export function generateJoinCode(): string {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
   let code = "";
-  for (let i = 0; i < 6; i += 1) {
-    code += JOIN_CODE_ALPHABET[Math.floor(Math.random() * JOIN_CODE_ALPHABET.length)];
+  for (const byte of bytes) {
+    code += JOIN_CODE_ALPHABET[byte % JOIN_CODE_ALPHABET.length];
   }
   return code;
 }

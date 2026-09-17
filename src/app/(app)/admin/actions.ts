@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStream } from "@/lib/streams/get-active-stream";
-import { addStreamMemberByEmail } from "@/lib/streams/add-member";
+import { inviteOrAddStreamMember } from "@/lib/streams/add-member";
 import { removeStreamMember } from "@/lib/streams/remove-member";
 import { updateMemberRole } from "@/lib/streams/update-member-role";
 import { updateStreamIsolation } from "@/lib/streams/update-isolation";
@@ -32,8 +32,12 @@ import { restoreTrashItem } from "@/lib/trash/restore";
 import type { TrashKind } from "@/lib/trash/types";
 import { listRetranscribableTranscripts } from "@/lib/listens/list-retranscribable";
 import { startRetranscribe } from "@/lib/listens/start-retranscribe";
+import { reviewSessionGuestRequest } from "@/lib/access/guest-requests";
+import { removeAllowlistEmail } from "@/lib/access/allowlist";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string };
 
 export type RestoreTrashActionResult =
   | { ok: true; note: string | null }
@@ -71,7 +75,41 @@ export async function addMember(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Enter an email address." };
   }
 
-  const { error } = await addStreamMemberByEmail(auth.streamId, email);
+  const result = await inviteOrAddStreamMember(auth.streamId, email);
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true, message: result.message };
+}
+
+export async function reviewGuestRequest(
+  sessionId: string,
+  userId: string,
+  status: "approved" | "rejected",
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const { error } = await reviewSessionGuestRequest(sessionId, userId, status);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/waiting");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function removeAllowlistEmailAction(
+  email: string,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  const { error } = await removeAllowlistEmail(auth.streamId, email);
   if (error) {
     return { ok: false, error };
   }

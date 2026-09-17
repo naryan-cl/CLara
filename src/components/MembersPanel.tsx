@@ -19,10 +19,12 @@ export function MembersPanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function onAddSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
     const form = event.currentTarget;
     const formData = new FormData(form);
 
@@ -32,6 +34,7 @@ export function MembersPanel({
         setError(result.error);
         return;
       }
+      setNotice(result.message ?? "Saved.");
       form.reset();
       router.refresh();
     });
@@ -39,6 +42,7 @@ export function MembersPanel({
 
   function onRemove(userId: string) {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await removeMember(userId);
       if (!result.ok) {
@@ -51,6 +55,7 @@ export function MembersPanel({
 
   function onToggleRole(userId: string, currentRole: "admin" | "member") {
     setError(null);
+    setNotice(null);
     const nextRole = currentRole === "admin" ? "member" : "admin";
     startTransition(async () => {
       const result = await changeMemberRole(userId, nextRole);
@@ -84,11 +89,14 @@ export function MembersPanel({
         </button>
       </form>
       <p className="text-xs text-ink/40">
-        New accounts join Camp CLAI automatically. Use this to add someone who
-        already signed in once (no invite email) or to manage other streams later.
+        @cultivatingleadership.com accounts join automatically on signup.
+        Add an existing member, or invite an external for full stream access
+        (they join on first login). Session-only guests are approved from
+        Session guest requests above.
       </p>
 
       {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
+      {notice ? <p className="text-sm text-success">{notice}</p> : null}
 
       <ul className="flex flex-col gap-3">
         {members.map((member) => (
