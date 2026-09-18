@@ -110,6 +110,10 @@ export async function createGroupSession(input: {
   /** Stored as sessions.seed_question — shown as Inquiry in the UI. */
   inquiry?: string;
   seedQuestion?: string;
+  /** Guided Reflect welcome (optional). */
+  reflectWelcome?: string | null;
+  /** Guided Reflect questions; when non-empty, enables guided mode. */
+  reflectQuestions?: string[] | null;
   participantUserIds?: string[];
 }): Promise<CreateGroupSessionResult> {
   const supabase = await createClient();
@@ -130,6 +134,16 @@ export async function createGroupSession(input: {
   }
 
   const inquiry = (input.inquiry ?? input.seedQuestion ?? "").trim();
+  const reflectQuestions = (input.reflectQuestions ?? [])
+    .map((q) => q.trim())
+    .filter(Boolean);
+
+  if (reflectQuestions.length === 0 && input.reflectWelcome?.trim()) {
+    return {
+      ok: false,
+      error: "Add at least one question for a guided reflection.",
+    };
+  }
 
   const { session, error } = await createSession({
     streamId: stream.id,
@@ -137,6 +151,8 @@ export async function createGroupSession(input: {
     name: input.name,
     seedQuestion: inquiry || null,
     description: null,
+    reflectWelcome: input.reflectWelcome ?? null,
+    reflectQuestions,
   });
 
   if (error || !session) {

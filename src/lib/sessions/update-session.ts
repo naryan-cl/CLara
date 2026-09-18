@@ -7,11 +7,15 @@ import {
   parseHighlightColor,
   type SessionHighlightColor,
 } from "@/lib/sessions/highlight";
+import { buildReflectFlow } from "@/lib/sessions/reflect-flow";
 import {
   coerceSession,
   isMissingHighlightColorSchemaError,
+  isMissingReflectFlowSchemaError,
   SESSION_SELECT,
   SESSION_SELECT_NO_HIGHLIGHT,
+  SESSION_SELECT_NO_REFLECT_FLOW,
+  SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT,
   sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
@@ -24,6 +28,9 @@ export type UpdateSessionInput = {
   description?: string | null;
   /** Pass `null` to clear. Omit to leave unchanged. */
   highlightColor?: SessionHighlightColor | null;
+  /** When set, updates guided Reflect fields. Pass empty questions for simple mode. */
+  reflectWelcome?: string | null;
+  reflectQuestions?: string[] | null;
 };
 
 export type UpdateSessionResult =
@@ -104,14 +111,31 @@ export async function updateSession(
   }
 
   const occurredAt = input.occurredAt?.trim() || null;
-  const seedQuestion = input.seedQuestion?.trim() || null;
   const description = input.description?.trim() || null;
   const patch: Record<string, unknown> = {
     name,
     occurred_at: occurredAt,
-    seed_question: seedQuestion,
     description,
   };
+
+  if (input.reflectQuestions !== undefined) {
+    const flow = buildReflectFlow({
+      welcome: input.reflectWelcome,
+      questions: input.reflectQuestions,
+    });
+    if (flow.questions.length > 0) {
+      patch.seed_question = flow.questions[0];
+      patch.reflect_welcome = flow.welcome;
+      patch.reflect_questions = flow.questions;
+    } else {
+      patch.seed_question = input.seedQuestion?.trim() || null;
+      patch.reflect_welcome = null;
+      patch.reflect_questions = null;
+    }
+  } else {
+    patch.seed_question = input.seedQuestion?.trim() || null;
+  }
+
   if (input.highlightColor !== undefined) {
     patch.highlight_color = parseHighlightColor(input.highlightColor);
   }
@@ -123,6 +147,32 @@ export async function updateSession(
     .select(SESSION_SELECT)
     .maybeSingle();
 
+  if (error && isMissingReflectFlowSchemaError(error.message)) {
+    if (
+      input.reflectQuestions !== undefined &&
+      (input.reflectQuestions?.length ?? 0) > 0
+    ) {
+      return {
+        ok: false,
+        error:
+          "Guided reflection needs migration 0040_session_reflect_flow.sql.",
+      };
+    }
+    const { reflect_welcome: _w, reflect_questions: _q, ...withoutFlow } =
+      patch;
+    const select = isMissingHighlightColorSchemaError(error.message)
+      ? SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT
+      : SESSION_SELECT_NO_REFLECT_FLOW;
+    const retry = await supabase
+      .from("sessions")
+      .update(withoutFlow)
+      .eq("id", session.id)
+      .select(select as typeof SESSION_SELECT)
+      .maybeSingle();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
+
   if (error && isMissingHighlightColorSchemaError(error.message)) {
     if (parseHighlightColor(input.highlightColor)) {
       return {
@@ -131,14 +181,10 @@ export async function updateSession(
           "Session highlights need migration 0033_session_highlight_color.sql.",
       };
     }
+    const { highlight_color: _h, ...withoutHighlight } = patch;
     const retry = await supabase
       .from("sessions")
-      .update({
-        name,
-        occurred_at: occurredAt,
-        seed_question: seedQuestion,
-        description,
-      })
+      .update(withoutHighlight)
       .eq("id", session.id)
       .select(SESSION_SELECT_NO_HIGHLIGHT)
       .maybeSingle();

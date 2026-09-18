@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import {
@@ -14,6 +14,10 @@ import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 import { ListeningPresence } from "@/components/motion/ListeningPresence";
 import { FlowerMark } from "@/components/FlowerMark";
 import type { SessionSummary } from "@/lib/sessions/types";
+import {
+  questionMarker,
+  type ReflectFlow,
+} from "@/lib/sessions/reflect-flow";
 
 const AUTOSAVE_MS = 1200;
 const SUBMIT_AFTER_USER_TURNS = 2;
@@ -25,8 +29,24 @@ type Props = {
   relatedSessionIds?: string[];
 };
 
+/** -1 = welcome phase; 0..n-1 = question index; n = open chat after last Q. */
+type GuidedPhase = number;
+
 function countUserTurns(messages: ChatMessage[]): number {
   return messages.filter((m) => m.role === "user").length;
+}
+
+function pickGuidedSession(
+  sessions: SessionSummary[],
+): SessionSummary | null {
+  return sessions.find((s) => s.reflect_questions.length > 0) ?? null;
+}
+
+function guidedFlowFromSession(session: SessionSummary): ReflectFlow {
+  return {
+    welcome: session.reflect_welcome,
+    questions: session.reflect_questions,
+  };
 }
 
 function buildSeedMessages(sessions: SessionSummary[]): ChatMessage[] {
@@ -45,6 +65,28 @@ function buildSeedMessages(sessions: SessionSummary[]): ChatMessage[] {
   ];
 }
 
+function initialGuidedPhase(flow: ReflectFlow): GuidedPhase {
+  return flow.welcome ? -1 : 0;
+}
+
+function openingMessagesForPhase(
+  flow: ReflectFlow,
+  phase: GuidedPhase,
+): ChatMessage[] {
+  if (phase < 0 && flow.welcome) {
+    return [{ role: "assistant", content: flow.welcome }];
+  }
+  if (phase >= 0 && phase < flow.questions.length) {
+    return [
+      {
+        role: "assistant",
+        content: questionMarker(phase, flow.questions.length, flow.questions[phase]!),
+      },
+    ];
+  }
+  return [];
+}
+
 export function ChatForm({
   sessionIds,
   connectedSessions,
@@ -58,28 +100,57 @@ export function ChatForm({
   const [error, setError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const documentIdRef = useRef<string | null>(null);
-  /** Default private per PRD — participant opts in to public Commons. */
-  const [isPrivate, setIsPrivate] = useState(true);
+  /** Default public — participant opts out to keep private. */
+  const [isPrivate, setIsPrivate] = useState(false);
   const [savingNotice, setSavingNotice] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showThanks, setShowThanks] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasUserStarted, setHasUserStarted] = useState(false);
+  const [guidedPhase, setGuidedPhase] = useState<GuidedPhase>(0);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const guidedSession = useMemo(
+    () => pickGuidedSession(connectedSessions),
+    [connectedSessions],
+  );
+  const guidedFlow = useMemo(
+    () => (guidedSession ? guidedFlowFromSession(guidedSession) : null),
+    [guidedSession],
+  );
+  const isGuided = Boolean(guidedFlow && guidedFlow.questions.length > 0);
+  const questionCount = guidedFlow?.questions.length ?? 0;
+  const onWelcome = isGuided && guidedPhase < 0;
+  const onQuestion =
+    isGuided && guidedPhase >= 0 && guidedPhase < questionCount;
+  const guidedComplete =
+    !isGuided || guidedPhase >= questionCount;
+  const canAdvanceGuided = isGuided && !guidedComplete;
+
+  const currentQuestionIndex = onWelcome
+    ? 0
+    : Math.min(Math.max(guidedPhase, 0), Math.max(questionCount - 1, 0));
 
   function setDraftDocumentId(id: string) {
     documentIdRef.current = id;
     setDocumentId(id);
   }
 
-  // Inject seed questions as opening CLara messages when connections change,
-  // until the participant sends their first message.
+  // Inject opening messages when connections change, until the participant
+  // sends their first message (or advances past the scripted opening).
   useEffect(() => {
     if (hasUserStarted) return;
+    if (guidedFlow && guidedFlow.questions.length > 0) {
+      const phase = initialGuidedPhase(guidedFlow);
+      setGuidedPhase(phase);
+      setMessages(openingMessagesForPhase(guidedFlow, phase));
+      return;
+    }
+    setGuidedPhase(0);
     setMessages(buildSeedMessages(connectedSessions));
-  }, [connectedSessions, hasUserStarted]);
+  }, [connectedSessions, guidedFlow, hasUserStarted]);
 
   function scheduleAutosave(nextMessages: ChatMessage[]) {
     if (!nextMessages.some((m) => m.role === "user")) return;
@@ -97,6 +168,7 @@ export function ChatForm({
       isPrivate ? "private" : "public",
       sessionIds,
       documentIdRef.current,
+      guidedFlow,
     );
     if (!result.ok) {
       setSaveError(result.error);
@@ -121,6 +193,17 @@ export function ChatForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPrivate, sessionIds.join(",")]);
 
+  function advanceGuided() {
+    if (!guidedFlow || !canAdvanceGuided) return;
+    const nextPhase: GuidedPhase =
+      guidedPhase < 0 ? 0 : guidedPhase + 1;
+    setGuidedPhase(nextPhase);
+    if (nextPhase < guidedFlow.questions.length) {
+      const nextMsg = openingMessagesForPhase(guidedFlow, nextPhase);
+      setMessages((current) => [...current, ...nextMsg]);
+    }
+  }
+
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = draft.trim();
@@ -140,8 +223,21 @@ export function ChatForm({
     setDraft("");
     scheduleAutosave(nextMessages);
 
+    const reflectContext =
+      isGuided && guidedFlow
+        ? {
+            sessionName: guidedSession?.name ?? null,
+            questions: guidedFlow.questions,
+            currentQuestionIndex,
+          }
+        : null;
+
     startTransition(async () => {
-      const result = await sendChatMessage(nextMessages, sessionIds);
+      const result = await sendChatMessage(
+        nextMessages,
+        sessionIds,
+        reflectContext,
+      );
       if (!result.ok) {
         setError(result.error);
         return;
@@ -162,7 +258,7 @@ export function ChatForm({
       isPrivate ? "private" : "public",
       sessionIds,
       documentId,
-      { relatedDocumentIds, relatedSessionIds },
+      { relatedDocumentIds, relatedSessionIds, guidedFlow },
     );
     if (!result.ok) {
       setSaveError(result.error);
@@ -187,6 +283,20 @@ export function ChatForm({
   const userTurns = countUserTurns(messages);
   const canSubmit = userTurns >= SUBMIT_AFTER_USER_TURNS;
 
+  const progressLabel = onWelcome
+    ? "Welcome"
+    : onQuestion
+      ? `Question ${guidedPhase + 1} of ${questionCount}`
+      : null;
+
+  const nextButtonLabel = onWelcome
+    ? questionCount > 0
+      ? `Next: Question 1 of ${questionCount}`
+      : "Next question"
+    : guidedPhase === questionCount - 1
+      ? "Finish questions"
+      : "Next question";
+
   return (
     <div className="relative flex flex-col gap-4">
       <div className="flex min-h-[16rem] flex-col gap-4 rounded-lg border border-cloud bg-paper p-6 shadow-soft">
@@ -208,7 +318,7 @@ export function ChatForm({
                 </span>
               )}
               <p className="whitespace-pre-wrap text-sm leading-6 text-ink">
-                {message.content}
+                {message.content.replace(/^###\s+/, "")}
               </p>
             </FadeRise>
           ))
@@ -239,6 +349,23 @@ export function ChatForm({
           >
             {pending ? "Sending…" : "Send"}
           </button>
+          {canAdvanceGuided ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={pending || submitting}
+                onClick={advanceGuided}
+                className="rounded-md border border-horizon/40 bg-horizon/10 px-4 py-2 text-sm font-medium text-ink transition hover:border-horizon disabled:opacity-60"
+              >
+                {nextButtonLabel}
+              </button>
+              {progressLabel ? (
+                <span className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+                  {progressLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {canSubmit ? (
             <button
               type="button"

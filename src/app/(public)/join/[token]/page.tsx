@@ -57,6 +57,7 @@ export default async function JoinSessionPage({ params, searchParams }: Props) {
         mode={mode}
         sessionName={session.name}
         seedQuestion={session.seedQuestion}
+        reflectWelcome={session.reflectWelcome}
         error={errorParam?.trim() || null}
       />
     );

@@ -5,6 +5,7 @@ import {
   normalizeJoinCode,
   SESSION_SELECT,
   SESSION_SELECT_NO_HIGHLIGHT,
+  sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
 
@@ -47,17 +48,37 @@ export async function getSessionByJoinCode(
       };
     }
 
-    if (error && isMissingHighlightColorSchemaError(error.message)) {
-      const retry = await supabase
-        .from("sessions")
-        .select(SESSION_SELECT_NO_HIGHLIGHT)
-        .eq("id", row.session_id)
-        .maybeSingle();
-      if (!retry.error && retry.data) {
-        return {
-          session: coerceSession(retry.data as Record<string, unknown>),
-          error: null,
-        };
+    if (error) {
+      const fallback = sessionSelectFallback(error.message);
+      if (fallback) {
+        const retry = await supabase
+          .from("sessions")
+          .select(fallback)
+          .eq("id", row.session_id)
+          .maybeSingle();
+        if (!retry.error && retry.data) {
+          return {
+            session: coerceSession(
+              retry.data as unknown as Record<string, unknown>,
+            ),
+            error: null,
+          };
+        }
+      }
+      if (isMissingHighlightColorSchemaError(error.message)) {
+        const retry = await supabase
+          .from("sessions")
+          .select(SESSION_SELECT_NO_HIGHLIGHT)
+          .eq("id", row.session_id)
+          .maybeSingle();
+        if (!retry.error && retry.data) {
+          return {
+            session: coerceSession(
+              retry.data as unknown as Record<string, unknown>,
+            ),
+            error: null,
+          };
+        }
       }
     }
   }
@@ -78,15 +99,27 @@ export async function getSessionByJoinCode(
     .eq("join_code", code)
     .maybeSingle();
 
-  if (error && isMissingHighlightColorSchemaError(error.message)) {
-    const retry = await supabase
-      .from("sessions")
-      .select(SESSION_SELECT_NO_HIGHLIGHT)
-      .eq("stream_id", stream.id)
-      .eq("join_code", code)
-      .maybeSingle();
-    data = retry.data as typeof data;
-    error = retry.error;
+  if (error) {
+    const fallback = sessionSelectFallback(error.message);
+    if (fallback) {
+      const retry = await supabase
+        .from("sessions")
+        .select(fallback)
+        .eq("stream_id", stream.id)
+        .eq("join_code", code)
+        .maybeSingle();
+      data = retry.data as typeof data;
+      error = retry.error;
+    } else if (isMissingHighlightColorSchemaError(error.message)) {
+      const retry = await supabase
+        .from("sessions")
+        .select(SESSION_SELECT_NO_HIGHLIGHT)
+        .eq("stream_id", stream.id)
+        .eq("join_code", code)
+        .maybeSingle();
+      data = retry.data as typeof data;
+      error = retry.error;
+    }
   }
 
   if (error) {

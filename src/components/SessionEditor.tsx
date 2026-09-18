@@ -8,6 +8,10 @@ import {
   saveSessionEdits,
 } from "@/app/(app)/sessions/session-edit-actions";
 import { ConnectionsField } from "@/components/ConnectionsField";
+import {
+  GuidedInquiryFields,
+  type InquiryMode,
+} from "@/components/GuidedInquiryFields";
 import { HelpTip } from "@/components/HelpTip";
 import { SessionDeleteDialog } from "@/components/SessionDeleteDialog";
 import type { RelateTarget } from "@/lib/commons/relate-targets";
@@ -74,6 +78,16 @@ export function SessionEditor({
   const [highlightColor, setHighlightColor] = useState<
     SessionHighlightColor | ""
   >(session.highlight_color ?? "");
+  const [inquiryMode, setInquiryMode] = useState<InquiryMode>(
+    session.reflect_questions.length > 0 ? "guided" : "simple",
+  );
+  const [inquiry, setInquiry] = useState(session.seed_question ?? "");
+  const [welcome, setWelcome] = useState(session.reflect_welcome ?? "");
+  const [questions, setQuestions] = useState<string[]>(
+    session.reflect_questions.length > 0
+      ? session.reflect_questions
+      : [session.seed_question ?? ""],
+  );
 
   useEffect(() => {
     setError(null);
@@ -81,6 +95,16 @@ export function SessionEditor({
     setRelatedSessionIds(initialRelatedSessionIds);
     setRelatedDocumentIds(initialRelatedDocumentIds);
     setHighlightColor(session.highlight_color ?? "");
+    setInquiryMode(
+      session.reflect_questions.length > 0 ? "guided" : "simple",
+    );
+    setInquiry(session.seed_question ?? "");
+    setWelcome(session.reflect_welcome ?? "");
+    setQuestions(
+      session.reflect_questions.length > 0
+        ? session.reflect_questions
+        : [session.seed_question ?? ""],
+    );
     // Reset when the session (or pencil) changes, not on every parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, forceEditing]);
@@ -216,16 +240,17 @@ export function SessionEditor({
           </div>
         ) : null}
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink">Inquiry</span>
-          <textarea
-            name="seedQuestion"
-            rows={3}
-            defaultValue={session.seed_question ?? ""}
-            placeholder="What are we gathering around?"
-            className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink"
-          />
-        </label>
+        <GuidedInquiryFields
+          mode={inquiryMode}
+          onModeChange={setInquiryMode}
+          inquiry={inquiry}
+          onInquiryChange={setInquiry}
+          welcome={welcome}
+          onWelcomeChange={setWelcome}
+          questions={questions}
+          onQuestionsChange={setQuestions}
+          formFields
+        />
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Description</span>

@@ -8,6 +8,7 @@ type Props = {
   mode: JoinMode;
   sessionName: string;
   seedQuestion: string | null;
+  reflectWelcome?: string | null;
   error: string | null;
 };
 
@@ -16,9 +17,11 @@ export function JoinChooser({
   mode,
   sessionName,
   seedQuestion,
+  reflectWelcome = null,
   error,
 }: Props) {
   const returnPath = `/join/${encodeURIComponent(token)}?mode=${mode}`;
+  const intro = reflectWelcome?.trim() || seedQuestion;
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-8 py-8">
@@ -29,8 +32,8 @@ export function JoinChooser({
         <h1 className="mt-2 font-display text-3xl font-medium text-ink">
           {sessionName}
         </h1>
-        {seedQuestion ? (
-          <p className="mt-3 text-sm leading-6 text-ink/65">{seedQuestion}</p>
+        {intro ? (
+          <p className="mt-3 text-sm leading-6 text-ink/65">{intro}</p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-ink/65">
             Contribute with a guest name, or sign in with your account.

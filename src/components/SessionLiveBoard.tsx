@@ -13,6 +13,7 @@ import {
   updateSessionJoinCodeAction,
 } from "@/app/(app)/sessions/composer-actions";
 import { AddModeLinks } from "@/components/AddModeLinks";
+import { GuidedInquiryFields, type InquiryMode } from "@/components/GuidedInquiryFields";
 import { HelpTip } from "@/components/HelpTip";
 import {
   hasSeenMultiInputSessionIntro,
@@ -49,7 +50,10 @@ export function SessionLiveBoard({
 }: Props) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [inquiryMode, setInquiryMode] = useState<InquiryMode>("simple");
   const [inquiry, setInquiry] = useState("");
+  const [welcome, setWelcome] = useState("");
+  const [questions, setQuestions] = useState<string[]>([""]);
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [peerQuery, setPeerQuery] = useState("");
   const [pending, setPending] = useState(false);
@@ -158,9 +162,20 @@ export function SessionLiveBoard({
     event.preventDefault();
     setPending(true);
     setError(null);
+    const guidedQuestions =
+      inquiryMode === "guided"
+        ? questions.map((q) => q.trim()).filter(Boolean)
+        : [];
+    if (inquiryMode === "guided" && guidedQuestions.length === 0) {
+      setPending(false);
+      setError("Add at least one question for a guided reflection.");
+      return;
+    }
     const result = await createGroupSession({
       name,
-      inquiry,
+      inquiry: inquiryMode === "simple" ? inquiry : undefined,
+      reflectWelcome: inquiryMode === "guided" ? welcome : null,
+      reflectQuestions: guidedQuestions,
       participantUserIds: participantIds,
     });
     setPending(false);
@@ -332,16 +347,16 @@ export function SessionLiveBoard({
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-ink">Inquiry (optional)</span>
-            <textarea
-              value={inquiry}
-              onChange={(e) => setInquiry(e.target.value)}
-              rows={3}
-              className="rounded-md border border-cloud bg-sand px-3 py-2 text-ink outline-none focus:border-horizon"
-              placeholder="What felt most alive today?"
-            />
-          </label>
+          <GuidedInquiryFields
+            mode={inquiryMode}
+            onModeChange={setInquiryMode}
+            inquiry={inquiry}
+            onInquiryChange={setInquiry}
+            welcome={welcome}
+            onWelcomeChange={setWelcome}
+            questions={questions}
+            onQuestionsChange={setQuestions}
+          />
 
           <div className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-ink">Participants (optional)</span>
@@ -427,7 +442,7 @@ export function SessionLiveBoard({
               aria-label="Join code"
             />
             <p className="text-xs text-ink/50">
-              4–8 characters. Letters and numbers only (no 0, O, 1, or I).
+              4–8 characters. Letters and numbers only (A–Z, 0–9).
               Changing the code breaks old join-code links.
             </p>
             <div className="flex flex-wrap gap-2">

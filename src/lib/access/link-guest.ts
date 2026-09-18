@@ -125,6 +125,7 @@ export type PublicJoinSession = {
   name: string;
   joinCode: string | null;
   seedQuestion: string | null;
+  reflectWelcome: string | null;
 };
 
 export async function lookupJoinSessionPublic(
@@ -143,7 +144,7 @@ export async function lookupJoinSessionPublic(
       const code = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
       let query = admin
         .from("sessions")
-        .select("id, stream_id, name, join_code, seed_question")
+        .select("id, stream_id, name, join_code, seed_question, reflect_welcome")
         .is("deleted_at", null)
         .limit(1);
 
@@ -159,7 +160,25 @@ export async function lookupJoinSessionPublic(
         return null;
       }
 
-      const { data: row } = await query.maybeSingle();
+      let { data: row, error: selectError } = await query.maybeSingle();
+      if (
+        selectError &&
+        (selectError.message.includes("reflect_welcome") ||
+          selectError.message.includes("schema cache"))
+      ) {
+        let fallback = admin
+          .from("sessions")
+          .select("id, stream_id, name, join_code, seed_question")
+          .is("deleted_at", null)
+          .limit(1);
+        if (isUuid) {
+          fallback = fallback.eq("share_token", trimmed);
+        } else {
+          fallback = fallback.eq("join_code", code);
+        }
+        const retry = await fallback.maybeSingle();
+        row = retry.data as typeof row;
+      }
       if (!row) return null;
       return {
         sessionId: row.id as string,
@@ -167,6 +186,14 @@ export async function lookupJoinSessionPublic(
         name: row.name as string,
         joinCode: (row.join_code as string | null) ?? null,
         seedQuestion: (row.seed_question as string | null) ?? null,
+        reflectWelcome:
+          typeof (row as { reflect_welcome?: unknown }).reflect_welcome ===
+            "string" &&
+          String((row as { reflect_welcome?: string }).reflect_welcome).trim()
+            ? String(
+                (row as { reflect_welcome?: string }).reflect_welcome,
+              ).trim()
+            : null,
       };
     } catch {
       return null;
@@ -179,6 +206,7 @@ export async function lookupJoinSessionPublic(
     name: string;
     join_code: string | null;
     seed_question: string | null;
+    reflect_welcome?: string | null;
   } | null;
 
   if (!row?.session_id) return null;
@@ -189,6 +217,10 @@ export async function lookupJoinSessionPublic(
     name: row.name,
     joinCode: row.join_code,
     seedQuestion: row.seed_question,
+    reflectWelcome:
+      typeof row.reflect_welcome === "string" && row.reflect_welcome.trim()
+        ? row.reflect_welcome.trim()
+        : null,
   };
 }
 

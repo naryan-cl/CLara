@@ -26,6 +26,24 @@ export async function saveSessionEdits(
       return { ok: false, error: "Missing session id." };
     }
 
+    const inquiryMode = String(formData.get("inquiryMode") ?? "simple").trim();
+    const reflectWelcome = String(formData.get("reflectWelcome") ?? "");
+    const reflectQuestionsRaw = String(formData.get("reflectQuestions") ?? "");
+    const reflectQuestions =
+      inquiryMode === "guided"
+        ? reflectQuestionsRaw
+            .split("\n")
+            .map((q) => q.trim())
+            .filter(Boolean)
+        : [];
+
+    if (inquiryMode === "guided" && reflectQuestions.length === 0) {
+      return {
+        ok: false,
+        error: "Add at least one question for a guided reflection.",
+      };
+    }
+
     const result = await updateSession({
       sessionId,
       name: String(formData.get("name") ?? ""),
@@ -33,6 +51,8 @@ export async function saveSessionEdits(
       seedQuestion: String(formData.get("seedQuestion") ?? ""),
       description: String(formData.get("description") ?? ""),
       highlightColor: parseHighlightColor(formData.get("highlightColor")),
+      reflectWelcome: inquiryMode === "guided" ? reflectWelcome : null,
+      reflectQuestions,
     });
 
     if (!result.ok) return result;

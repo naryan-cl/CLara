@@ -15,6 +15,10 @@ import {
   enqueueDocumentCreated,
   enqueueDocumentSummarize,
 } from "@/lib/embeddings/enqueue-document-created";
+import {
+  formatGuidedPreamble,
+  type ReflectFlow,
+} from "@/lib/sessions/reflect-flow";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -25,8 +29,33 @@ export type ChatResult =
   | { ok: true; message: ChatMessage }
   | { ok: false; error: string };
 
+export type ReflectChatContext = {
+  sessionName?: string | null;
+  questions: string[];
+  /** 0-based index of the question currently in focus. */
+  currentQuestionIndex: number;
+};
+
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 20;
+
+function buildReflectContextSuffix(ctx: ReflectChatContext): string {
+  const current =
+    ctx.questions[ctx.currentQuestionIndex]?.trim() ||
+    "(no current question)";
+  const list = ctx.questions
+    .map((q, i) => `${i + 1}. ${q}`)
+    .join("\n");
+  const sessionLine = ctx.sessionName?.trim()
+    ? `Session: ${ctx.sessionName.trim()}\n`
+    : "";
+  return (
+    `\n\n---\nGuided reflection context\n${sessionLine}` +
+    `Questions in this gathering:\n${list}\n\n` +
+    `Current focus (question ${ctx.currentQuestionIndex + 1} of ${ctx.questions.length}): ${current}\n` +
+    `Stay with the current focus until the participant moves on. Ask thoughtful follow-ups about it.`
+  );
+}
 
 /**
  * CLara Chatbot (Add · Reflect): open reflective conversation. Deliberately
@@ -36,6 +65,7 @@ const MAX_HISTORY_MESSAGES = 20;
 export async function sendChatMessage(
   history: ChatMessage[],
   sessionIds?: string[],
+  reflectContext?: ReflectChatContext | null,
 ): Promise<ChatResult> {
   const contribution = await resolveContributionContext(sessionIds);
   if (!contribution.ok) {
@@ -67,11 +97,16 @@ export async function sendChatMessage(
     "reflect",
   );
 
+  const guidedSuffix =
+    reflectContext && reflectContext.questions.length > 0
+      ? buildReflectContextSuffix(reflectContext)
+      : "";
+
   const client = new OpenAI({ apiKey });
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
     messages: [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: systemPrompt + guidedSuffix },
       ...trimmedHistory,
     ],
   });
@@ -88,29 +123,37 @@ export type SaveChatResult =
   | { ok: true; documentId: string }
   | { ok: false; error: string };
 
-function formatMessages(messages: ChatMessage[]): string {
-  return messages
+function formatMessages(
+  messages: ChatMessage[],
+  guidedFlow?: ReflectFlow | null,
+): string {
+  const body = messages
     .map((message) =>
       message.role === "user"
         ? `**You:** ${message.content}`
         : `**CLara:** ${message.content}`,
     )
     .join("\n\n");
+  if (guidedFlow && guidedFlow.questions.length > 0) {
+    return `${formatGuidedPreamble(guidedFlow)}\n\n${body}`;
+  }
+  return body;
 }
 
 /**
  * Writes conversation messages into the Commons as one Reflection document.
- * Private by default; caller may pass Public. Optionally links 1–3 sessions.
+ * Public by default; caller may pass Private. Optionally links 1–3 sessions.
  */
 export async function saveChatConversation(
   messages: ChatMessage[],
-  privacyStatus: "public" | "private" = "private",
+  privacyStatus: "public" | "private" = "public",
   options?: {
     titlePrefix?: string;
     sessionIds?: string[];
     documentId?: string | null;
     relatedDocumentIds?: string[];
     relatedSessionIds?: string[];
+    guidedFlow?: ReflectFlow | null;
   },
 ): Promise<SaveChatResult> {
   if (messages.length === 0) {
@@ -127,7 +170,7 @@ export async function saveChatConversation(
   const stream = contribution.stream;
   const writeClient = await getContributionSupabase(contribution);
   const authorUserId = contribution.userId;
-  const content = formatMessages(messages);
+  const content = formatMessages(messages, options?.guidedFlow);
   const sessionIds = normalizeSessionIdsForContribution(
     options?.sessionIds,
     contribution.requiredSessionId,
@@ -256,6 +299,7 @@ export async function autosaveReflectDraft(
   privacyStatus: "public" | "private",
   sessionIds: string[],
   documentId: string | null,
+  guidedFlow?: ReflectFlow | null,
 ): Promise<SaveChatResult> {
   if (messages.length === 0) {
     return { ok: false, error: "Nothing to save yet." };
@@ -270,7 +314,7 @@ export async function autosaveReflectDraft(
   }
   const stream = contribution.stream;
   const writeClient = await getContributionSupabase(contribution);
-  const content = formatMessages(messages);
+  const content = formatMessages(messages, guidedFlow);
   const ids = normalizeSessionIdsForContribution(
     sessionIds,
     contribution.requiredSessionId,
@@ -360,6 +404,7 @@ export async function submitReflectConversation(
   related?: {
     relatedDocumentIds?: string[];
     relatedSessionIds?: string[];
+    guidedFlow?: ReflectFlow | null;
   },
 ): Promise<SaveChatResult> {
   return saveChatConversation(messages, privacyStatus, {
@@ -368,5 +413,6 @@ export async function submitReflectConversation(
     documentId,
     relatedDocumentIds: related?.relatedDocumentIds,
     relatedSessionIds: related?.relatedSessionIds,
+    guidedFlow: related?.guidedFlow,
   });
 }

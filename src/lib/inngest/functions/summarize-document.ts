@@ -16,12 +16,21 @@ import {
   appendTruncationNote,
   truncateWithFlag,
 } from "@/lib/synthesis/truncation-note";
+import { looksLikeGuidedReflectContent } from "@/lib/sessions/reflect-flow";
 
 /** Keep cost/latency sane — long transcripts get truncated. */
 const MAX_CONTENT_CHARS = 24_000;
 
 /** Room for a structured, multi-section brief (not a postcard). */
 const MAX_SUMMARY_TOKENS = 4096;
+
+const GUIDED_SUMMARY_HINT =
+  "This source is a guided multi-question Reflection. Cluster " +
+  "## Highlights, ## Tensions and polarities, and ## Key questions " +
+  "under each explored question (`### Question N: …`). Then include " +
+  "## Balcony observations after those sections, also clustered per " +
+  "question (self-observation for solo Reflect). Keep ## Brief summary " +
+  "and ## Theme tags global.";
 
 async function loadSummarizePrompt(streamId: string): Promise<string> {
   try {
@@ -64,6 +73,7 @@ async function writeElementSummary(input: {
     MAX_CONTENT_CHARS,
   );
 
+  const guided = looksLikeGuidedReflectContent(truncated);
   const completion = await client.chat.completions.create({
     model: getOpenAiChatModel(),
     max_tokens: MAX_SUMMARY_TOKENS,
@@ -76,8 +86,9 @@ async function writeElementSummary(input: {
         role: "user",
         content:
           `Type: ${kind}\n` +
-          `Title: ${input.title?.trim() || "(untitled)"}\n\n` +
-          truncated,
+          `Title: ${input.title?.trim() || "(untitled)"}\n` +
+          (guided ? `\n${GUIDED_SUMMARY_HINT}\n` : "") +
+          `\n${truncated}`,
       },
     ],
   });

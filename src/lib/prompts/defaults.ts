@@ -58,7 +58,8 @@ export const DEFAULT_SUMMARIZE_SYSTEM_PROMPT =
   "## Balcony observations\n" +
   "Include this section ONLY when Type is a Transcript (or another " +
   "multi-person recorded conversation). Omit the heading entirely for " +
-  "Reflection, Note, Upload, and other single-author writing.\n" +
+  "Reflection, Note, Upload, and other single-author writing — except " +
+  "for guided reflections (see below).\n" +
   "\"On the balcony\" means stepping back from the content to notice " +
   "interpersonal dynamics and vibe: energy, pacing, who speaks / who " +
   "holds back, humor, silence, alliance, authority, care, heat. Ground " +
@@ -76,7 +77,24 @@ export const DEFAULT_SUMMARIZE_SYSTEM_PROMPT =
   "## Theme tags\n" +
   "A single line of 5–12 short theme tags drawn from the material, " +
   "formatted as inline code like `trust` `authority` `pacing`. No " +
-  "invented topics.";
+  "invented topics.\n\n" +
+  "### Guided multi-question Reflections\n" +
+  "If the source includes a guided-reflection preamble " +
+  "(`<!-- clara:guided-reflect -->`) or headings like " +
+  "`### Question N of M: …`, treat it as a guided Reflection and use " +
+  "this layout instead of the flat sections above:\n\n" +
+  "1. `## Brief summary` — whole reflection.\n" +
+  "2. `## Highlights` — cluster under each explored question as " +
+  "`### Question N: …` (short label or full prompt). Omit questions " +
+  "that were never reached or had no substance.\n" +
+  "3. `## Tensions and polarities` — same per-question clustering.\n" +
+  "4. `## Key questions` — same per-question clustering.\n" +
+  "5. `## Balcony observations` — AFTER those three sections; also " +
+  "clustered per question. For guided solo Reflect, balcony means " +
+  "self-observation: what is shifting, stance, energy, noticing — " +
+  "grounded in the dialogue. Always include this section for guided " +
+  "Reflections.\n" +
+  "6. `## Theme tags` — whole reflection.";
 
 export const DEFAULT_SYNTHESIZE_SYSTEM_PROMPT =
   "You write a clear, accessible Markdown summary for a CLara gathering " +

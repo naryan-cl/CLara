@@ -3,11 +3,15 @@ import {
   coerceSession,
   generateJoinCode,
   isMissingHighlightColorSchemaError,
+  isMissingReflectFlowSchemaError,
   SESSION_SELECT,
   SESSION_SELECT_NO_HIGHLIGHT,
+  SESSION_SELECT_NO_REFLECT_FLOW,
+  SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT,
   sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
+import { buildReflectFlow } from "@/lib/sessions/reflect-flow";
 
 export type CreateSessionInput = {
   streamId: string;
@@ -16,9 +20,27 @@ export type CreateSessionInput = {
   occurredAt?: string | null;
   seedQuestion?: string | null;
   description?: string | null;
+  reflectWelcome?: string | null;
+  reflectQuestions?: string[] | null;
 };
 
 const UNIQUE_VIOLATION = "23505";
+
+function reflectFields(input: CreateSessionInput) {
+  const flow = buildReflectFlow({
+    welcome: input.reflectWelcome,
+    questions: input.reflectQuestions,
+  });
+  const guided = flow.questions.length > 0;
+  const seedQuestion = guided
+    ? flow.questions[0]!
+    : input.seedQuestion?.trim() || null;
+  return {
+    seed_question: seedQuestion,
+    reflect_welcome: guided ? flow.welcome : null,
+    reflect_questions: guided ? flow.questions : null,
+  };
+}
 
 /**
  * Create a session (event container) in a stream. `name` is unique per
@@ -35,22 +57,24 @@ export async function createSession(
     return { session: null, error: "Session name is required." };
   }
 
-  const seedQuestion = input.seedQuestion?.trim() || null;
   const description = input.description?.trim() || null;
+  const reflect = reflectFields(input);
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const joinCode = generateJoinCode();
+    const baseRow = {
+      stream_id: input.streamId,
+      created_by: input.createdBy,
+      name,
+      occurred_at: input.occurredAt ?? null,
+      description,
+      join_code: joinCode,
+      ...reflect,
+    };
+
     const { data, error } = await supabase
       .from("sessions")
-      .insert({
-        stream_id: input.streamId,
-        created_by: input.createdBy,
-        name,
-        occurred_at: input.occurredAt ?? null,
-        seed_question: seedQuestion,
-        description,
-        join_code: joinCode,
-      })
+      .insert(baseRow)
       .select(SESSION_SELECT)
       .single();
 
@@ -61,18 +85,32 @@ export async function createSession(
       };
     }
 
-    if (isMissingHighlightColorSchemaError(error.message)) {
+    if (isMissingReflectFlowSchemaError(error.message)) {
+      const { reflect_welcome: _w, reflect_questions: _q, ...withoutFlow } =
+        baseRow;
+      const select = isMissingHighlightColorSchemaError(error.message)
+        ? SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT
+        : SESSION_SELECT_NO_REFLECT_FLOW;
       const retry = await supabase
         .from("sessions")
         .insert({
-          stream_id: input.streamId,
-          created_by: input.createdBy,
-          name,
-          occurred_at: input.occurredAt ?? null,
-          seed_question: seedQuestion,
-          description,
-          join_code: joinCode,
+          ...withoutFlow,
+          seed_question: reflect.seed_question,
         })
+        .select(select as typeof SESSION_SELECT)
+        .single();
+      if (!retry.error && retry.data) {
+        return {
+          session: coerceSession(retry.data as unknown as Record<string, unknown>),
+          error: null,
+        };
+      }
+    }
+
+    if (isMissingHighlightColorSchemaError(error.message)) {
+      const retry = await supabase
+        .from("sessions")
+        .insert(baseRow)
         .select(SESSION_SELECT_NO_HIGHLIGHT)
         .single();
       if (!retry.error && retry.data) {
@@ -125,7 +163,7 @@ export async function createSession(
           created_by: input.createdBy,
           name,
           occurred_at: input.occurredAt ?? null,
-          seed_question: seedQuestion,
+          seed_question: reflect.seed_question,
           description,
         })
         .select(

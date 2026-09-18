@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   coerceSession,
-  isMissingHighlightColorSchemaError,
   isMissingJoinCodeSchemaError,
   SESSION_SELECT,
   SESSION_SELECT_LEGACY,
-  SESSION_SELECT_NO_HIGHLIGHT,
+  sessionSelectFallback,
   type SessionSummary,
 } from "@/lib/sessions/types";
 
@@ -34,17 +33,18 @@ export async function getSessionByShareToken(
     };
   }
 
-  if (isMissingHighlightColorSchemaError(primary.error.message)) {
-    const withoutHighlight = await supabase
+  const fallback = sessionSelectFallback(primary.error.message);
+  if (fallback) {
+    const retry = await supabase
       .from("sessions")
-      .select(SESSION_SELECT_NO_HIGHLIGHT)
+      .select(fallback)
       .eq("share_token", token)
       .maybeSingle();
 
-    if (!withoutHighlight.error) {
+    if (!retry.error) {
       return {
-        session: withoutHighlight.data
-          ? coerceSession(withoutHighlight.data as Record<string, unknown>)
+        session: retry.data
+          ? coerceSession(retry.data as unknown as Record<string, unknown>)
           : null,
         error: null,
       };

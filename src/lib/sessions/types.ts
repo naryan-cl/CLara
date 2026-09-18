@@ -2,6 +2,7 @@ import {
   parseHighlightColor,
   type SessionHighlightColor,
 } from "@/lib/sessions/highlight";
+import { parseReflectQuestions } from "@/lib/sessions/reflect-flow";
 
 export type SessionSummary = {
   id: string;
@@ -18,16 +19,27 @@ export type SessionSummary = {
   finalized_at: string | null;
   synthesis_document_id: string | null;
   highlight_color: SessionHighlightColor | null;
+  /** Optional welcome for guided Reflect. */
+  reflect_welcome: string | null;
+  /** Ordered guided Reflect questions; empty = simple inquiry. */
+  reflect_questions: string[];
 };
 
 export const SESSION_SELECT_NO_HIGHLIGHT =
-  "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token, join_code, finalized_at, synthesis_document_id";
+  "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token, join_code, finalized_at, synthesis_document_id, reflect_welcome, reflect_questions";
 
 export const SESSION_SELECT = `${SESSION_SELECT_NO_HIGHLIGHT}, highlight_color`;
 
 /** Pre-0021 select — used when join_code columns are not migrated yet. */
 export const SESSION_SELECT_LEGACY =
   "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token";
+
+/** Pre-0040 select — no guided Reflect columns yet. */
+export const SESSION_SELECT_NO_REFLECT_FLOW =
+  "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token, join_code, finalized_at, synthesis_document_id, highlight_color";
+
+export const SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT =
+  "id, stream_id, name, occurred_at, created_by, created_at, updated_at, seed_question, description, share_token, join_code, finalized_at, synthesis_document_id";
 
 export function coerceSession(row: Record<string, unknown>): SessionSummary {
   const shareToken = String(row.share_token ?? "");
@@ -52,13 +64,18 @@ export function coerceSession(row: Record<string, unknown>): SessionSummary {
     synthesis_document_id:
       (row.synthesis_document_id as string | null) ?? null,
     highlight_color: parseHighlightColor(row.highlight_color),
+    reflect_welcome:
+      typeof row.reflect_welcome === "string" && row.reflect_welcome.trim()
+        ? row.reflect_welcome.trim()
+        : null,
+    reflect_questions: parseReflectQuestions(row.reflect_questions),
   };
 }
 
 export type JoinMode = "reflect" | "record" | "upload";
 
-/** Unambiguous alphabet for join codes (no 0/O/1/I). */
-export const JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Full alphanumeric alphabet for join codes (A–Z, 0–9). */
+export const JOIN_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 export const JOIN_CODE_MIN_LENGTH = 4;
 export const JOIN_CODE_MAX_LENGTH = 8;
 
@@ -83,7 +100,7 @@ export function looksLikeShareToken(token: string): boolean {
   return looksLikeUuid(token);
 }
 
-/** 6-char uppercase alphanumeric join code (no ambiguous 0/O/1/I). */
+/** 6-char uppercase alphanumeric join code. */
 export function generateJoinCode(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
@@ -99,7 +116,7 @@ export function normalizeJoinCode(raw: string): string {
 }
 
 /**
- * Validate a host-chosen join code: 4–8 chars from the unambiguous alphabet.
+ * Validate a host-chosen join code: 4–8 chars from A–Z / 0–9.
  * Returns normalized code or an error message.
  */
 export function validateJoinCode(
@@ -116,8 +133,7 @@ export function validateJoinCode(
     if (!JOIN_CODE_ALPHABET.includes(ch)) {
       return {
         ok: false,
-        error:
-          "Use letters and numbers only (no 0, O, 1, or I — those look alike).",
+        error: "Use letters and numbers only (A–Z, 0–9).",
       };
     }
   }
@@ -143,10 +159,26 @@ export function isMissingHighlightColorSchemaError(
   return message.includes("highlight_color");
 }
 
+export function isMissingReflectFlowSchemaError(
+  message: string | undefined,
+): boolean {
+  if (!message) return false;
+  return (
+    message.includes("reflect_welcome") ||
+    message.includes("reflect_questions")
+  );
+}
+
 /** Next-best column list when a sessions select fails on a missing migration. */
 export function sessionSelectFallback(
   message: string | undefined,
 ): string | null {
+  if (isMissingReflectFlowSchemaError(message)) {
+    if (isMissingHighlightColorSchemaError(message)) {
+      return SESSION_SELECT_NO_REFLECT_FLOW_NO_HIGHLIGHT;
+    }
+    return SESSION_SELECT_NO_REFLECT_FLOW;
+  }
   if (isMissingHighlightColorSchemaError(message)) {
     return SESSION_SELECT_NO_HIGHLIGHT;
   }

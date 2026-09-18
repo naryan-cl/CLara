@@ -41,7 +41,7 @@ export function ReflectPageClient({
       <div>
         <h1 className="font-display text-2xl font-medium text-ink">
           Reflect{" "}
-          <HelpTip description="Reflect is a one-on-one conversation with CLara. It cannot see other people's Commons contributions — unlike Ask CLara. Reflections are private by default; uncheck Private to share to the Commons." />
+          <HelpTip description="Reflect is a one-on-one conversation with CLara. It cannot see other people's Commons contributions — unlike Ask CLara. Reflections are public by default; check Private to keep them visible only to you and session attendees." />
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink/60">
           {guestMode
