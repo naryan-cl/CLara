@@ -34,26 +34,82 @@ export type ReflectChatContext = {
   questions: string[];
   /** 0-based index of the question currently in focus. */
   currentQuestionIndex: number;
+  /** True while still on the welcome / intro turn. */
+  onWelcome?: boolean;
+  /**
+   * How many user replies have already happened on the current question
+   * (after it was introduced). Used to cap follow-ups.
+   */
+  followUpsOnCurrent?: number;
 };
 
+const MAX_GUIDED_FOLLOW_UPS = 2;
+/** User replies on a question before Clara must introduce the next one. */
+const MAX_USER_REPLIES_BEFORE_ADVANCE = MAX_GUIDED_FOLLOW_UPS + 1;
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 20;
 
 function buildReflectContextSuffix(ctx: ReflectChatContext): string {
-  const current =
-    ctx.questions[ctx.currentQuestionIndex]?.trim() ||
-    "(no current question)";
-  const list = ctx.questions
-    .map((q, i) => `${i + 1}. ${q}`)
-    .join("\n");
+  const total = ctx.questions.length;
+  const list = ctx.questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
   const sessionLine = ctx.sessionName?.trim()
     ? `Session: ${ctx.sessionName.trim()}\n`
     : "";
+  const followUps = ctx.followUpsOnCurrent ?? 0;
+
+  if (ctx.onWelcome) {
+    const q1 = ctx.questions[0]?.trim() || "(first question)";
+    return (
+      `\n\n---\nGuided reflection context\n${sessionLine}` +
+      `Questions in this gathering:\n${list}\n\n` +
+      `The participant just replied to your welcome. Briefly acknowledge ` +
+      `without praise (one short sentence), then introduce the first question. You MUST ` +
+      `include this exact marker line on its own, then the question text:\n` +
+      `### Question 1 of ${total}: ${q1}\n` +
+      `Do not ask follow-up probes yet — introduce question 1 now.`
+    );
+  }
+
+  const current =
+    ctx.questions[ctx.currentQuestionIndex]?.trim() ||
+    "(no current question)";
+  const nextIndex = ctx.currentQuestionIndex + 1;
+  const hasNext = nextIndex < total;
+  const nextQ = hasNext ? ctx.questions[nextIndex]!.trim() : null;
+  const shouldAdvance =
+    hasNext && followUps >= MAX_USER_REPLIES_BEFORE_ADVANCE;
+
+  let guidance: string;
+  if (!hasNext) {
+    guidance =
+      `This is the last guided question. Ask at most one brief follow-up ` +
+      `if needed, then invite them to share anything else or Submit. ` +
+      `Do not invent new inquiry questions.`;
+  } else if (shouldAdvance) {
+    guidance =
+      `You have already explored this question enough (${followUps} participant ` +
+      `replies). Do NOT ask another follow-up. In this reply, briefly close ` +
+      `the current thread (one sentence), then introduce the next question. ` +
+      `You MUST include this exact marker line on its own, then the question:\n` +
+      `### Question ${nextIndex + 1} of ${total}: ${nextQ}\n`;
+  } else {
+    guidance =
+      `Current focus (question ${ctx.currentQuestionIndex + 1} of ${total}): ${current}\n` +
+      `Participant replies on this question so far: ${followUps}. ` +
+      `Ask at most ${MAX_GUIDED_FOLLOW_UPS} short follow-ups on this topic ` +
+      `(still only one question in each reply — pick the juiciest), then ` +
+      `move on. Prefer one pointed follow-up when their answer is already ` +
+      `rich. When you move on, introduce the next question with this exact ` +
+      `marker line:\n` +
+      `### Question ${nextIndex + 1} of ${total}: ${nextQ}\n`;
+  }
+
   return (
     `\n\n---\nGuided reflection context\n${sessionLine}` +
+    `Tone: no praise or flattery — short plain reflection is fine.\n` +
+    `One question only per reply — pick the juiciest; never stack questions.\n` +
     `Questions in this gathering:\n${list}\n\n` +
-    `Current focus (question ${ctx.currentQuestionIndex + 1} of ${ctx.questions.length}): ${current}\n` +
-    `Stay with the current focus until the participant moves on. Ask thoughtful follow-ups about it.`
+    guidance
   );
 }
 

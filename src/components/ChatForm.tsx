@@ -13,8 +13,12 @@ import { FadeRise } from "@/components/motion/FadeRise";
 import { ThinkingPresence } from "@/components/motion/ThinkingPresence";
 import { ListeningPresence } from "@/components/motion/ListeningPresence";
 import { FlowerMark } from "@/components/FlowerMark";
+import { ConfirmDialog } from "@/components/ListensRecorder";
 import type { SessionSummary } from "@/lib/sessions/types";
 import {
+  countFollowUpsOnCurrentQuestion,
+  detectQuestionIndexInText,
+  messagesIncludeQuestion,
   questionMarker,
   type ReflectFlow,
 } from "@/lib/sessions/reflect-flow";
@@ -80,11 +84,35 @@ function openingMessagesForPhase(
     return [
       {
         role: "assistant",
-        content: questionMarker(phase, flow.questions.length, flow.questions[phase]!),
+        content: questionMarker(
+          phase,
+          flow.questions.length,
+          flow.questions[phase]!,
+        ),
       },
     ];
   }
   return [];
+}
+
+/**
+ * Sync guided phase from Clara's reply: pick up Question N markers, and
+ * after welcome treat the first reply as entering question 1.
+ */
+function phaseAfterAssistantReply(
+  currentPhase: GuidedPhase,
+  assistantContent: string,
+  questionCount: number,
+): GuidedPhase {
+  const detected = detectQuestionIndexInText(assistantContent, questionCount);
+  if (detected !== null) {
+    return Math.max(currentPhase, detected);
+  }
+  // Welcome → first reply without a marker still advances into Q1.
+  if (currentPhase < 0 && questionCount > 0) {
+    return 0;
+  }
+  return currentPhase;
 }
 
 export function ChatForm({
@@ -105,9 +133,11 @@ export function ChatForm({
   const [savingNotice, setSavingNotice] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showThanks, setShowThanks] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasUserStarted, setHasUserStarted] = useState(false);
   const [guidedPhase, setGuidedPhase] = useState<GuidedPhase>(0);
+  const guidedPhaseRef = useRef<GuidedPhase>(0);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,13 +155,13 @@ export function ChatForm({
   const onWelcome = isGuided && guidedPhase < 0;
   const onQuestion =
     isGuided && guidedPhase >= 0 && guidedPhase < questionCount;
-  const guidedComplete =
-    !isGuided || guidedPhase >= questionCount;
+  const guidedComplete = !isGuided || guidedPhase >= questionCount;
   const canAdvanceGuided = isGuided && !guidedComplete;
 
-  const currentQuestionIndex = onWelcome
-    ? 0
-    : Math.min(Math.max(guidedPhase, 0), Math.max(questionCount - 1, 0));
+  function setGuidedPhaseSafe(phase: GuidedPhase) {
+    guidedPhaseRef.current = phase;
+    setGuidedPhase(phase);
+  }
 
   function setDraftDocumentId(id: string) {
     documentIdRef.current = id;
@@ -144,11 +174,11 @@ export function ChatForm({
     if (hasUserStarted) return;
     if (guidedFlow && guidedFlow.questions.length > 0) {
       const phase = initialGuidedPhase(guidedFlow);
-      setGuidedPhase(phase);
+      setGuidedPhaseSafe(phase);
       setMessages(openingMessagesForPhase(guidedFlow, phase));
       return;
     }
-    setGuidedPhase(0);
+    setGuidedPhaseSafe(0);
     setMessages(buildSeedMessages(connectedSessions));
   }, [connectedSessions, guidedFlow, hasUserStarted]);
 
@@ -195,13 +225,19 @@ export function ChatForm({
 
   function advanceGuided() {
     if (!guidedFlow || !canAdvanceGuided) return;
-    const nextPhase: GuidedPhase =
-      guidedPhase < 0 ? 0 : guidedPhase + 1;
-    setGuidedPhase(nextPhase);
-    if (nextPhase < guidedFlow.questions.length) {
-      const nextMsg = openingMessagesForPhase(guidedFlow, nextPhase);
-      setMessages((current) => [...current, ...nextMsg]);
+    const fromPhase = guidedPhaseRef.current;
+    const nextPhase: GuidedPhase = fromPhase < 0 ? 0 : fromPhase + 1;
+    setGuidedPhaseSafe(nextPhase);
+    if (nextPhase >= guidedFlow.questions.length) return;
+
+    // Don't re-inject a question Clara (or a prior Next) already introduced.
+    if (
+      messagesIncludeQuestion(messages, nextPhase, guidedFlow.questions.length)
+    ) {
+      return;
     }
+    const nextMsg = openingMessagesForPhase(guidedFlow, nextPhase);
+    setMessages((current) => [...current, ...nextMsg]);
   }
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -213,6 +249,15 @@ export function ChatForm({
       setError("Say something first.");
       return;
     }
+
+    const phaseAtSend = guidedPhaseRef.current;
+    const sendingOnWelcome = isGuided && phaseAtSend < 0;
+    const questionIndexAtSend = sendingOnWelcome
+      ? 0
+      : Math.min(
+          Math.max(phaseAtSend, 0),
+          Math.max(questionCount - 1, 0),
+        );
 
     setHasUserStarted(true);
     const nextMessages: ChatMessage[] = [
@@ -228,7 +273,16 @@ export function ChatForm({
         ? {
             sessionName: guidedSession?.name ?? null,
             questions: guidedFlow.questions,
-            currentQuestionIndex,
+            currentQuestionIndex: questionIndexAtSend,
+            onWelcome: sendingOnWelcome,
+            followUpsOnCurrent: sendingOnWelcome
+              ? 0
+              : countFollowUpsOnCurrentQuestion(
+                  nextMessages,
+                  questionIndexAtSend,
+                  questionCount,
+                  false,
+                ),
           }
         : null;
 
@@ -244,6 +298,16 @@ export function ChatForm({
       }
       setMessages((current) => {
         const withAssistant = [...current, result.message];
+        if (isGuided && questionCount > 0) {
+          const nextPhase = phaseAfterAssistantReply(
+            guidedPhaseRef.current,
+            result.message.content,
+            questionCount,
+          );
+          if (nextPhase !== guidedPhaseRef.current) {
+            setGuidedPhaseSafe(nextPhase);
+          }
+        }
         scheduleAutosave(withAssistant);
         return withAssistant;
       });
@@ -251,6 +315,7 @@ export function ChatForm({
   }
 
   async function onSubmitReflection() {
+    setConfirmSubmit(false);
     setSubmitting(true);
     setSaveError(null);
     const result = await submitReflectConversation(
@@ -365,13 +430,17 @@ export function ChatForm({
                 </span>
               ) : null}
             </div>
+          ) : progressLabel ? (
+            <span className="font-mono text-[11px] uppercase tracking-wide text-ink/45">
+              {progressLabel}
+            </span>
           ) : null}
           {canSubmit ? (
             <button
               type="button"
               disabled={submitting}
-              onClick={() => void onSubmitReflection()}
-              className="rounded-md border border-forest bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest hover:text-paper disabled:opacity-60 animate-fade-rise motion-reduce:animate-none"
+              onClick={() => setConfirmSubmit(true)}
+              className="ml-auto rounded-md border border-forest bg-forest/10 px-4 py-2 text-sm font-medium text-forest transition hover:bg-forest hover:text-paper disabled:opacity-60 animate-fade-rise motion-reduce:animate-none"
             >
               {submitting ? "Submitting…" : "Submit"}
             </button>
@@ -393,6 +462,17 @@ export function ChatForm({
           </span>
         </label>
       </form>
+
+      {confirmSubmit ? (
+        <ConfirmDialog
+          title="Submit this reflection?"
+          body="This will submit the conversation to the Commons, are you done your conversation?"
+          cancelLabel="Return"
+          confirmLabel="Submit"
+          onCancel={() => setConfirmSubmit(false)}
+          onConfirm={() => void onSubmitReflection()}
+        />
+      ) : null}
 
       {showThanks ? (
         <div
