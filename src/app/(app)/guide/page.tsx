@@ -150,8 +150,8 @@ export default function GuidePage() {
           </P>
           <Ol
             items={[
-              "The host names the gathering and adds an inquiry or short description.",
-              "CLara issues a short join code, plus share links and a QR code.",
+              "The host names the gathering and chooses a Simple inquiry or a Guided reflection (optional welcome + ordered questions).",
+              "CLara issues a short join code (letters and numbers), plus share links and a QR code.",
               "CL colleagues with the link join immediately. People on other domains sign in (the join URL is kept), then wait until a stream admin approves them for that session only.",
               "The host stays on a live board: Reflect / Record / Upload share icons (copy link + QR), live counts of in-progress vs. submitted contributions.",
               "Finalize is a soft close — it synthesizes everything submitted so far into a session Summary. Late Adds via the join code are still allowed afterward, and the host can refresh the synthesis.",
@@ -171,8 +171,9 @@ export default function GuidePage() {
           </P>
           <Ul
             items={[
-              "Autosaves as a draft; Submit when the conversation feels finished.",
+              "Autosaves as a draft; Submit (with a confirmation) when the conversation feels finished.",
               "Public by default; check Private to keep a reflection visible only to you (session attendees and admins can still read private items nested in a gathering).",
+              "Connected to a guided Session: welcome, then questions one at a time with Next question and Question N of M progress; CLara asks one question per reply.",
               "Connect: pick an open Session from the dropdown, paste a join code, and/or Relate to other Commons elements.",
             ]}
           />
