@@ -6,7 +6,7 @@ import {
 } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOpenAiApiKey, getOpenAiChatModel } from "@/lib/openai/env";
-import { findOrCreateSessionByName } from "@/lib/sessions/find-or-create-session";
+import { findSessionByName } from "@/lib/sessions/find-session-by-name";
 
 /** Keep prompt cost/latency sane for the first slice — long docs get truncated. */
 const MAX_CONTENT_CHARS = 8_000;
@@ -122,10 +122,9 @@ export const okfEnrichFn = inngest.createFunction(
     const resolvedSessionId =
       !doc.session_id && proposal?.sessionId
         ? await step.run("resolve-session", async () => {
-            const { sessionId } = await findOrCreateSessionByName(
+            const { sessionId } = await findSessionByName(
               doc.stream_id,
               proposal.sessionId as string,
-              typeof doc.created_by === "string" ? doc.created_by : null,
             );
             return sessionId;
           })

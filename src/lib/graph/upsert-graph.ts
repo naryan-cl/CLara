@@ -13,9 +13,9 @@ const UNIQUE_VIOLATION = "23505";
  * Backend-only (admin client): write one document's proposed Knowledge Map
  * nodes/edges. `nodes` is deduped per stream on lower(label) via a DB
  * expression unique index (0010), which postgrest's upsert() can't target
- * directly, so this does a manual find-or-insert instead — same intent as
- * findOrCreateSessionByName, just without a plain-column unique constraint
- * to hand to onConflict. Never clobbers an existing node's description;
+ * directly, so this does a manual find-or-insert instead, since there is no
+ * plain-column unique constraint to hand to onConflict. Never clobbers an
+ * existing node's description;
  * only fills it in if it was previously null (same non-destructive posture
  * as okf-enrich's tag/participant merge).
  */
